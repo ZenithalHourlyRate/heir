@@ -51,6 +51,8 @@ LogicalResult verifyModArithOpMod(OpType op) {
   return success();
 }
 
+LogicalResult RepOp::verify() { return verifyModArithOpMod<RepOp>(*this); }
+
 LogicalResult AddOp::verify() { return verifyModArithOpMod<AddOp>(*this); }
 
 LogicalResult SubOp::verify() { return verifyModArithOpMod<SubOp>(*this); }

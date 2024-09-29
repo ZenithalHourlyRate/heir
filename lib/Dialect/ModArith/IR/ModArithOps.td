@@ -15,12 +15,27 @@ class ModArith_Op<string mnemonic, list<Trait> traits = [Pure]> :
   let assemblyFormat = "operands attr-dict `:` functional-type(operands, results)";
 }
 
+class ModArith_UnaryOp<string mnemonic, list<Trait> traits = []> :
+    ModArith_Op<mnemonic, traits # [SameOperandsAndResultType, Pure, ElementwiseMappable]>,
+    Arguments<(ins SignlessIntegerLike:$input, APIntAttr:$modulus)>,
+    Results<(outs SignlessIntegerLike:$output)> {
+  let hasVerifier = 1;
+  let assemblyFormat ="operands attr-dict `:` type($output)";
+}
+
 class ModArith_BinaryOp<string mnemonic, list<Trait> traits = []> :
     ModArith_Op<mnemonic, traits # [SameOperandsAndResultType, Pure, ElementwiseMappable]>,
     Arguments<(ins SignlessIntegerLike:$lhs, SignlessIntegerLike:$rhs, APIntAttr:$modulus)>,
     Results<(outs SignlessIntegerLike:$output)> {
   let hasVerifier = 1;
   let assemblyFormat ="operands attr-dict `:` type($output)";
+}
+
+def ModArith_RepOp : ModArith_UnaryOp<"rep", [Commutative]> {
+  let summary = "modular representation operation";
+  let description = [{
+    Computes signed input modulo a statically known modulus $q$, result ranges in [0, $q$).
+  }];
 }
 
 def ModArith_AddOp : ModArith_BinaryOp<"add", [Commutative]> {
