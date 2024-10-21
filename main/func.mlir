@@ -1,6 +1,6 @@
-//func.func @func1(%arg0: tensor<8xi16>, %arg1: tensor<8xi16>) -> tensor<8xi16> {
-//  %0 = arith.addi %arg0, %arg1 : tensor<8xi16>
-//  return %0 : tensor<8xi16>
+//func.func @func(%arg0: i8, %arg1: i8) -> i8 {
+//  %0 = arith.addi %arg0, %arg1 : i8
+//  return %0 : i8
 //}
 
 func.func @func(%arg0: tensor<8xi16>, %arg1: tensor<8xi16>) -> i16 {
