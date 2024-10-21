@@ -200,6 +200,20 @@ LogicalResult OpenFhePkeEmitter::printEvalMethod(
     return variableNames->getNameForValue(value);
   });
   os << ");\n";
+
+  os << "EvalNoiseBGV(";
+  os << variableNames->getNameForValue(cryptoContext);
+  os << ", secretKey, ";
+  os << variableNames->getNameForValue(result);
+  os << ", \"";
+  os << variableNames->getNameForValue(result);
+  os << "=";
+  os << op;
+  os << " ";
+  os << commaSeparatedValues(nonEvalOperands, [&](Value value) {
+    return variableNames->getNameForValue(value);
+  });
+  os << "\");\n";
   return success();
 }
 
@@ -269,6 +283,18 @@ LogicalResult OpenFhePkeEmitter::printOperation(RotOp op) {
      << "EvalRotate" << "("
      << variableNames->getNameForValue(op.getCiphertext()) << ", "
      << op.getIndex().getValue() << ");\n";
+
+  os << "EvalNoiseBGV(";
+  os << variableNames->getNameForValue(op.getCryptoContext());
+  os << ", secretKey, ";
+  os << variableNames->getNameForValue(op.getCiphertext());
+  os << ", \"";
+  os << "EvalRotate";
+  os << " ";
+  os << variableNames->getNameForValue(op.getCiphertext());
+  os << ", ";
+  os << op.getIndex().getValue();
+  os << "\");\n";
   return success();
 }
 
@@ -581,6 +607,10 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
   os << "CCParamsT " << paramsName << ";\n";
   os << paramsName << ".SetMultiplicativeDepth(" << mulDepth << ");\n";
   os << paramsName << ".SetPlaintextModulus(" << plainMod << ");\n";
+
+  os << paramsName << ".SetKeySwitchTechnique(BV);\n";
+  os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
+  os << paramsName << ".SetDigitSize(2);\n";
   return success();
 }
 
