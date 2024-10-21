@@ -606,10 +606,11 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
 
   os << "CCParamsT " << paramsName << ";\n";
   os << paramsName << ".SetMultiplicativeDepth(" << mulDepth << ");\n";
+  // os << paramsName << ".SetPlaintextModulus(" << 65537 << ");\n";
   os << paramsName << ".SetPlaintextModulus(" << plainMod << ");\n";
 
   os << paramsName << ".SetKeySwitchTechnique(BV);\n";
-  os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
+  // os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
   os << paramsName << ".SetDigitSize(2);\n";
   return success();
 }
