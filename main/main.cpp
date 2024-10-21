@@ -9,6 +9,8 @@ void EvalNoiseBGV(CryptoContext<DCRTPoly> cryptoContext,
                   ConstCiphertext<DCRTPoly> ciphertext, std::string tag) {
   Plaintext ptxt;
   cryptoContext->Decrypt(privateKey, ciphertext, &ptxt);
+  ptxt->SetLength(8);
+  std::cout << '\n' << tag << '\t' << "decrypted: " << ptxt << std::endl;
   // const auto ptm =
   // cryptoContext->GetCryptoParameters()->GetPlaintextModulus();
 
@@ -73,8 +75,7 @@ void EvalNoiseBGV(CryptoContext<DCRTPoly> cryptoContext,
     logQ += logqi;
   }
 
-  std::cout << "\n"
-            << tag << '\t' << "cv " << cv.size() << " Ql " << sizeQl
+  std::cout << tag << '\t' << "cv " << cv.size() << " Ql " << sizeQl
             << " logQ: " << logQ << " logqi: " << logqi_v << " noise: " << noise
             << " budget " << logQ - noise - 1 << std::endl;
 }
@@ -111,12 +112,16 @@ int main(int argc, char* argv[]) {
                                            arg0, keyPair.publicKey);
   auto arg1Encrypted = func__encrypt__arg1(keyPair.secretKey, cryptoContext,
                                            arg1, keyPair.publicKey);
+  // auto arg0Encrypted = func__encrypt__arg0(keyPair.secretKey, cryptoContext,
+  //                                          1, keyPair.publicKey);
+  // auto arg1Encrypted = func__encrypt__arg1(keyPair.secretKey, cryptoContext,
+  //                                          2, keyPair.publicKey);
   auto outputEncrypted =
       func(keyPair.secretKey, cryptoContext, arg0Encrypted, arg1Encrypted);
   auto actual = func__decrypt__result0(keyPair.secretKey, cryptoContext,
                                        outputEncrypted, keyPair.secretKey);
 
-  std::cout << "Expected: " << expected << "\n";
+  // std::cout << "Expected: " << expected << "\n";
   std::cout << "Actual: " << actual << "\n";
 
   return 0;
