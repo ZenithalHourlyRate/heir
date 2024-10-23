@@ -8,6 +8,7 @@ include "mlir/Interfaces/InferTypeOpInterface.td"
 
 include "lib/Dialect/LWE/IR/LWETypes.td"
 include "lib/Dialect/LWE/IR/LWETraits.td"
+include "lib/Interfaces/NoiseInterfaces.td"
 include "mlir/Dialect/Polynomial/IR/PolynomialAttributes.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
@@ -38,7 +39,7 @@ class BGV_CiphertextPlaintextOp<string mnemonic, list<Trait> traits =
   );
 }
 
-def BGV_AddOp : BGV_Op<"add", [Pure, Commutative, SameOperandsAndResultType]> {
+def BGV_AddOp : BGV_Op<"add", [Pure, Commutative, SameOperandsAndResultType, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
   let summary = "Addition operation between ciphertexts.";
 
   let arguments = (ins
@@ -76,7 +77,7 @@ def BGV_SubPlainOp : BGV_CiphertextPlaintextOp<"sub_plain"> {
   let summary = "Subtraction operation between ciphertext-plaintext.";
 }
 
-def BGV_MulOp : BGV_Op<"mul", [Pure, Commutative, SameOperandsAndResultRings, SameTypeOperands, InferTypeOpAdaptor]> {
+def BGV_MulOp : BGV_Op<"mul", [Pure, Commutative, SameOperandsAndResultRings, SameTypeOperands, InferTypeOpAdaptor, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
   let summary = "Multiplication operation between ciphertexts.";
 
   let arguments = (ins
@@ -95,7 +96,7 @@ def BGV_MulPlainOp : BGV_CiphertextPlaintextOp<"mul_plain"> {
   let summary = "Multiplication operation between ciphertext-plaintext.";
 }
 
-def BGV_RotateOp : BGV_Op<"rotate", [Pure, AllTypesMatch<["input", "output"]>]> {
+def BGV_RotateOp : BGV_Op<"rotate", [Pure, AllTypesMatch<["input", "output"]>, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
   let summary = "Rotate the coefficients of the ciphertext using a Galois automorphism.";
 
   let arguments = (ins
@@ -153,7 +154,7 @@ def BGV_NegateOp : BGV_Op<"negate", [Pure, Involution, SameOperandsAndResultType
   let assemblyFormat = "operands attr-dict `:` qualified(type($output))" ;
 }
 
-def BGV_RelinearizeOp : BGV_Op<"relinearize", [SameOperandsAndResultRings, InferTypeOpAdaptor]> {
+def BGV_RelinearizeOp : BGV_Op<"relinearize", [SameOperandsAndResultRings, InferTypeOpAdaptor, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
   let summary = "Relinearize the ciphertext.";
 
   let description = [{

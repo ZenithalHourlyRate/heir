@@ -61,6 +61,46 @@ LogicalResult RelinearizeOp::inferReturnTypes(
 
 LogicalResult ExtractOp::verify() { return verifyExtractOp(this); }
 
+void AddOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
+                             SetNoiseFn setValueNoise) {
+  if (!argNoises[0].isInitialized() || !argNoises[1].isInitialized()) {
+    emitOpError() << "uses SSA value with uninitialized noise variance.";
+    return setValueNoise(getResult(), Variance::unbounded());
+  }
+  return setValueNoise(getResult(), argNoises[0] + argNoises[1]);
+}
+bool AddOp::hasArgumentIndependentResultNoise() { return false; }
+
+void MulOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
+                             SetNoiseFn setValueNoise) {
+  if (!argNoises[0].isInitialized() || !argNoises[1].isInitialized()) {
+    emitOpError() << "uses SSA value with uninitialized noise variance.";
+    return setValueNoise(getResult(), Variance::unbounded());
+  }
+  return setValueNoise(getResult(), argNoises[0] * argNoises[1]);
+}
+bool MulOp::hasArgumentIndependentResultNoise() { return false; }
+
+void RelinearizeOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
+                                     SetNoiseFn setValueNoise) {
+  if (!argNoises[0].isInitialized()) {
+    emitOpError() << "uses SSA value with uninitialized noise variance.";
+    return setValueNoise(getResult(), Variance::unbounded());
+  }
+  return setValueNoise(getResult(), argNoises[0].max(Variance::of(70)));
+}
+bool RelinearizeOp::hasArgumentIndependentResultNoise() { return false; }
+
+void RotateOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
+                                SetNoiseFn setValueNoise) {
+  if (!argNoises[0].isInitialized()) {
+    emitOpError() << "uses SSA value with uninitialized noise variance.";
+    return setValueNoise(getResult(), Variance::unbounded());
+  }
+  return setValueNoise(getResult(), argNoises[0].max(Variance::of(70)));
+}
+bool RotateOp::hasArgumentIndependentResultNoise() { return false; }
+
 }  // namespace bgv
 }  // namespace heir
 }  // namespace mlir

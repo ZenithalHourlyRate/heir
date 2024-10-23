@@ -59,6 +59,24 @@ class Variance {
     return varianceType == rhs.varianceType && value == rhs.value;
   }
 
+  Variance operator+(const Variance &rhs) const {
+    return (this->isBounded() && rhs.isBounded())
+               ? Variance::of(this->getValue() + rhs.getValue())
+               : Variance::unbounded();
+  }
+
+  Variance operator*(const Variance &rhs) const {
+    return (this->isBounded() && rhs.isBounded())
+               ? Variance::of(this->getValue() + rhs.getValue())
+               : Variance::unbounded();
+  }
+
+  Variance max(const Variance &rhs) const {
+    return (this->isBounded() && rhs.isBounded())
+               ? Variance::of(std::max(this->getValue(), rhs.getValue()))
+               : Variance::unbounded();
+  }
+
   static Variance join(const Variance &lhs, const Variance &rhs) {
     // Uninitialized variances correspond to values that are not secret,
     // which may be the inputs to an encryption operation.
