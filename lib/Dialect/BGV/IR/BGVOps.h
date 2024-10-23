@@ -3,6 +3,7 @@
 
 #include "lib/Dialect/BGV/IR/BGVDialect.h"
 #include "lib/Dialect/LWE/IR/LWETraits.h"
+#include "lib/Interfaces/NoiseInterfaces.h"
 #include "mlir/include/mlir/IR/BuiltinOps.h"    // from @llvm-project
 #include "mlir/include/mlir/IR/BuiltinTypes.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Dialect.h"       // from @llvm-project

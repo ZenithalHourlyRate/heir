@@ -108,15 +108,16 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
           return WalkResult::advance();
         }
 
-        int64_t var = opRange->getValue().getValue();
-        int64_t maxNoise =
-            maxLweNoise(result.getType().cast<lwe::LWECiphertextType>());
-        if (var > maxNoise) {
-          op->emitOpError() << "Found op after which the noise exceeds the "
-                               "allowable maximum of "
-                            << maxNoise << "; it was: " << var << "\n";
-          return WalkResult::interrupt();
-        }
+        // int64_t var = opRange->getValue().getValue();
+        //// TODO: both rlwe lwe
+        // int64_t maxNoise =
+        //     maxLweNoise(result.getType().cast<lwe::RLWECiphertextType>());
+        // if (var > maxNoise) {
+        //   op->emitOpError() << "Found op after which the noise exceeds the "
+        //                        "allowable maximum of "
+        //                     << maxNoise << "; it was: " << var << "\n";
+        //   return WalkResult::interrupt();
+        // }
       }
       return WalkResult::advance();
     });

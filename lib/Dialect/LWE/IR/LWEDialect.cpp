@@ -288,14 +288,19 @@ void AddOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
           ? Variance::of(argNoises[0].getValue() + argNoises[1].getValue())
           : Variance::unbounded());
 }
+bool AddOp::hasArgumentIndependentResultNoise() { return false; }
 
 void TrivialEncryptOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
                                         SetNoiseFn setValueNoise) {
-  return setValueNoise(getResult(), Variance::of(0));
+  return setValueNoise(getResult(), Variance::of(15));
 }
-
-bool AddOp::hasArgumentIndependentResultNoise() { return false; }
 bool TrivialEncryptOp::hasArgumentIndependentResultNoise() { return true; }
+
+void RTrivialEncryptOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
+                                         SetNoiseFn setValueNoise) {
+  return setValueNoise(getResult(), Variance::of(15));
+}
+bool RTrivialEncryptOp::hasArgumentIndependentResultNoise() { return true; }
 
 }  // namespace lwe
 }  // namespace heir
