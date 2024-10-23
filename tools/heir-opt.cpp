@@ -59,6 +59,7 @@
 #include "lib/Transforms/StraightLineVectorizer/StraightLineVectorizer.h"
 #include "lib/Transforms/TensorToScalars/TensorToScalars.h"
 #include "lib/Transforms/UnusedMemRef/UnusedMemRef.h"
+#include "lib/Transforms/ValidateNoise/ValidateNoise.h"
 #include "mlir/include/mlir/Conversion/AffineToStandard/AffineToStandard.h"  // from @llvm-project
 #include "mlir/include/mlir/Conversion/ArithToLLVM/ArithToLLVM.h"  // from @llvm-project
 #include "mlir/include/mlir/Conversion/ComplexToLLVM/ComplexToLLVM.h"  // from @llvm-project
@@ -220,6 +221,7 @@ int main(int argc, char **argv) {
   registerOptimizeRelinearizationPasses();
   registerLinalgCanonicalizationsPasses();
   registerTensorToScalarsPasses();
+  registerValidateNoisePasses();
   // Register yosys optimizer pipeline if configured.
 #ifndef HEIR_NO_YOSYS
 #ifndef HEIR_ABC_BINARY
