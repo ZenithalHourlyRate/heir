@@ -114,6 +114,26 @@ def LWE_TrivialEncryptOp: LWE_Op<"trivial_encrypt", [
   let hasVerifier = 1;
 }
 
+def LWE_RTrivialEncryptOp: LWE_Op<"rtrivial_encrypt", [
+    EncodingsMatch<"input", "RLWEPlaintextType", "output", "RLWECiphertextType">, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+  let summary = "Create a trivial encryption of a plaintext.";
+
+  let arguments = (ins
+    RLWEPlaintext:$input,
+    OptionalAttr<LWE_LWEParams>:$params
+  );
+
+  let results = (outs RLWECiphertext:$output);
+
+  let assemblyFormat = [{
+    operands attr-dict `:`  qualified(type(operands)) `to` qualified(type(results))
+  }];
+
+  // Verify that the LWE params matches the output ciphertext LWE params and
+  // that the encodings of the input and output match.
+  //let hasVerifier = 1;
+}
+
 def LWE_AddOp : LWE_BinOp<"add", [
   SameOperandsAndResultType,
   Commutative,
