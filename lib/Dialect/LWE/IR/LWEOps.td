@@ -4,6 +4,7 @@
 include "lib/Dialect/LWE/IR/LWEDialect.td"
 include "lib/Dialect/LWE/IR/LWETraits.td"
 include "lib/Dialect/LWE/IR/LWETypes.td"
+include "lib/Interfaces/NoiseInterfaces.td"
 include "mlir/Dialect/Polynomial/IR/PolynomialAttributes.td"
 
 include "mlir/IR/BuiltinAttributeInterfaces.td"
@@ -94,7 +95,7 @@ def LWE_EncodeOp : LWE_Op<"encode", [HasEncoding<"output", "encoding", "LWEPlain
 }
 
 def LWE_TrivialEncryptOp: LWE_Op<"trivial_encrypt", [
-    EncodingsMatch<"input", "LWEPlaintextType", "output", "LWECiphertextType">]> {
+    EncodingsMatch<"input", "LWEPlaintextType", "output", "LWECiphertextType">, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
   let summary = "Create a trivial encryption of a plaintext.";
 
   let arguments = (ins
@@ -113,7 +114,11 @@ def LWE_TrivialEncryptOp: LWE_Op<"trivial_encrypt", [
   let hasVerifier = 1;
 }
 
-def LWE_AddOp : LWE_BinOp<"add", [SameOperandsAndResultType,Commutative]> {
+def LWE_AddOp : LWE_BinOp<"add", [
+  SameOperandsAndResultType,
+  Commutative,
+  DeclareOpInterfaceMethods<NoisePropagationInterface>
+]> {
   let arguments = (ins LWECiphertext:$lhs, LWECiphertext:$rhs);
   let results = (outs LWECiphertext:$output);
   let summary = "Add two LWE ciphertexts";
