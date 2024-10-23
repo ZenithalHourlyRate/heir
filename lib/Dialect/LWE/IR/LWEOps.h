@@ -4,6 +4,7 @@
 #include "lib/Dialect/LWE/IR/LWEDialect.h"
 #include "lib/Dialect/LWE/IR/LWETraits.h"
 #include "lib/Dialect/LWE/IR/LWETypes.h"
+#include "lib/Interfaces/NoiseInterfaces.h"
 #include "mlir/include/mlir/IR/BuiltinOps.h"  // from @llvm-project
 #include "mlir/include/mlir/Interfaces/InferTypeOpInterface.h"  // from @llvm-project
 
