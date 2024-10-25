@@ -39,16 +39,30 @@ class BGV_CiphertextPlaintextOp<string mnemonic, list<Trait> traits =
   );
 }
 
+def BGV_EncryptOp : BGV_Op<"encrypt", [Pure, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+  let summary = "encrypt";
+
+  let arguments = (ins
+    AnyType:$input
+  );
+
+  let results = (outs
+    CompatibleRLWECiphertext:$output
+  );
+
+  let assemblyFormat = "operands attr-dict `:` qualified(type($input)) `->` qualified(type($output))" ;
+}
+
 def BGV_AddOp : BGV_Op<"add", [Pure, Commutative, SameOperandsAndResultType, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
   let summary = "Addition operation between ciphertexts.";
 
   let arguments = (ins
-    RLWECiphertext:$lhs,
-    RLWECiphertext:$rhs
+    CompatibleRLWECiphertext:$lhs,
+    CompatibleRLWECiphertext:$rhs
   );
 
   let results = (outs
-    RLWECiphertext:$output
+    CompatibleRLWECiphertext:$output
   );
 
   let assemblyFormat = "operands attr-dict `:` qualified(type($output))" ;
@@ -77,7 +91,7 @@ def BGV_SubPlainOp : BGV_CiphertextPlaintextOp<"sub_plain"> {
   let summary = "Subtraction operation between ciphertext-plaintext.";
 }
 
-def BGV_MulOp : BGV_Op<"mul", [Pure, Commutative, SameOperandsAndResultRings, SameTypeOperands, InferTypeOpAdaptor, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+def BGV_MulOp : BGV_Op<"mul", [Pure, Commutative, SameOperandsAndResultRings, SameTypeOperands, InferTypeOpAdaptor]> {
   let summary = "Multiplication operation between ciphertexts.";
 
   let arguments = (ins
@@ -92,11 +106,28 @@ def BGV_MulOp : BGV_Op<"mul", [Pure, Commutative, SameOperandsAndResultRings, Sa
   let hasVerifier = 1;
 }
 
+
+def BGV_MyMulOp : BGV_Op<"my_mul", [Pure, Commutative, SameOperandsAndResultRings, SameTypeOperands, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+  let summary = "Multiplication operation between ciphertexts.";
+
+  let arguments = (ins
+    CompatibleRLWECiphertext:$lhs,
+    CompatibleRLWECiphertext:$rhs
+  );
+
+  let results = (outs
+    CompatibleRLWECiphertext:$output
+  );
+
+  //let hasVerifier = 1;
+}
+
+
 def BGV_MulPlainOp : BGV_CiphertextPlaintextOp<"mul_plain"> {
   let summary = "Multiplication operation between ciphertext-plaintext.";
 }
 
-def BGV_RotateOp : BGV_Op<"rotate", [Pure, AllTypesMatch<["input", "output"]>, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+def BGV_RotateOp : BGV_Op<"rotate", [Pure, AllTypesMatch<["input", "output"]>]> {
   let summary = "Rotate the coefficients of the ciphertext using a Galois automorphism.";
 
   let arguments = (ins
@@ -109,6 +140,22 @@ def BGV_RotateOp : BGV_Op<"rotate", [Pure, AllTypesMatch<["input", "output"]>, D
   );
 
   let hasVerifier = 1;
+  let assemblyFormat = "operands attr-dict `:` qualified(type($input))" ;
+}
+
+def BGV_MyRotateOp : BGV_Op<"my_rotate", [Pure, AllTypesMatch<["input", "output"]>, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+  let summary = "Rotate the coefficients of the ciphertext using a Galois automorphism.";
+
+  let arguments = (ins
+    CompatibleRLWECiphertext:$input,
+    Builtin_IntegerAttr:$offset
+  );
+
+  let results = (outs
+    CompatibleRLWECiphertext:$output
+  );
+
+  //let hasVerifier = 1;
   let assemblyFormat = "operands attr-dict `:` qualified(type($input))" ;
 }
 
@@ -154,7 +201,7 @@ def BGV_NegateOp : BGV_Op<"negate", [Pure, Involution, SameOperandsAndResultType
   let assemblyFormat = "operands attr-dict `:` qualified(type($output))" ;
 }
 
-def BGV_RelinearizeOp : BGV_Op<"relinearize", [SameOperandsAndResultRings, InferTypeOpAdaptor, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+def BGV_RelinearizeOp : BGV_Op<"relinearize", [SameOperandsAndResultRings, InferTypeOpAdaptor]> {
   let summary = "Relinearize the ciphertext.";
 
   let description = [{
@@ -178,6 +225,24 @@ def BGV_RelinearizeOp : BGV_Op<"relinearize", [SameOperandsAndResultRings, Infer
   );
 
   let hasVerifier = 1;
+  let assemblyFormat = "operands attr-dict `:` qualified(type($input)) `->` qualified(type($output))" ;
+}
+
+def BGV_MyRelinearizeOp : BGV_Op<"my_relinearize", [SameOperandsAndResultRings, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+  let summary = "Relinearize the ciphertext.";
+
+  let description = [{
+  }];
+
+  let arguments = (ins
+    CompatibleRLWECiphertext:$input
+  );
+
+  let results = (outs
+    CompatibleRLWECiphertext:$output
+  );
+
+  //let hasVerifier = 1;
   let assemblyFormat = "operands attr-dict `:` qualified(type($input)) `->` qualified(type($output))" ;
 }
 

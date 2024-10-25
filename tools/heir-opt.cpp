@@ -54,7 +54,7 @@
 #include "lib/Transforms/FullLoopUnroll/FullLoopUnroll.h"
 #include "lib/Transforms/LinalgCanonicalizations/LinalgCanonicalizations.h"
 #include "lib/Transforms/OperationBalancer/OperationBalancer.h"
-#include "lib/Transforms/OptimizeRelinearization/OptimizeRelinearization.h"
+// #include "lib/Transforms/OptimizeRelinearization/OptimizeRelinearization.h"
 #include "lib/Transforms/Secretize/Passes.h"
 #include "lib/Transforms/StraightLineVectorizer/StraightLineVectorizer.h"
 #include "lib/Transforms/TensorToScalars/TensorToScalars.h"
@@ -217,7 +217,7 @@ int main(int argc, char **argv) {
   registerOperationBalancerPasses();
   registerStraightLineVectorizerPasses();
   registerUnusedMemRefPasses();
-  registerOptimizeRelinearizationPasses();
+  // registerOptimizeRelinearizationPasses();
   registerLinalgCanonicalizationsPasses();
   registerTensorToScalarsPasses();
   registerValidateNoisePasses();

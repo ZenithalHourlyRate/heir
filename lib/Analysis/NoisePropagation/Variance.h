@@ -31,7 +31,7 @@ class Variance {
   static Variance unbounded() {
     return Variance(VarianceType::UNBOUNDED, std::nullopt);
   }
-  static Variance of(int64_t value) {
+  static Variance of(double value) {
     return Variance(VarianceType::SET, value);
   }
 
@@ -39,7 +39,7 @@ class Variance {
   /// The default constructor must be equivalent to the "entry state" of the
   /// lattice, i.e., an uninitialized noise variance.
   Variance(VarianceType varianceType = VarianceType::UNINITIALIZED,
-           std::optional<int64_t> value = std::nullopt)
+           std::optional<double> value = std::nullopt)
       : varianceType(varianceType), value(value) {}
 
   bool isKnown() const { return varianceType == VarianceType::SET; }
@@ -50,7 +50,7 @@ class Variance {
 
   bool isBounded() const { return varianceType != VarianceType::UNBOUNDED; }
 
-  const int64_t &getValue() const {
+  const double &getValue() const {
     assert(isKnown());
     return *value;
   }
@@ -113,7 +113,7 @@ class Variance {
 
  private:
   VarianceType varianceType;
-  std::optional<int64_t> value;
+  std::optional<double> value;
 };
 
 }  // namespace heir
