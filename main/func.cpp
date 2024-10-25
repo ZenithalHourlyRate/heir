@@ -65,9 +65,10 @@ int16_t func__decrypt__result0(PrivateKeyT secretKey, CryptoContextT v28,
 CryptoContextT func__generate_crypto_context() {
   CCParamsT v33;
   v33.SetMultiplicativeDepth(2);
-  v33.SetPlaintextModulus(4295294977);
+  v33.SetPlaintextModulus(65537);
   v33.SetKeySwitchTechnique(BV);
-  v33.SetDigitSize(2);
+  v33.SetScalingTechnique(FIXEDMANUAL);
+  v33.SetDigitSize(0);
   CryptoContextT v34 = GenCryptoContext(v33);
   v34->Enable(PKE);
   v34->Enable(KEYSWITCH);

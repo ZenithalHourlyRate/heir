@@ -1,5 +1,6 @@
 #include "lib/Dialect/BGV/IR/BGVDialect.h"
 
+#include <cmath>
 #include <optional>
 
 #include "lib/Dialect/BGV/IR/BGVOps.h"
@@ -61,6 +62,31 @@ LogicalResult RelinearizeOp::inferReturnTypes(
 
 LogicalResult ExtractOp::verify() { return verifyExtractOp(this); }
 
+void EncryptOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
+                                 SetNoiseFn setValueNoise) {
+  auto cipherType = dyn_cast<lwe::NewLWECiphertextType>(getResult().getType());
+
+  auto plainModulus = cipherType.getPlaintextSpace()
+                          .getRing()
+                          .getCoefficientModulus()
+                          .getValue()
+                          .getRawData()[0];
+
+  auto degree = cipherType.getCiphertextSpace()
+                    .getRing()
+                    .getPolynomialModulus()
+                    .getPolynomial()
+                    .getDegree();
+
+  double std0 = 3.2;
+  double variance0 = std0 * std0;
+  // public key formula
+  auto fresh = variance0 * plainModulus * plainModulus * (4.0 * degree / 3 + 1);
+
+  return setValueNoise(getResult(), Variance::of(fresh));
+}
+bool EncryptOp::hasArgumentIndependentResultNoise() { return true; }
+
 void AddOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
                              SetNoiseFn setValueNoise) {
   if (!argNoises[0].isInitialized() || !argNoises[1].isInitialized()) {
@@ -71,35 +97,100 @@ void AddOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
 }
 bool AddOp::hasArgumentIndependentResultNoise() { return false; }
 
-void MulOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
-                             SetNoiseFn setValueNoise) {
+void MyMulOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
+                               SetNoiseFn setValueNoise) {
   if (!argNoises[0].isInitialized() || !argNoises[1].isInitialized()) {
     emitOpError() << "uses SSA value with uninitialized noise variance.";
     return setValueNoise(getResult(), Variance::unbounded());
   }
-  return setValueNoise(getResult(), argNoises[0] * argNoises[1]);
-}
-bool MulOp::hasArgumentIndependentResultNoise() { return false; }
+  auto cipherType = dyn_cast<lwe::NewLWECiphertextType>(getResult().getType());
 
-void RelinearizeOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
-                                     SetNoiseFn setValueNoise) {
+  auto plainModulus = cipherType.getPlaintextSpace()
+                          .getRing()
+                          .getCoefficientModulus()
+                          .getValue()
+                          .getRawData()[0];
+
+  auto degree = cipherType.getCiphertextSpace()
+                    .getRing()
+                    .getPolynomialModulus()
+                    .getPolynomial()
+                    .getDegree();
+
+  // simplified mult
+  auto mult = argNoises[0].getValue() * argNoises[1].getValue() *
+              degree;  // * plainModulus;
+
+  return setValueNoise(getResult(), Variance::of(mult));
+}
+bool MyMulOp::hasArgumentIndependentResultNoise() { return false; }
+
+void MyRelinearizeOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
+                                       SetNoiseFn setValueNoise) {
   if (!argNoises[0].isInitialized()) {
     emitOpError() << "uses SSA value with uninitialized noise variance.";
     return setValueNoise(getResult(), Variance::unbounded());
   }
-  return setValueNoise(getResult(), argNoises[0].max(Variance::of(70)));
-}
-bool RelinearizeOp::hasArgumentIndependentResultNoise() { return false; }
+  auto cipherType = dyn_cast<lwe::NewLWECiphertextType>(getResult().getType());
 
-void RotateOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
-                                SetNoiseFn setValueNoise) {
+  auto plainModulus = cipherType.getPlaintextSpace()
+                          .getRing()
+                          .getCoefficientModulus()
+                          .getValue()
+                          .getRawData()[0];
+
+  auto cipherModuli = cipherType.getModulusChain().getElements();
+  auto lp1 = cipherModuli.size();
+  auto qi = double(cipherModuli[0].getValue().getRawData()[0]);
+
+  auto degree = cipherType.getCiphertextSpace()
+                    .getRing()
+                    .getPolynomialModulus()
+                    .getPolynomial()
+                    .getDegree();
+
+  double std0 = 3.2;
+  double variance0 = std0 * std0;
+  auto term2 = variance0 * plainModulus * plainModulus * degree / 12.0;
+  auto term3 = qi * qi * lp1;
+
+  return setValueNoise(getResult(), argNoises[0] + Variance::of(term2 * term3));
+}
+bool MyRelinearizeOp::hasArgumentIndependentResultNoise() { return false; }
+
+void MyRotateOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
+                                  SetNoiseFn setValueNoise) {
   if (!argNoises[0].isInitialized()) {
     emitOpError() << "uses SSA value with uninitialized noise variance.";
     return setValueNoise(getResult(), Variance::unbounded());
   }
-  return setValueNoise(getResult(), argNoises[0].max(Variance::of(70)));
+
+  auto cipherType = dyn_cast<lwe::NewLWECiphertextType>(getResult().getType());
+
+  auto plainModulus = cipherType.getPlaintextSpace()
+                          .getRing()
+                          .getCoefficientModulus()
+                          .getValue()
+                          .getRawData()[0];
+
+  auto cipherModuli = cipherType.getModulusChain().getElements();
+  auto lp1 = cipherModuli.size();
+  auto qi = double(cipherModuli[0].getValue().getRawData()[0]);
+
+  auto degree = cipherType.getCiphertextSpace()
+                    .getRing()
+                    .getPolynomialModulus()
+                    .getPolynomial()
+                    .getDegree();
+
+  double std0 = 3.2;
+  double variance0 = std0 * std0;
+  auto term2 = variance0 * plainModulus * plainModulus * degree / 12.0;
+  auto term3 = qi * qi * lp1;
+
+  return setValueNoise(getResult(), argNoises[0] + Variance::of(term2 * term3));
 }
-bool RotateOp::hasArgumentIndependentResultNoise() { return false; }
+bool MyRotateOp::hasArgumentIndependentResultNoise() { return false; }
 
 }  // namespace bgv
 }  // namespace heir
