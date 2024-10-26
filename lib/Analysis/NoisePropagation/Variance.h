@@ -101,6 +101,8 @@ class Variance {
     return Variance::of(std::max(lhs.getValue(), rhs.getValue()));
   }
 
+  double alphaBound(int n) const;
+
   void print(llvm::raw_ostream &os) const { os << value; }
 
   std::string toString() const;
