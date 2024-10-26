@@ -101,6 +101,23 @@ class Variance {
     return Variance::of(std::max(lhs.getValue(), rhs.getValue()));
   }
 
+  // std0: std error of e distribution
+  // assumed UNIFORM_TENARY secret distribution
+  static Variance evalEncryptPk(double n, double t, double std0);
+  static Variance evalAdd(const Variance &lhs, const Variance &rhs);
+  static Variance evalMultNoRelin(const Variance &lhs, const Variance &rhs,
+                                  double n);
+  // l: number of digit
+  // beta: base
+  static Variance evalModUp(const Variance &input, double modulus, double n,
+                            double t);
+  static Variance evalRelinearizeBV(const Variance &input, double n, double t,
+                                    double std0, double numDigit, double beta);
+  static Variance evalModReduce(const Variance &input, double modulus, double n,
+                                double t);
+  // static Variance evalRotate(const Variance &input, double n, double t,
+  // double std0, double numDigit, double beta);
+
   double alphaBound(int n) const;
 
   void print(llvm::raw_ostream &os) const { os << value; }

@@ -66,24 +66,19 @@ void EncryptOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
                                  SetNoiseFn setValueNoise) {
   auto cipherType = dyn_cast<lwe::NewLWECiphertextType>(getResult().getType());
 
-  auto plainModulus = cipherType.getPlaintextSpace()
-                          .getRing()
-                          .getCoefficientModulus()
-                          .getValue()
-                          .getRawData()[0];
+  auto t = cipherType.getPlaintextSpace()
+               .getRing()
+               .getCoefficientModulus()
+               .getValue()
+               .getRawData()[0];
 
-  auto degree = cipherType.getCiphertextSpace()
-                    .getRing()
-                    .getPolynomialModulus()
-                    .getPolynomial()
-                    .getDegree();
+  auto n = cipherType.getCiphertextSpace()
+               .getRing()
+               .getPolynomialModulus()
+               .getPolynomial()
+               .getDegree();
 
-  double std0 = 3.2;
-  double variance0 = std0 * std0;
-  // public key formula
-  auto fresh = variance0 * plainModulus * plainModulus * (4.0 * degree / 3 + 1);
-
-  return setValueNoise(getResult(), Variance::of(fresh));
+  return setValueNoise(getResult(), Variance::evalEncryptPk(n, t, 3.2));
 }
 bool EncryptOp::hasArgumentIndependentResultNoise() { return true; }
 
@@ -93,7 +88,8 @@ void AddOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
     emitOpError() << "uses SSA value with uninitialized noise variance.";
     return setValueNoise(getResult(), Variance::unbounded());
   }
-  return setValueNoise(getResult(), argNoises[0] + argNoises[1]);
+  return setValueNoise(getResult(),
+                       Variance::evalAdd(argNoises[0], argNoises[1]));
 }
 bool AddOp::hasArgumentIndependentResultNoise() { return false; }
 
@@ -105,23 +101,14 @@ void MyMulOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
   }
   auto cipherType = dyn_cast<lwe::NewLWECiphertextType>(getResult().getType());
 
-  auto plainModulus = cipherType.getPlaintextSpace()
-                          .getRing()
-                          .getCoefficientModulus()
-                          .getValue()
-                          .getRawData()[0];
+  auto n = cipherType.getCiphertextSpace()
+               .getRing()
+               .getPolynomialModulus()
+               .getPolynomial()
+               .getDegree();
 
-  auto degree = cipherType.getCiphertextSpace()
-                    .getRing()
-                    .getPolynomialModulus()
-                    .getPolynomial()
-                    .getDegree();
-
-  // simplified mult
-  auto mult = argNoises[0].getValue() * argNoises[1].getValue() *
-              degree;  // * plainModulus;
-
-  return setValueNoise(getResult(), Variance::of(mult));
+  return setValueNoise(
+      getResult(), Variance::evalMultNoRelin(argNoises[0], argNoises[1], n));
 }
 bool MyMulOp::hasArgumentIndependentResultNoise() { return false; }
 
@@ -131,31 +118,29 @@ void MyRelinearizeOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
     emitOpError() << "uses SSA value with uninitialized noise variance.";
     return setValueNoise(getResult(), Variance::unbounded());
   }
+
   auto cipherType = dyn_cast<lwe::NewLWECiphertextType>(getResult().getType());
 
-  auto plainModulus = cipherType.getPlaintextSpace()
-                          .getRing()
-                          .getCoefficientModulus()
-                          .getValue()
-                          .getRawData()[0];
+  auto t = cipherType.getPlaintextSpace()
+               .getRing()
+               .getCoefficientModulus()
+               .getValue()
+               .getRawData()[0];
 
   auto cipherModuli = cipherType.getModulusChain().getElements();
-  auto lp1 = cipherModuli.size();
-  auto qi = double(cipherModuli[0].getValue().getRawData()[0]);
+  auto l = cipherModuli.size();
+  auto beta = double(cipherModuli[0].getValue().getRawData()[0]);
 
-  auto degree = cipherType.getCiphertextSpace()
-                    .getRing()
-                    .getPolynomialModulus()
-                    .getPolynomial()
-                    .getDegree();
+  auto n = cipherType.getCiphertextSpace()
+               .getRing()
+               .getPolynomialModulus()
+               .getPolynomial()
+               .getDegree();
 
-  double std0 = 3.2;
-  double variance0 = std0 * std0;
-  auto term2 = variance0 * plainModulus * plainModulus * degree / 12.0;
-  auto term3 = qi * qi * lp1;
-
-  return setValueNoise(getResult(), argNoises[0] + Variance::of(term2 * term3));
+  return setValueNoise(getResult(), Variance::evalRelinearizeBV(
+                                        argNoises[0], n, t, 3.2, l, beta));
 }
+
 bool MyRelinearizeOp::hasArgumentIndependentResultNoise() { return false; }
 
 void MyRotateOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
@@ -167,28 +152,24 @@ void MyRotateOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
 
   auto cipherType = dyn_cast<lwe::NewLWECiphertextType>(getResult().getType());
 
-  auto plainModulus = cipherType.getPlaintextSpace()
-                          .getRing()
-                          .getCoefficientModulus()
-                          .getValue()
-                          .getRawData()[0];
+  auto t = cipherType.getPlaintextSpace()
+               .getRing()
+               .getCoefficientModulus()
+               .getValue()
+               .getRawData()[0];
 
   auto cipherModuli = cipherType.getModulusChain().getElements();
-  auto lp1 = cipherModuli.size();
-  auto qi = double(cipherModuli[0].getValue().getRawData()[0]);
+  auto l = cipherModuli.size();
+  auto beta = double(cipherModuli[0].getValue().getRawData()[0]);
 
-  auto degree = cipherType.getCiphertextSpace()
-                    .getRing()
-                    .getPolynomialModulus()
-                    .getPolynomial()
-                    .getDegree();
+  auto n = cipherType.getCiphertextSpace()
+               .getRing()
+               .getPolynomialModulus()
+               .getPolynomial()
+               .getDegree();
 
-  double std0 = 3.2;
-  double variance0 = std0 * std0;
-  auto term2 = variance0 * plainModulus * plainModulus * degree / 12.0;
-  auto term3 = qi * qi * lp1;
-
-  return setValueNoise(getResult(), argNoises[0] + Variance::of(term2 * term3));
+  return setValueNoise(getResult(), Variance::evalRelinearizeBV(
+                                        argNoises[0], n, t, 3.2, l, beta));
 }
 bool MyRotateOp::hasArgumentIndependentResultNoise() { return false; }
 
