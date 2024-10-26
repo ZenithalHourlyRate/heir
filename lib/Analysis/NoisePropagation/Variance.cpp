@@ -14,8 +14,7 @@ std::string Variance::toString() const {
     case (VarianceType::UNBOUNDED):
       return "Variance(unbounded)";
     case (VarianceType::SET):
-      return "Variance(" + std::to_string(log(getValue()) / log(2)) + ") " +
-             "Bound(" + std::to_string(log(alphaBound(8192)) / log(2)) + ")";
+      return "Variance(" + std::to_string(log(getValue()) / log(2)) + ") ";
   }
 }
 
@@ -64,6 +63,49 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const Variance &variance) {
 Diagnostic &operator<<(Diagnostic &diagnostic, const Variance &variance) {
   return diagnostic << variance.toString();
 }
+
+Variance Variance::evalEncryptPk(double n, double t, double std0) {
+  double variance0 = std0 * std0;
+  // assumed UNIFORM_TENARY
+  double encrypt = variance0 * t * t * (4.0 * n / 3 + 1);
+  return Variance::of(encrypt);
+}
+
+Variance Variance::evalAdd(const Variance &lhs, const Variance &rhs) {
+  return lhs + rhs;
+}
+Variance Variance::evalMultNoRelin(const Variance &lhs, const Variance &rhs,
+                                   double n) {
+  return Variance::of(lhs.getValue() * rhs.getValue() * n);
+}
+
+Variance Variance::evalModUp(const Variance &input, double modulus, double n,
+                             double t) {
+  // assumed UNIFORM_TENARY
+  double added = 1.0 / 12 * t * t * (2.0 * n / 3 + 1);
+  return Variance::of(input.getValue() * (modulus * modulus) + added);
+}
+
+Variance Variance::evalModReduce(const Variance &input, double modulus,
+                                 double n, double t) {
+  // assumed UNIFORM_TENARY
+  double added = 1.0 / 12 * t * t * (2.0 * n / 3 + 1);
+  return Variance::of(input.getValue() / (modulus * modulus) + added);
+}
+
+Variance Variance::evalRelinearizeBV(const Variance &input, double n, double t,
+                                     double std0, double numDigit,
+                                     double beta) {
+  double variance0 = std0 * std0;
+  double term1 = variance0 * t * t * n / 12.0;
+  double term2 = numDigit * beta * beta;
+  return Variance::of(input.getValue() + term1 * term2);
+}
+
+// Variance Variance::evalRotate(const Variance &input, double n, double t,
+// double std0, double numDigit, double beta) {
+//     return Variance::evalRelinearize(input, n, t, std0, numDigit, beta);
+// }
 
 }  // namespace heir
 }  // namespace mlir
