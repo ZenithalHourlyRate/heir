@@ -15,6 +15,12 @@ class VarianceLattice : public dataflow::Lattice<Variance> {
   using Lattice::Lattice;
 };
 
+/// This lattice element represents the noise distribution of an SSA value.
+class VarianceStatesLattice : public dataflow::Lattice<VarianceStates> {
+ public:
+  using Lattice::Lattice;
+};
+
 /// Noise propagation analysis determines a noise bound for SSA values,
 /// represented by the variance of a symmetric Gaussian distribution. This
 /// analysis propagates noise across operations that implement
@@ -34,6 +40,21 @@ class NoisePropagationAnalysis
   LogicalResult visitOperation(Operation *op,
                                ArrayRef<const VarianceLattice *> operands,
                                ArrayRef<VarianceLattice *> results) override;
+};
+
+class NoiseStatesAnalysis
+    : public dataflow::SparseForwardDataFlowAnalysis<VarianceStatesLattice> {
+ public:
+  using SparseForwardDataFlowAnalysis::SparseForwardDataFlowAnalysis;
+
+  void setToEntryState(VarianceStatesLattice *lattice) override {
+    // At an entry point, we have no information about the noise.
+    propagateIfChanged(lattice, lattice->join(VarianceStates()));
+  }
+
+  LogicalResult visitOperation(
+      Operation *op, ArrayRef<const VarianceStatesLattice *> operands,
+      ArrayRef<VarianceStatesLattice *> results) override;
 };
 
 }  // namespace heir

@@ -135,6 +135,79 @@ class Variance {
   std::optional<double> value;
 };
 
+class VarianceState {
+ public:
+  VarianceState(int n, int t, int cv, int l, Variance variance)
+      : n(n), t(t), cv(cv), l(l), variance(variance) {}
+
+  void print(llvm::raw_ostream &os) const {
+    os << variance << " (" << n << " " << t << " " << cv << " " << l << " )";
+  }
+
+  bool sameState(const VarianceState &rhs) const {
+    return n == rhs.n && t == rhs.t && cv == rhs.cv && l == rhs.l;
+  }
+
+  bool operator==(const VarianceState &rhs) const {
+    return sameState(rhs) && variance == rhs.variance;
+  }
+
+  static VarianceState join(const VarianceState &lhs,
+                            const VarianceState &rhs) {
+    assert(lhs.sameState(rhs));
+    return VarianceState(lhs.n, lhs.t, lhs.cv, lhs.l,
+                         Variance::join(lhs.variance, rhs.variance));
+  }
+
+ private:
+  int n;
+  int t;
+  int cv;
+  int l;
+  Variance variance;
+};
+
+class VarianceStates {
+ public:
+  VarianceStates() = default;
+  VarianceStates(std::vector<VarianceState> states) : states(states) {}
+
+  void print(llvm::raw_ostream &os) const {
+    os << '[';
+    for (auto &s : states) {
+      s.print(os);
+    }
+    os << ']';
+  }
+
+  bool operator==(const VarianceStates &rhs) const {
+    for (auto &l : states) {
+      for (auto &r : rhs.states) {
+        if (l.sameState(r) && !(l == r)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  static VarianceStates join(const VarianceStates &lhs,
+                             const VarianceStates &rhs) {
+    std::vector<VarianceState> res;
+    for (auto &l : lhs.states) {
+      for (auto &r : rhs.states) {
+        if (l.sameState(r)) {
+          res.push_back(VarianceState::join(l, r));
+        }
+      }
+    }
+    return VarianceStates(res);
+  }
+
+ private:
+  std::vector<VarianceState> states;
+};
+
 }  // namespace heir
 }  // namespace mlir
 
