@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdint>
 #include <optional>
 
@@ -141,11 +142,17 @@ class VarianceState {
       : n(n), t(t), cv(cv), l(l), variance(variance) {}
 
   void print(llvm::raw_ostream &os) const {
-    os << variance << " (" << n << " " << t << " " << cv << " " << l << " )";
+    os << variance << "(" << n << " " << t << " " << cv << " " << l << ") "
+       << "Bound(" << std::to_string(log(variance.alphaBound(n)) / log(2))
+       << ")";
   }
 
   bool sameState(const VarianceState &rhs) const {
     return n == rhs.n && t == rhs.t && cv == rhs.cv && l == rhs.l;
+  }
+
+  bool sameLevel(const VarianceState &rhs) const {
+    return n == rhs.n && t == rhs.t && l == rhs.l;
   }
 
   bool operator==(const VarianceState &rhs) const {
@@ -157,6 +164,31 @@ class VarianceState {
     assert(lhs.sameState(rhs));
     return VarianceState(lhs.n, lhs.t, lhs.cv, lhs.l,
                          Variance::join(lhs.variance, rhs.variance));
+  }
+
+  static VarianceState evalEncryptPk(int n, int t, int l) {
+    int cv = 2;
+    auto v = Variance::evalEncryptPk(n, t, 3.2);
+    return VarianceState(n, t, cv, l, v);
+  }
+
+  static VarianceState evalMultNoRelin(const VarianceState &lhs,
+                                       const VarianceState &rhs) {
+    assert(lhs.sameLevel(rhs));
+    auto v = Variance::evalMultNoRelin(lhs.variance, rhs.variance, lhs.n);
+    return VarianceState(lhs.n, lhs.t, lhs.cv + rhs.cv - 1, lhs.l, v);
+  }
+
+  static VarianceState evalRelinearizeBV(const VarianceState &lhs) {
+    auto v = Variance::evalRelinearizeBV(lhs.variance, lhs.n, lhs.t, 3.2, lhs.l,
+                                         35156991246337);
+    return VarianceState(lhs.n, lhs.t, lhs.cv - 1, lhs.l, v);
+  }
+
+  static VarianceState evalModReduce(const VarianceState &lhs) {
+    auto v =
+        Variance::evalModReduce(lhs.variance, 35156991246337, lhs.n, lhs.t);
+    return VarianceState(lhs.n, lhs.t, lhs.cv, lhs.l - 1, v);
   }
 
  private:
@@ -176,11 +208,15 @@ class VarianceStates {
     os << '[';
     for (auto &s : states) {
       s.print(os);
+      os << ", ";
     }
     os << ']';
   }
 
   bool operator==(const VarianceStates &rhs) const {
+    if (states.size() != rhs.states.size()) {
+      return false;
+    }
     for (auto &l : states) {
       for (auto &r : rhs.states) {
         if (l.sameState(r) && !(l == r)) {
@@ -193,6 +229,12 @@ class VarianceStates {
 
   static VarianceStates join(const VarianceStates &lhs,
                              const VarianceStates &rhs) {
+    if (lhs.states.size() == 0) {
+      return rhs;
+    }
+    if (rhs.states.size() == 0) {
+      return lhs;
+    }
     std::vector<VarianceState> res;
     for (auto &l : lhs.states) {
       for (auto &r : rhs.states) {
@@ -203,6 +245,41 @@ class VarianceStates {
     }
     return VarianceStates(res);
   }
+
+  static VarianceStates evalEncryptPk(int t, int l) {
+    VarianceStates vss;
+    for (auto n : {1024}) {
+      auto vs = VarianceState::evalEncryptPk(n, t, l);
+      vss.states.push_back(vs);
+    }
+    return vss;
+  }
+
+  static VarianceStates evalMultNoRelin(const VarianceStates &lhs,
+                                        const VarianceStates &rhs) {
+    VarianceStates vss;
+    for (auto &l : lhs.states) {
+      for (auto &r : rhs.states) {
+        if (l.sameLevel(r)) {
+          vss.states.push_back(VarianceState::evalMultNoRelin(l, r));
+        }
+      }
+    }
+    VarianceStates others;
+    for (auto &vs : vss.states) {
+      others.states.push_back(VarianceState::evalRelinearizeBV(vs));
+      others.states.push_back(VarianceState::evalModReduce(vs));
+      others.states.push_back(
+          VarianceState::evalRelinearizeBV(VarianceState::evalModReduce(vs)));
+    }
+    // TODO: write a member function for this
+    vss.states.insert(vss.states.end(), others.states.begin(),
+                      others.states.end());
+    return vss;
+  }
+
+  friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
+                                       const VarianceStates &variance);
 
  private:
   std::vector<VarianceState> states;
