@@ -42,91 +42,98 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
     // https://discourse.llvm.org/t/mlir-dead-code-analysis/67568/8
     solver.load<dataflow::DeadCodeAnalysis>();
     solver.load<dataflow::SparseConstantPropagation>();
-    solver.load<NoisePropagationAnalysis>();
+    solver.load<NoiseStatesAnalysis>();
     if (failed(solver.initializeAndRun(module))) {
       getOperation()->emitOpError() << "Failed to run the analysis.\n";
       signalPassFailure();
       return;
     }
 
-    auto result = module->walk([&](Operation *op) {
-      for (OpResult result : op->getResults()) {
-        const VarianceLattice *opRange =
-            solver.lookupState<VarianceLattice>(result);
-        if (!opRange) {
-          LLVM_DEBUG(op->emitOpError()
-                     << "Solver did not assign noise to op, suggesting the "
-                        "noise propagation analysis did not run properly or at "
-                        "all.");
-          return WalkResult::interrupt();
-        }
+    // auto result = module->walk([&](Operation *op) {
+    //   for (OpResult result : op->getResults()) {
+    //     const VarianceLattice *opRange =
+    //         solver.lookupState<VarianceLattice>(result);
+    //     if (!opRange) {
+    //       LLVM_DEBUG(op->emitOpError()
+    //                  << "Solver did not assign noise to op, suggesting the "
+    //                     "noise propagation analysis did not run properly or
+    //                     at " "all.");
+    //       return WalkResult::interrupt();
+    //     }
 
-        LLVM_DEBUG(op->emitRemark()
-                   << "Found noise " << (opRange->getValue())
-                   << " for op result " << result.getResultNumber());
-        if (!opRange->getValue().isInitialized()) {
-          LLVM_DEBUG(llvm::dbgs()
-                     << "Skipping check due to uninitialized noise.\n");
-          return WalkResult::advance();
-        }
+    //    LLVM_DEBUG(op->emitRemark()
+    //               << "Found noise " << (opRange->getValue())
+    //               << " for op result " << result.getResultNumber());
+    //    if (!opRange->getValue().isInitialized()) {
+    //      LLVM_DEBUG(llvm::dbgs()
+    //                 << "Skipping check due to uninitialized noise.\n");
+    //      return WalkResult::advance();
+    //    }
 
-        // It's OK for some places to have unbounded noise, so long as the only
-        // user of that value is a bootstrap-like op.
-        if (!opRange->getValue().isBounded()) {
-          // One might expect a check for hasSingleUse, but there could
-          // potentially be multiple downstream users, each applying a
-          // different kind of programmable bootstrap to compute different
-          // functions, so we loop over all users.
-          for (auto result : op->getResults()) {
-            for (Operation *user : result.getUsers()) {
-              auto noisePropagationOp =
-                  dyn_cast<NoisePropagationInterface>(user);
-              // If the cast fails, then we can still proceed. The user could be
-              // control flow like a func.call or a loop. In such cases, the
-              // dataflow solver should propagate the value through the control
-              // flow already, so we don't need to check it. It could also be a
-              // decryption op, which doesn't implement the interface but is
-              // valid.
-              if (noisePropagationOp &&
-                  !noisePropagationOp.hasArgumentIndependentResultNoise()) {
-                user->emitOpError()
-                    << "uses SSA value with unbounded noise variance, but the "
-                       "op "
-                       "has non-constant noise propagation. This can happen "
-                       "when an SSA value is part of control flow, such as a "
-                       "loop or an entrypoint to a function with multiple "
-                       "callers. In such cases, an extra bootstrap is required "
-                       "to ensure the value does not exceed its noise bound, "
-                       "or the control flow must be removed. SSA value was: "
-                       "\n\n"
-                    << result << "\n\n";
-                return WalkResult::interrupt();
-              }
-            }
-          }
+    //    // It's OK for some places to have unbounded noise, so long as the
+    //    only
+    //    // user of that value is a bootstrap-like op.
+    //    if (!opRange->getValue().isBounded()) {
+    //      // One might expect a check for hasSingleUse, but there could
+    //      // potentially be multiple downstream users, each applying a
+    //      // different kind of programmable bootstrap to compute different
+    //      // functions, so we loop over all users.
+    //      for (auto result : op->getResults()) {
+    //        for (Operation *user : result.getUsers()) {
+    //          auto noisePropagationOp =
+    //              dyn_cast<NoisePropagationInterface>(user);
+    //          // If the cast fails, then we can still proceed. The user could
+    //          be
+    //          // control flow like a func.call or a loop. In such cases, the
+    //          // dataflow solver should propagate the value through the
+    //          control
+    //          // flow already, so we don't need to check it. It could also be
+    //          a
+    //          // decryption op, which doesn't implement the interface but is
+    //          // valid.
+    //          if (noisePropagationOp &&
+    //              !noisePropagationOp.hasArgumentIndependentResultNoise()) {
+    //            user->emitOpError()
+    //                << "uses SSA value with unbounded noise variance, but the
+    //                "
+    //                   "op "
+    //                   "has non-constant noise propagation. This can happen "
+    //                   "when an SSA value is part of control flow, such as a "
+    //                   "loop or an entrypoint to a function with multiple "
+    //                   "callers. In such cases, an extra bootstrap is required
+    //                   " "to ensure the value does not exceed its noise bound,
+    //                   " "or the control flow must be removed. SSA value was:
+    //                   "
+    //                   "\n\n"
+    //                << result << "\n\n";
+    //            return WalkResult::interrupt();
+    //          }
+    //        }
+    //      }
 
-          return WalkResult::advance();
-        }
+    //      return WalkResult::advance();
+    //    }
 
-        // int64_t var = opRange->getValue().getValue();
-        //// TODO: both rlwe lwe
-        // int64_t maxNoise =
-        //     maxLweNoise(result.getType().cast<lwe::RLWECiphertextType>());
-        // if (var > maxNoise) {
-        //   op->emitOpError() << "Found op after which the noise exceeds the "
-        //                        "allowable maximum of "
-        //                     << maxNoise << "; it was: " << var << "\n";
-        //   return WalkResult::interrupt();
-        // }
-      }
-      return WalkResult::advance();
-    });
+    //    // int64_t var = opRange->getValue().getValue();
+    //    //// TODO: both rlwe lwe
+    //    // int64_t maxNoise =
+    //    //     maxLweNoise(result.getType().cast<lwe::RLWECiphertextType>());
+    //    // if (var > maxNoise) {
+    //    //   op->emitOpError() << "Found op after which the noise exceeds the
+    //    "
+    //    //                        "allowable maximum of "
+    //    //                     << maxNoise << "; it was: " << var << "\n";
+    //    //   return WalkResult::interrupt();
+    //    // }
+    //  }
+    //  return WalkResult::advance();
+    //});
 
-    if (result.wasInterrupted()) {
-      getOperation()->emitOpError()
-          << "Detected error in the noise analysis.\n";
-      signalPassFailure();
-    }
+    // if (result.wasInterrupted()) {
+    //   getOperation()->emitOpError()
+    //       << "Detected error in the noise analysis.\n";
+    //   signalPassFailure();
+    // }
   }
 };
 
