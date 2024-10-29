@@ -9,6 +9,7 @@ cc_library(
     hdrs = ["NoisePropagationAnalysis.h"],
     deps = [
         ":Variance",
+        "@heir//lib/Dialect/BGV/IR:Dialect",
         "@heir//lib/Interfaces:NoiseInterfaces",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Analysis",

@@ -60,6 +60,18 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const Variance &variance) {
   return os << variance.toString();
 }
 
+llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
+                              const VarianceState &variance) {
+  variance.print(os);
+  return os;
+}
+
+llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
+                              const VarianceStates &variance) {
+  variance.print(os);
+  return os;
+}
+
 Diagnostic &operator<<(Diagnostic &diagnostic, const Variance &variance) {
   return diagnostic << variance.toString();
 }

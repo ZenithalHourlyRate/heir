@@ -1,9 +1,11 @@
 #include "lib/Analysis/NoisePropagation/NoisePropagationAnalysis.h"
 
+#include "lib/Dialect/BGV/IR/BGVOps.h"
 #include "lib/Interfaces/NoiseInterfaces.h"
-#include "llvm/include/llvm/Support/Debug.h"  // from @llvm-project
-#include "mlir/include/mlir/IR/Operation.h"   // from @llvm-project
-#include "mlir/include/mlir/IR/Value.h"       // from @llvm-project
+#include "llvm/include/llvm/ADT/TypeSwitch.h"  // from @llvm-project
+#include "llvm/include/llvm/Support/Debug.h"   // from @llvm-project
+#include "mlir/include/mlir/IR/Operation.h"    // from @llvm-project
+#include "mlir/include/mlir/IR/Value.h"        // from @llvm-project
 
 #define DEBUG_TYPE "NoisePropagationAnalysis"
 
@@ -93,7 +95,27 @@ LogicalResult NoiseStatesAnalysis::visitOperation(
   //   return success();
   // }
 
-  LLVM_DEBUG(llvm::dbgs() << "Visiting " << *op << "\n");
+  // LLVM_DEBUG(llvm::dbgs() << "Visiting " << *op << "\n");
+
+  VarianceStates vss;
+
+  llvm::TypeSwitch<Operation &>(*op)
+      .Case<bgv::EncryptOp>([&](auto encryptOp) {
+        vss = VarianceStates::evalEncryptPk(65537, 3);
+        LLVM_DEBUG(llvm::dbgs() << "Encrypted states " << vss << "\n");
+      })
+      .Case<bgv::MyMulOp>([&](auto mulOp) {
+        LLVM_DEBUG(llvm::dbgs() << "operands " << operands[0]->getValue() << " "
+                                << operands[1]->getValue() << "\n");
+        vss = VarianceStates::evalMultNoRelin(operands[0]->getValue(),
+                                              operands[1]->getValue());
+        LLVM_DEBUG(llvm::dbgs() << "Mul states " << vss << "\n");
+      });
+
+  VarianceStatesLattice *lattice = results[0];
+  VarianceStates old = lattice->getValue();
+  ChangeResult changed = lattice->join(vss);
+  propagateIfChanged(lattice, changed);
 
   // SmallVector<Variance> argRanges(llvm::map_range(
   //     operands, [](const VarianceLattice *val) { return val->getValue(); }));
