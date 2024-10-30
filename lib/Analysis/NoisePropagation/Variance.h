@@ -7,8 +7,11 @@
 #include <cstdint>
 #include <optional>
 
+#include "llvm/include/llvm/Support/Debug.h"        // from @llvm-project
 #include "llvm/include/llvm/Support/raw_ostream.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Diagnostics.h"       // from @llvm-project
+
+#define DEBUG_TYPE "Variance"
 
 namespace mlir {
 namespace heir {
@@ -102,6 +105,12 @@ class Variance {
     return Variance::of(std::max(lhs.getValue(), rhs.getValue()));
   }
 
+  static Variance min(const Variance &lhs, const Variance &rhs) {
+    assert(lhs.varianceType == VarianceType::SET &&
+           rhs.varianceType == VarianceType::SET);
+    return Variance::of(std::min(lhs.getValue(), rhs.getValue()));
+  }
+
   // std0: std error of e distribution
   // assumed UNIFORM_TENARY secret distribution
   static Variance evalEncryptPk(double n, double t, double std0);
@@ -142,9 +151,11 @@ class VarianceState {
       : n(n), t(t), cv(cv), l(l), variance(variance) {}
 
   void print(llvm::raw_ostream &os) const {
-    os << variance << "(" << n << " " << t << " " << cv << " " << l << ") "
-       << "Bound(" << std::to_string(log(variance.alphaBound(n)) / log(2))
-       << ")";
+    // os << variance << "(" << n << " " << t << " " << cv << " " << l << ") "
+    //    << "Bound(" << std::to_string(log(variance.alphaBound(n)) / log(2))
+    //    << ")";
+    os << variance << "(" << cv << " " << l << ") " << "Bound("
+       << std::to_string(log(variance.alphaBound(n)) / log(2)) << ") ";
   }
 
   bool sameState(const VarianceState &rhs) const {
@@ -163,7 +174,11 @@ class VarianceState {
                             const VarianceState &rhs) {
     assert(lhs.sameState(rhs));
     return VarianceState(lhs.n, lhs.t, lhs.cv, lhs.l,
-                         Variance::join(lhs.variance, rhs.variance));
+                         Variance::min(lhs.variance, rhs.variance));
+  }
+
+  VarianceState join(const VarianceState &rhs) const {
+    return VarianceState::join(*this, rhs);
   }
 
   static VarianceState evalEncryptPk(int n, int t, int l) {
@@ -218,32 +233,47 @@ class VarianceStates {
       return false;
     }
     for (auto &l : states) {
+      bool found = false;
       for (auto &r : rhs.states) {
-        if (l.sameState(r) && !(l == r)) {
-          return false;
+        if (l.sameState(r)) {
+          found = true;
+          if (!(l == r)) {
+            return false;
+          }
         }
+      }
+      if (!found) {
+        return false;
       }
     }
     return true;
   }
 
-  static VarianceStates join(const VarianceStates &lhs,
-                             const VarianceStates &rhs) {
-    if (lhs.states.size() == 0) {
-      return rhs;
-    }
-    if (rhs.states.size() == 0) {
-      return lhs;
-    }
-    std::vector<VarianceState> res;
-    for (auto &l : lhs.states) {
-      for (auto &r : rhs.states) {
-        if (l.sameState(r)) {
-          res.push_back(VarianceState::join(l, r));
-        }
+  void insert(VarianceState vs) {
+    bool inserted = false;
+    for (auto &s : states) {
+      if (vs.sameState(s)) {
+        s = vs.join(s);
+        inserted = true;
+        break;
       }
     }
-    return VarianceStates(res);
+    if (!inserted) {
+      states.push_back(vs);
+    }
+  }
+
+  static VarianceStates join(const VarianceStates &lhs,
+                             const VarianceStates &rhs) {
+    VarianceStates res = lhs;
+    for (auto &r : rhs.states) {
+      res.insert(r);
+    }
+    return res;
+  }
+
+  VarianceStates join(const VarianceStates &rhs) const {
+    return VarianceStates::join(*this, rhs);
   }
 
   static VarianceStates evalEncryptPk(int t, int l) {
@@ -261,21 +291,18 @@ class VarianceStates {
     for (auto &l : lhs.states) {
       for (auto &r : rhs.states) {
         if (l.sameLevel(r)) {
-          vss.states.push_back(VarianceState::evalMultNoRelin(l, r));
+          vss.insert(VarianceState::evalMultNoRelin(l, r));
         }
       }
     }
     VarianceStates others;
     for (auto &vs : vss.states) {
-      others.states.push_back(VarianceState::evalRelinearizeBV(vs));
-      others.states.push_back(VarianceState::evalModReduce(vs));
-      others.states.push_back(
+      others.insert(VarianceState::evalRelinearizeBV(vs));
+      others.insert(VarianceState::evalModReduce(vs));
+      others.insert(
           VarianceState::evalRelinearizeBV(VarianceState::evalModReduce(vs)));
     }
-    // TODO: write a member function for this
-    vss.states.insert(vss.states.end(), others.states.begin(),
-                      others.states.end());
-    return vss;
+    return vss.join(others);
   }
 
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
