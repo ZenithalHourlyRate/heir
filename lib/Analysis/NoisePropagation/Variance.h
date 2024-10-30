@@ -7,14 +7,21 @@
 #include <cstdint>
 #include <optional>
 
-#include "llvm/include/llvm/Support/Debug.h"        // from @llvm-project
 #include "llvm/include/llvm/Support/raw_ostream.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Diagnostics.h"       // from @llvm-project
 
-#define DEBUG_TYPE "Variance"
-
 namespace mlir {
 namespace heir {
+
+struct LatticeParam {
+  int n;
+  int maxQ;
+};
+
+// tenary
+static struct LatticeParam HEStd_128_classic[] = {
+    {1024, 27}, {2048, 54}, {4096, 109}, {8192, 218}, {16384, 438},
+};
 
 enum VarianceType {
   // A min value for the lattice, discarable when joined with anything else.
@@ -154,8 +161,14 @@ class VarianceState {
     // os << variance << "(" << n << " " << t << " " << cv << " " << l << ") "
     //    << "Bound(" << std::to_string(log(variance.alphaBound(n)) / log(2))
     //    << ")";
-    os << variance << "(" << cv << " " << l << ") " << "Bound("
-       << std::to_string(log(variance.alphaBound(n)) / log(2)) << ") ";
+    os << "(" << cv << " " << l << "): " << "Bound("
+       << std::to_string(log(variance.alphaBound(n)) / log(2)) << ")";
+    os << "history(";
+    for (auto str : history) {
+      os << str;
+      os << ", ";
+    }
+    os << ")";
   }
 
   bool sameState(const VarianceState &rhs) const {
@@ -166,6 +179,27 @@ class VarianceState {
     return n == rhs.n && t == rhs.t && l == rhs.l;
   }
 
+  VarianceState &inheritHistory(const VarianceState &rhs) {
+    history.insert(history.end(), rhs.history.begin(), rhs.history.end());
+    return *this;
+  }
+
+  VarianceState &mergeHistory(const VarianceState &lhs,
+                              const VarianceState &rhs) {
+    addHistory("(");
+    inheritHistory(lhs);
+    addHistory(")");
+    addHistory("(");
+    inheritHistory(rhs);
+    addHistory(")");
+    return *this;
+  }
+
+  VarianceState &addHistory(std::string str) {
+    history.push_back(str);
+    return *this;
+  }
+
   bool operator==(const VarianceState &rhs) const {
     return sameState(rhs) && variance == rhs.variance;
   }
@@ -173,8 +207,15 @@ class VarianceState {
   static VarianceState join(const VarianceState &lhs,
                             const VarianceState &rhs) {
     assert(lhs.sameState(rhs));
-    return VarianceState(lhs.n, lhs.t, lhs.cv, lhs.l,
-                         Variance::min(lhs.variance, rhs.variance));
+    auto v = Variance::min(lhs.variance, rhs.variance);
+    auto vs = VarianceState(lhs.n, lhs.t, lhs.cv, lhs.l, v);
+    if (v == lhs.variance) {
+      vs.inheritHistory(lhs);
+    } else {
+      vs.inheritHistory(rhs);
+    }
+    vs.addHistory("join");
+    return vs;
   }
 
   VarianceState join(const VarianceState &rhs) const {
@@ -184,27 +225,39 @@ class VarianceState {
   static VarianceState evalEncryptPk(int n, int t, int l) {
     int cv = 2;
     auto v = Variance::evalEncryptPk(n, t, 3.2);
-    return VarianceState(n, t, cv, l, v);
+    return VarianceState(n, t, cv, l, v).addHistory("enc");
   }
 
   static VarianceState evalMultNoRelin(const VarianceState &lhs,
                                        const VarianceState &rhs) {
     assert(lhs.sameLevel(rhs));
     auto v = Variance::evalMultNoRelin(lhs.variance, rhs.variance, lhs.n);
-    return VarianceState(lhs.n, lhs.t, lhs.cv + rhs.cv - 1, lhs.l, v);
+    auto vs = VarianceState(lhs.n, lhs.t, lhs.cv + rhs.cv - 1, lhs.l, v);
+    vs.mergeHistory(lhs, rhs);
+    vs.addHistory("mult");
+    return vs;
   }
 
   static VarianceState evalRelinearizeBV(const VarianceState &lhs) {
     auto v = Variance::evalRelinearizeBV(lhs.variance, lhs.n, lhs.t, 3.2, lhs.l,
                                          35156991246337);
-    return VarianceState(lhs.n, lhs.t, lhs.cv - 1, lhs.l, v);
+    auto vs = VarianceState(lhs.n, lhs.t, lhs.cv - 1, lhs.l, v);
+    vs.inheritHistory(lhs);
+    vs.addHistory("relin");
+    return vs;
   }
 
   static VarianceState evalModReduce(const VarianceState &lhs) {
     auto v =
         Variance::evalModReduce(lhs.variance, 35156991246337, lhs.n, lhs.t);
-    return VarianceState(lhs.n, lhs.t, lhs.cv, lhs.l - 1, v);
+    auto vs = VarianceState(lhs.n, lhs.t, lhs.cv, lhs.l - 1, v);
+    vs.inheritHistory(lhs);
+    vs.addHistory("modd");
+    return vs;
   }
+
+  bool canModReduce() { return l > 1; };
+  bool canRelinearize() { return cv > 2; };
 
  private:
   int n;
@@ -212,6 +265,8 @@ class VarianceState {
   int cv;
   int l;
   Variance variance;
+
+  std::vector<std::string> history;
 };
 
 class VarianceStates {
@@ -220,12 +275,13 @@ class VarianceStates {
   VarianceStates(std::vector<VarianceState> states) : states(states) {}
 
   void print(llvm::raw_ostream &os) const {
-    os << '[';
+    os << "\n[\n";
     for (auto &s : states) {
+      os << "\t";
       s.print(os);
-      os << ", ";
+      os << ",\n";
     }
-    os << ']';
+    os << "]\n";
   }
 
   bool operator==(const VarianceStates &rhs) const {
@@ -280,7 +336,11 @@ class VarianceStates {
     VarianceStates vss;
     for (auto n : {1024}) {
       auto vs = VarianceState::evalEncryptPk(n, t, l);
-      vss.states.push_back(vs);
+      vss.insert(vs);
+      for (auto i = 0; i != l - 1; ++i) {
+        vs = VarianceState::evalModReduce(vs);
+        vss.insert(vs);
+      }
     }
     return vss;
   }
@@ -298,9 +358,11 @@ class VarianceStates {
     VarianceStates others;
     for (auto &vs : vss.states) {
       others.insert(VarianceState::evalRelinearizeBV(vs));
-      others.insert(VarianceState::evalModReduce(vs));
-      others.insert(
-          VarianceState::evalRelinearizeBV(VarianceState::evalModReduce(vs)));
+      if (vs.canModReduce()) {
+        others.insert(VarianceState::evalModReduce(vs));
+        others.insert(
+            VarianceState::evalRelinearizeBV(VarianceState::evalModReduce(vs)));
+      }
     }
     return vss.join(others);
   }
