@@ -105,8 +105,9 @@ LogicalResult NoiseStatesAnalysis::visitOperation(
         LLVM_DEBUG(llvm::dbgs() << "Encrypted states " << vss << "\n");
       })
       .Case<bgv::MyMulOp>([&](auto mulOp) {
-        LLVM_DEBUG(llvm::dbgs() << "operands " << operands[0]->getValue() << " "
-                                << operands[1]->getValue() << "\n");
+        // LLVM_DEBUG(llvm::dbgs() << "operands " << operands[0]->getValue() <<
+        // " "
+        //                         << operands[1]->getValue() << "\n");
         vss = VarianceStates::evalMultNoRelin(operands[0]->getValue(),
                                               operands[1]->getValue());
         LLVM_DEBUG(llvm::dbgs() << "Mul states " << vss << "\n");
