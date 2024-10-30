@@ -357,11 +357,23 @@ class VarianceStates {
     }
     VarianceStates others;
     for (auto &vs : vss.states) {
-      others.insert(VarianceState::evalRelinearizeBV(vs));
+      // all relin
+      VarianceState relin = vs;
+      do {
+        relin = VarianceState::evalRelinearizeBV(relin);
+        others.insert(relin);
+      } while (relin.canRelinearize());
+
+      // all mod reduce ( + relin)
+      // TODO: relin + mod reduce + relin
       if (vs.canModReduce()) {
-        others.insert(VarianceState::evalModReduce(vs));
-        others.insert(
-            VarianceState::evalRelinearizeBV(VarianceState::evalModReduce(vs)));
+        auto modd = VarianceState::evalModReduce(vs);
+        others.insert(modd);
+        VarianceState relin = modd;
+        do {
+          relin = VarianceState::evalRelinearizeBV(relin);
+          others.insert(relin);
+        } while (relin.canRelinearize());
       }
     }
     return vss.join(others);
