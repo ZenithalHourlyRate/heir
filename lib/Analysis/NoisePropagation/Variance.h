@@ -7,22 +7,13 @@
 #include <cstdint>
 #include <optional>
 
+#include "lib/Analysis/NoisePropagation/Params.h"
 #include "llvm/include/llvm/Support/raw_ostream.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Diagnostics.h"       // from @llvm-project
 #include "mlir/include/mlir/IR/Value.h"             // from @llvm-project
 
 namespace mlir {
 namespace heir {
-
-struct LatticeParam {
-  int n;
-  int maxQ;
-};
-
-// tenary
-static struct LatticeParam HEStd_128_classic[] = {
-    {1024, 27}, {2048, 54}, {4096, 109}, {8192, 218}, {16384, 438},
-};
 
 enum VarianceType {
   // A min value for the lattice, discarable when joined with anything else.
@@ -160,19 +151,19 @@ class VarianceKey {
 
   VarianceKey() = default;
 
-  VarianceKey(int n, int t, int cv, int l, Value v)
-      : n(n), t(t), cv(cv), l(l), v(v) {}
+  VarianceKey(Param p, int cv, int l, Value v) : p(p), cv(cv), l(l), v(v) {}
 
   void print(llvm::raw_ostream &os) const {
-    os << "(cv " << cv << " l " << l << ")";
+    os << "(n " << p.n << " dS " << p.digitSize << " dN " << p.dnum << " cv "
+       << cv << " l " << l << ")";
   }
 
   bool operator==(const VarianceKey &rhs) const {
-    return n == rhs.n && t == rhs.t && cv == rhs.cv && l == rhs.l && v == rhs.v;
+    return p == rhs.p && cv == rhs.cv && l == rhs.l && v == rhs.v;
   }
 
   bool sameLevel(const VarianceKey &rhs) const {
-    return n == rhs.n && t == rhs.t && l == rhs.l;
+    return p == rhs.p && l == rhs.l;
   }
 
   bool canModReduce() const { return l > 1; };
@@ -180,7 +171,7 @@ class VarianceKey {
 
   static VarianceKey evalModReduce(const VarianceKey &lhs) {
     assert(lhs.canModReduce());
-    return VarianceKey(lhs.n, lhs.t, lhs.cv, lhs.l - 1, lhs.v);
+    return VarianceKey(lhs.p, lhs.cv, lhs.l - 1, lhs.v);
   }
 
   VarianceKey evalModReduce() const {
@@ -190,7 +181,7 @@ class VarianceKey {
   static VarianceKey evalMultNoRelin(const VarianceKey &lhs,
                                      const VarianceKey &rhs, Value result) {
     assert(lhs.sameLevel(rhs));
-    return VarianceKey(lhs.n, lhs.t, lhs.cv + rhs.cv - 1, lhs.l, result);
+    return VarianceKey(lhs.p, lhs.cv + rhs.cv - 1, lhs.l, result);
   }
 
   VarianceKey evalMultNoRelin(const VarianceKey &rhs, Value result) const {
@@ -199,7 +190,7 @@ class VarianceKey {
 
   static VarianceKey evalRelinearizeBV(const VarianceKey &lhs) {
     assert(lhs.canRelinearize());
-    return VarianceKey(lhs.n, lhs.t, lhs.cv - 1, lhs.l, lhs.v);
+    return VarianceKey(lhs.p, lhs.cv - 1, lhs.l, lhs.v);
   }
 
   VarianceKey evalRelinearizeBV() const {
@@ -210,8 +201,7 @@ class VarianceKey {
                                        const VarianceKey &key);
 
  private:
-  int n;
-  int t;
+  Param p;
   int cv;
   int l;
   Value v;
@@ -224,16 +214,24 @@ class VarianceValues {
 
   void print(llvm::raw_ostream &os) const {
     os << k;
-    for (auto &p : v) {
-      os << "Bound(";
-      os << std::to_string(log(p.first.alphaBound(k.n)) / log(2));
-      os << ") parent:(";
-      for (auto &parent : p.second) {
-        os << parent;
-        os << ", ";
-      }
-      os << "); ";
+    // for (auto &p : v) {
+    //   os << "Bound(";
+    //   os << std::to_string(log(p.first.alphaBound(k.p.n)) / log(2));
+    //   os << ") parent:(";
+    //   for (auto &parent : p.second) {
+    //     os << parent;
+    //     os << ", ";
+    //   }
+    //   os << "); ";
+    // }
+    os << "Bound(";
+    os << std::to_string(log(getVariance().alphaBound(k.p.n)) / log(2));
+    os << ") parent:(";
+    for (auto &parent : getParents()) {
+      os << parent;
+      os << ", ";
     }
+    os << "); ";
   }
 
   bool operator==(const VarianceValues &rhs) const { return v == rhs.v; }
@@ -263,18 +261,30 @@ class VarianceValues {
     return res;
   }
 
-  static VarianceValues evalEncryptPk(Value result, int n, int t, int l) {
+  std::vector<VarianceKey> getParents() const {
+    Variance res = v[0].first;
+    std::vector<VarianceKey> parents = v[0].second;
+    for (auto &p : v) {
+      res = Variance::min(res, p.first);
+      if (res == p.first) {
+        parents = p.second;
+      }
+    }
+    return parents;
+  }
+
+  static VarianceValues evalEncryptPk(Value result, Param p) {
     int cv = 2;
     double std0 = 3.2;
-    VarianceKey k = VarianceKey(n, t, cv, l, result);
-    auto v = Variance::evalEncryptPk(k.n, k.t, std0);
+    VarianceKey k = VarianceKey(p, cv, p.L, result);
+    auto v = Variance::evalEncryptPk(k.p.n, k.p.t, std0);
     return VarianceValues(k, v);
   }
 
   static VarianceValues evalModReduce(const VarianceValues &lhs) {
     VarianceKey k = lhs.k.evalModReduce();
-    Variance v =
-        Variance::evalModReduce(lhs.getVariance(), 35156991246337, k.n, k.t);
+    Variance v = Variance::evalModReduce(lhs.getVariance(), 1L << k.p.qi[k.l],
+                                         k.p.n, k.p.t);
     return VarianceValues(k, v, {lhs.k});
   }
 
@@ -288,7 +298,7 @@ class VarianceValues {
     assert(lhs.k.sameLevel(rhs.k));
     VarianceKey k = lhs.k.evalMultNoRelin(rhs.k, result);
     Variance v =
-        Variance::evalMultNoRelin(lhs.getVariance(), rhs.getVariance(), k.n);
+        Variance::evalMultNoRelin(lhs.getVariance(), rhs.getVariance(), k.p.n);
     return VarianceValues(k, v, {lhs.k, rhs.k});
   }
 
@@ -300,8 +310,8 @@ class VarianceValues {
   static VarianceValues evalRelinearizeBV(const VarianceValues &lhs) {
     assert(lhs.k.canRelinearize());
     VarianceKey k = lhs.k.evalRelinearizeBV();
-    Variance v = Variance::evalRelinearizeBV(lhs.getVariance(), k.n, k.t, 3.2,
-                                             k.l, 35156991246337);
+    Variance v = Variance::evalRelinearizeBV(lhs.getVariance(), k.p.n, k.p.t,
+                                             3.2, k.l, 1L << k.p.digitSize);
     return VarianceValues(k, v, {lhs.k});
   }
 
@@ -386,8 +396,10 @@ class VarianceStates {
 
   static VarianceStates evalEncryptPk(Value result, int t, int l) {
     VarianceStates vss;
-    for (auto n : {1024}) {
-      auto vs = VarianceValues::evalEncryptPk(result, n, t, l);
+    std::vector<Param> params = {Param::genParam(l, 30, 0, t),
+                                 Param::genParam(l, 0, 0, t)};
+    for (auto &p : params) {
+      auto vs = VarianceValues::evalEncryptPk(result, p);
       vss.insert(vs);
 
       for (auto i = 0; i != l - 1; ++i) {
