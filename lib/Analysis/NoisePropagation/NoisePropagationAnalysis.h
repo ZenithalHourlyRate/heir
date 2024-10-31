@@ -1,6 +1,7 @@
 #ifndef INCLUDE_ANALYSIS_NOISEPROPAGATION_NOISEPROPAGATIONANALYSIS_H_
 #define INCLUDE_ANALYSIS_NOISEPROPAGATION_NOISEPROPAGATIONANALYSIS_H_
 
+#include "lib/Analysis/NoisePropagation/Params.h"
 #include "lib/Analysis/NoisePropagation/Variance.h"
 #include "mlir/include/mlir/Analysis/DataFlow/SparseAnalysis.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Operation.h"  // from @llvm-project

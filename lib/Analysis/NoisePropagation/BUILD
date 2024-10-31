@@ -20,7 +20,10 @@ cc_library(
 cc_library(
     name = "Variance",
     srcs = ["Variance.cpp"],
-    hdrs = ["Variance.h"],
+    hdrs = [
+        "Params.h",
+        "Variance.h",
+    ],
     deps = [
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
