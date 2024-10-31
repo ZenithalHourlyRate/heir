@@ -101,16 +101,16 @@ LogicalResult NoiseStatesAnalysis::visitOperation(
 
   llvm::TypeSwitch<Operation &>(*op)
       .Case<bgv::EncryptOp>([&](auto encryptOp) {
-        vss = VarianceStates::evalEncryptPk(65537, 3);
+        vss = VarianceStates::evalEncryptPk(op->getResult(0), 65537, 3);
         LLVM_DEBUG(llvm::dbgs() << "Encrypted states " << vss << "\n");
       })
       .Case<bgv::MyMulOp>([&](auto mulOp) {
         // LLVM_DEBUG(llvm::dbgs() << "operands " << operands[0]->getValue() <<
         // " "
         //                         << operands[1]->getValue() << "\n");
-        vss = VarianceStates::evalMultNoRelin(operands[0]->getValue(),
-                                              operands[1]->getValue());
-        LLVM_DEBUG(llvm::dbgs() << "Mul states " << vss << "\n");
+        vss = VarianceStates::evalMultNoRelin(
+            operands[0]->getValue(), operands[1]->getValue(), op->getResult(0));
+        LLVM_DEBUG(llvm::dbgs() << " Mul states " << vss << "\n");
       });
 
   VarianceStatesLattice *lattice = results[0];

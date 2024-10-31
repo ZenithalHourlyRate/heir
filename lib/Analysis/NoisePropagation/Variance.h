@@ -9,6 +9,7 @@
 
 #include "llvm/include/llvm/Support/raw_ostream.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Diagnostics.h"       // from @llvm-project
+#include "mlir/include/mlir/IR/Value.h"             // from @llvm-project
 
 namespace mlir {
 namespace heir {
@@ -152,133 +153,180 @@ class Variance {
   std::optional<double> value;
 };
 
-class VarianceState {
+class VarianceKey {
  public:
-  VarianceState(int n, int t, int cv, int l, Variance variance)
-      : n(n), t(t), cv(cv), l(l), variance(variance) {}
+  friend class VarianceValues;
+  friend class VarianceStates;
+
+  VarianceKey() = default;
+
+  VarianceKey(int n, int t, int cv, int l, Value v)
+      : n(n), t(t), cv(cv), l(l), v(v) {}
 
   void print(llvm::raw_ostream &os) const {
-    // os << variance << "(" << n << " " << t << " " << cv << " " << l << ") "
-    //    << "Bound(" << std::to_string(log(variance.alphaBound(n)) / log(2))
-    //    << ")";
-    os << "(" << cv << " " << l << "): " << "Bound("
-       << std::to_string(log(variance.alphaBound(n)) / log(2)) << ")";
-    os << "history(";
-    for (auto str : history) {
-      os << str;
-      os << ", ";
-    }
-    os << ")";
+    os << "(cv " << cv << " l " << l << ")";
   }
 
-  bool sameState(const VarianceState &rhs) const {
-    return n == rhs.n && t == rhs.t && cv == rhs.cv && l == rhs.l;
+  bool operator==(const VarianceKey &rhs) const {
+    return n == rhs.n && t == rhs.t && cv == rhs.cv && l == rhs.l && v == rhs.v;
   }
 
-  bool sameLevel(const VarianceState &rhs) const {
+  bool sameLevel(const VarianceKey &rhs) const {
     return n == rhs.n && t == rhs.t && l == rhs.l;
   }
 
-  VarianceState &inheritHistory(const VarianceState &rhs) {
-    history.insert(history.end(), rhs.history.begin(), rhs.history.end());
-    return *this;
+  bool canModReduce() const { return l > 1; };
+  bool canRelinearize() const { return cv > 2; };
+
+  static VarianceKey evalModReduce(const VarianceKey &lhs) {
+    assert(lhs.canModReduce());
+    return VarianceKey(lhs.n, lhs.t, lhs.cv, lhs.l - 1, lhs.v);
   }
 
-  VarianceState &mergeHistory(const VarianceState &lhs,
-                              const VarianceState &rhs) {
-    addHistory("(");
-    inheritHistory(lhs);
-    addHistory(")");
-    addHistory("(");
-    inheritHistory(rhs);
-    addHistory(")");
-    return *this;
+  VarianceKey evalModReduce() const {
+    return VarianceKey::evalModReduce(*this);
   }
 
-  VarianceState &addHistory(std::string str) {
-    history.push_back(str);
-    return *this;
-  }
-
-  bool operator==(const VarianceState &rhs) const {
-    return sameState(rhs) && variance == rhs.variance;
-  }
-
-  static VarianceState join(const VarianceState &lhs,
-                            const VarianceState &rhs) {
-    assert(lhs.sameState(rhs));
-    auto v = Variance::min(lhs.variance, rhs.variance);
-    auto vs = VarianceState(lhs.n, lhs.t, lhs.cv, lhs.l, v);
-    if (v == lhs.variance) {
-      vs.inheritHistory(lhs);
-    } else {
-      vs.inheritHistory(rhs);
-    }
-    vs.addHistory("join");
-    return vs;
-  }
-
-  VarianceState join(const VarianceState &rhs) const {
-    return VarianceState::join(*this, rhs);
-  }
-
-  static VarianceState evalEncryptPk(int n, int t, int l) {
-    int cv = 2;
-    auto v = Variance::evalEncryptPk(n, t, 3.2);
-    return VarianceState(n, t, cv, l, v).addHistory("enc");
-  }
-
-  static VarianceState evalMultNoRelin(const VarianceState &lhs,
-                                       const VarianceState &rhs) {
+  static VarianceKey evalMultNoRelin(const VarianceKey &lhs,
+                                     const VarianceKey &rhs, Value result) {
     assert(lhs.sameLevel(rhs));
-    auto v = Variance::evalMultNoRelin(lhs.variance, rhs.variance, lhs.n);
-    auto vs = VarianceState(lhs.n, lhs.t, lhs.cv + rhs.cv - 1, lhs.l, v);
-    vs.mergeHistory(lhs, rhs);
-    vs.addHistory("mult");
-    return vs;
+    return VarianceKey(lhs.n, lhs.t, lhs.cv + rhs.cv - 1, lhs.l, result);
   }
 
-  static VarianceState evalRelinearizeBV(const VarianceState &lhs) {
-    auto v = Variance::evalRelinearizeBV(lhs.variance, lhs.n, lhs.t, 3.2, lhs.l,
-                                         35156991246337);
-    auto vs = VarianceState(lhs.n, lhs.t, lhs.cv - 1, lhs.l, v);
-    vs.inheritHistory(lhs);
-    vs.addHistory("relin");
-    return vs;
+  VarianceKey evalMultNoRelin(const VarianceKey &rhs, Value result) const {
+    return VarianceKey::evalMultNoRelin(*this, rhs, result);
   }
 
-  static VarianceState evalModReduce(const VarianceState &lhs) {
-    auto v =
-        Variance::evalModReduce(lhs.variance, 35156991246337, lhs.n, lhs.t);
-    auto vs = VarianceState(lhs.n, lhs.t, lhs.cv, lhs.l - 1, v);
-    vs.inheritHistory(lhs);
-    vs.addHistory("modd");
-    return vs;
+  static VarianceKey evalRelinearizeBV(const VarianceKey &lhs) {
+    assert(lhs.canRelinearize());
+    return VarianceKey(lhs.n, lhs.t, lhs.cv - 1, lhs.l, lhs.v);
   }
 
-  bool canModReduce() { return l > 1; };
-  bool canRelinearize() { return cv > 2; };
+  VarianceKey evalRelinearizeBV() const {
+    return VarianceKey::evalRelinearizeBV(*this);
+  }
+
+  friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
+                                       const VarianceKey &key);
 
  private:
   int n;
   int t;
   int cv;
   int l;
-  Variance variance;
+  Value v;
+};
 
-  std::vector<std::string> history;
+class VarianceValues {
+  friend class VarianceStates;
+
+  VarianceValues() = default;
+
+  void print(llvm::raw_ostream &os) const {
+    os << k;
+    for (auto &p : v) {
+      os << "Bound(";
+      os << std::to_string(log(p.first.alphaBound(k.n)) / log(2));
+      os << ") parent:(";
+      for (auto &parent : p.second) {
+        os << parent;
+        os << ", ";
+      }
+      os << "); ";
+    }
+  }
+
+  bool operator==(const VarianceValues &rhs) const { return v == rhs.v; }
+
+  VarianceValues(VarianceKey k, Variance var,
+                 std::vector<VarianceKey> parents = {})
+      : k(k) {
+    insert(std::make_pair(var, parents));
+  }
+
+  void insert(const std::pair<Variance, std::vector<VarianceKey>> &pair) {
+    v.push_back(pair);
+  }
+
+  void join(const VarianceValues &rhs) {
+    assert(k == rhs.k);
+    for (auto &p : rhs.v) {
+      insert(p);
+    }
+  }
+
+  Variance getVariance() const {
+    Variance res = v[0].first;
+    for (auto &p : v) {
+      res = Variance::min(res, p.first);
+    }
+    return res;
+  }
+
+  static VarianceValues evalEncryptPk(Value result, int n, int t, int l) {
+    int cv = 2;
+    double std0 = 3.2;
+    VarianceKey k = VarianceKey(n, t, cv, l, result);
+    auto v = Variance::evalEncryptPk(k.n, k.t, std0);
+    return VarianceValues(k, v);
+  }
+
+  static VarianceValues evalModReduce(const VarianceValues &lhs) {
+    VarianceKey k = lhs.k.evalModReduce();
+    Variance v =
+        Variance::evalModReduce(lhs.getVariance(), 35156991246337, k.n, k.t);
+    return VarianceValues(k, v, {lhs.k});
+  }
+
+  VarianceValues evalModReduce() const {
+    return VarianceValues::evalModReduce(*this);
+  }
+
+  static VarianceValues evalMultNoRelin(const VarianceValues &lhs,
+                                        const VarianceValues &rhs,
+                                        Value result) {
+    assert(lhs.k.sameLevel(rhs.k));
+    VarianceKey k = lhs.k.evalMultNoRelin(rhs.k, result);
+    Variance v =
+        Variance::evalMultNoRelin(lhs.getVariance(), rhs.getVariance(), k.n);
+    return VarianceValues(k, v, {lhs.k, rhs.k});
+  }
+
+  VarianceValues evalMultNoRelin(const VarianceValues &rhs,
+                                 Value result) const {
+    return VarianceValues::evalMultNoRelin(*this, rhs, result);
+  }
+
+  static VarianceValues evalRelinearizeBV(const VarianceValues &lhs) {
+    assert(lhs.k.canRelinearize());
+    VarianceKey k = lhs.k.evalRelinearizeBV();
+    Variance v = Variance::evalRelinearizeBV(lhs.getVariance(), k.n, k.t, 3.2,
+                                             k.l, 35156991246337);
+    return VarianceValues(k, v, {lhs.k});
+  }
+
+  VarianceValues evalRelinearizeBV() const {
+    return VarianceValues::evalRelinearizeBV(*this);
+  }
+
+  friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
+                                       const VarianceValues &values);
+
+ private:
+  VarianceKey k;
+  // variance and its parent(s)
+  std::vector<std::pair<Variance, std::vector<VarianceKey>>> v;
 };
 
 class VarianceStates {
  public:
   VarianceStates() = default;
-  VarianceStates(std::vector<VarianceState> states) : states(states) {}
 
   void print(llvm::raw_ostream &os) const {
     os << "\n[\n";
     for (auto &s : states) {
       os << "\t";
-      s.print(os);
+      os << s;
       os << ",\n";
     }
     os << "]\n";
@@ -291,9 +339,9 @@ class VarianceStates {
     for (auto &l : states) {
       bool found = false;
       for (auto &r : rhs.states) {
-        if (l.sameState(r)) {
+        if (l.k == r.k) {
           found = true;
-          if (!(l == r)) {
+          if (!(l.v == r.v)) {
             return false;
           }
         }
@@ -305,40 +353,45 @@ class VarianceStates {
     return true;
   }
 
-  void insert(VarianceState vs) {
+  void insert(const VarianceValues &values) {
     bool inserted = false;
-    for (auto &s : states) {
-      if (vs.sameState(s)) {
-        s = vs.join(s);
+    for (auto &v : states) {
+      if (v.k == values.k) {
+        v.join(values);
         inserted = true;
         break;
       }
     }
     if (!inserted) {
-      states.push_back(vs);
+      states.push_back(values);
     }
   }
 
-  static VarianceStates join(const VarianceStates &lhs,
-                             const VarianceStates &rhs) {
-    VarianceStates res = lhs;
+  void insert(const VarianceKey &k, const Variance &v,
+              const std::vector<VarianceKey> &parents = {}) {
+    insert(VarianceValues(k, v, parents));
+  }
+
+  // join to left side
+  static VarianceStates &join(VarianceStates &lhs, const VarianceStates &rhs) {
     for (auto &r : rhs.states) {
-      res.insert(r);
+      lhs.insert(r);
     }
-    return res;
+    return lhs;
   }
 
-  VarianceStates join(const VarianceStates &rhs) const {
+  VarianceStates join(const VarianceStates &rhs) {
     return VarianceStates::join(*this, rhs);
   }
 
-  static VarianceStates evalEncryptPk(int t, int l) {
+  static VarianceStates evalEncryptPk(Value result, int t, int l) {
     VarianceStates vss;
     for (auto n : {1024}) {
-      auto vs = VarianceState::evalEncryptPk(n, t, l);
+      auto vs = VarianceValues::evalEncryptPk(result, n, t, l);
       vss.insert(vs);
+
       for (auto i = 0; i != l - 1; ++i) {
-        vs = VarianceState::evalModReduce(vs);
+        vs = vs.evalModReduce();
         vss.insert(vs);
       }
     }
@@ -346,34 +399,37 @@ class VarianceStates {
   }
 
   static VarianceStates evalMultNoRelin(const VarianceStates &lhs,
-                                        const VarianceStates &rhs) {
+                                        const VarianceStates &rhs,
+                                        Value result) {
     VarianceStates vss;
     for (auto &l : lhs.states) {
       for (auto &r : rhs.states) {
-        if (l.sameLevel(r)) {
-          vss.insert(VarianceState::evalMultNoRelin(l, r));
+        if (l.k.sameLevel(r.k)) {
+          auto vs = l.evalMultNoRelin(r, result);
+          vss.insert(vs);
         }
       }
     }
     VarianceStates others;
     for (auto &vs : vss.states) {
       // all relin
-      VarianceState relin = vs;
+      VarianceValues relin = vs;
       do {
-        relin = VarianceState::evalRelinearizeBV(relin);
+        relin = relin.evalRelinearizeBV();
         others.insert(relin);
-      } while (relin.canRelinearize());
+      } while (relin.k.canRelinearize());
 
       // all mod reduce ( + relin)
       // TODO: relin + mod reduce + relin
-      if (vs.canModReduce()) {
-        auto modd = VarianceState::evalModReduce(vs);
+      if (vs.k.canModReduce()) {
+        auto modd = vs.evalModReduce();
         others.insert(modd);
-        VarianceState relin = modd;
+
+        VarianceValues relin = modd;
         do {
-          relin = VarianceState::evalRelinearizeBV(relin);
+          relin = relin.evalRelinearizeBV();
           others.insert(relin);
-        } while (relin.canRelinearize());
+        } while (relin.k.canRelinearize());
       }
     }
     return vss.join(others);
@@ -383,7 +439,7 @@ class VarianceStates {
                                        const VarianceStates &variance);
 
  private:
-  std::vector<VarianceState> states;
+  std::vector<VarianceValues> states;
 };
 
 }  // namespace heir
