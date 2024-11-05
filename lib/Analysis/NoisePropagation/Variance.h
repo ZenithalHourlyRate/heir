@@ -153,6 +153,13 @@ class VarianceKey {
 
   VarianceKey(Param p, int cv, int l, Value v) : p(p), cv(cv), l(l), v(v) {}
 
+  std::string toDOTNode(
+      const DenseMap<Value, std::string> &valueNameMap) const {
+    return "\"" + valueNameMap.at(v) + "_n_" + std::to_string(p.n) + "_dS_" +
+           std::to_string(p.digitSize) + "_dN_" + std::to_string(p.dnum) +
+           "_cv_" + std::to_string(cv) + "_l_" + std::to_string(l) + "\"";
+  }
+
   void print(llvm::raw_ostream &os) const {
     os << "(n " << p.n << " dS " << p.digitSize << " dN " << p.dnum << " cv "
        << cv << " l " << l << ")";
@@ -200,6 +207,8 @@ class VarianceKey {
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
                                        const VarianceKey &key);
 
+  // friend Diagnostic &operator<<(Diagnostic &diagnostic,
+  //                               const VarianceKey &key);
  private:
   Param p;
   int cv;
@@ -211,6 +220,20 @@ class VarianceValues {
   friend class VarianceStates;
 
   VarianceValues() = default;
+
+  std::string toDOTEdge(
+      const DenseMap<Value, std::string> &valueNameMap) const {
+    std::string str;
+    for (auto &p : v) {
+      for (auto &parent : p.second) {
+        str += parent.toDOTNode(valueNameMap) + " -> " +
+               k.toDOTNode(valueNameMap) + " [label=\"" +
+               std::to_string(log(p.first.alphaBound(k.p.n)) / log(2)) + "\"]" +
+               "\n";
+      }
+    }
+    return str;
+  }
 
   void print(llvm::raw_ostream &os) const {
     os << k;
@@ -322,6 +345,9 @@ class VarianceValues {
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
                                        const VarianceValues &values);
 
+  // friend Diagnostic &operator<<(Diagnostic &diagnostic,
+  //                               const VarianceValues &values);
+
  private:
   VarianceKey k;
   // variance and its parent(s)
@@ -331,6 +357,27 @@ class VarianceValues {
 class VarianceStates {
  public:
   VarianceStates() = default;
+
+  std::string toDOTNode(
+      const DenseMap<Value, std::string> &valueNameMap) const {
+    std::string str;
+    str += "subgraph cluster_" + valueNameMap.at(states[0].k.v) + "{\n";
+    for (auto &s : states) {
+      str += s.k.toDOTNode(valueNameMap);
+      str += "\n";
+    }
+    str += "}\n";
+    return str;
+  }
+
+  std::string toDOTEdge(
+      const DenseMap<Value, std::string> &valueNameMap) const {
+    std::string str;
+    for (auto &s : states) {
+      str += s.toDOTEdge(valueNameMap);
+    }
+    return str;
+  }
 
   void print(llvm::raw_ostream &os) const {
     os << "\n[\n";
@@ -384,6 +431,10 @@ class VarianceStates {
 
   // join to left side
   static VarianceStates &join(VarianceStates &lhs, const VarianceStates &rhs) {
+    // special handling of those assert monotonicity
+    if (lhs == rhs) {
+      return lhs;
+    }
     for (auto &r : rhs.states) {
       lhs.insert(r);
     }
@@ -396,8 +447,8 @@ class VarianceStates {
 
   static VarianceStates evalEncryptPk(Value result, int t, int l) {
     VarianceStates vss;
-    std::vector<Param> params = {Param::genParam(l, 30, 0, t),
-                                 Param::genParam(l, 0, 0, t)};
+    std::vector<Param> params = {Param::genParam(l, 30, 0, t)};
+    // Param::genParam(l, 0, 0, t)};
     for (auto &p : params) {
       auto vs = VarianceValues::evalEncryptPk(result, p);
       vss.insert(vs);
@@ -450,6 +501,8 @@ class VarianceStates {
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
                                        const VarianceStates &variance);
 
+  // friend Diagnostic &operator<<(Diagnostic &diagnostic,
+  //                               const VarianceStates &variance);
  private:
   std::vector<VarianceValues> states;
 };
