@@ -34,6 +34,45 @@ class Param {
   std::vector<int> pi;
 
  public:
+  double P() const {
+    double ret = 0.0;
+    for (size_t i = 0; i != pi.size(); ++i) {
+      ret += 1L << pi[i];
+    }
+    return ret;
+  }
+
+  double digit() const { return pow(2.0, digitSize); }
+
+  double numDigit(int l, bool ghs) const {
+    if (dnum == 0) {
+      return digitPerQi * (l + 1);
+    } else {
+      int num = ceil(double(l + 1) / alpha);
+      if (ghs) {
+        num += 1;
+      }
+      return num;
+    }
+  }
+
+  int logQlP(int l, bool ghs) const {
+    assert(l <= L);
+
+    int ret = 0;
+    for (size_t i = 0; i <= l; ++i) {
+      ret += qi[i];
+    }
+
+    if (ghs) {
+      for (size_t i = 0; i != pi.size(); ++i) {
+        ret += pi[i];
+      }
+    }
+
+    return ret;
+  }
+
   void print(llvm::raw_ostream &os) const {
     os << "Param: " << "n = " << n << ", L = " << L << ", qi = [";
     for (auto &q : qi) {
