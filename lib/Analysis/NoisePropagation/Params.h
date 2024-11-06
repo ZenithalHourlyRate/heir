@@ -27,6 +27,7 @@ class Param {
   int L;
   // qi.size() == L + 1
   std::vector<int> qi;
+  int digitPerQi;
   // derived param
   int dnum;
   int alpha;
@@ -76,6 +77,7 @@ class Param {
       param.n = p.n;
       param.t = t;
       param.digitSize = digitSize;
+      param.digitPerQi = 1;
       param.L = depth;
       // TODO: support firstModSize
       int budget = maxQ;
@@ -86,6 +88,10 @@ class Param {
 
       if (digitSize == 0) {
         param.digitSize = param.qi[0];
+      }
+
+      if (dnum == 0) {
+        param.digitPerQi = ceil(double(param.qi[0]) / param.digitSize);
       }
 
       param.dnum = dnum;

@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "lib/Analysis/NoisePropagation/Params.h"
+#include "llvm/include/llvm/Support/Debug.h"        // from @llvm-project
 #include "llvm/include/llvm/Support/raw_ostream.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Diagnostics.h"       // from @llvm-project
 #include "mlir/include/mlir/IR/Value.h"             // from @llvm-project
@@ -105,6 +106,13 @@ class Variance {
   }
 
   static Variance min(const Variance &lhs, const Variance &rhs) {
+    if (lhs.varianceType == VarianceType::UNBOUNDED) {
+      return rhs;
+    }
+    if (rhs.varianceType == VarianceType::UNBOUNDED) {
+      return lhs;
+    }
+
     assert(lhs.varianceType == VarianceType::SET &&
            rhs.varianceType == VarianceType::SET);
     return Variance::of(std::min(lhs.getValue(), rhs.getValue()));
@@ -134,6 +142,9 @@ class Variance {
   std::string toString() const;
 
   std::string toBound(int n) const {
+    if (varianceType == VarianceType::UNBOUNDED) {
+      return "MAX";
+    }
     return std::to_string(log(alphaBound(n)) / log(2));
   }
 
@@ -187,7 +198,7 @@ class VarianceKey {
     return p == rhs.p && l == rhs.l;
   }
 
-  bool canModReduce() const { return l > 1; };
+  bool canModReduce() const { return l > 0; };
   bool canRelinearize() const { return cv > 2; };
 
   static VarianceKey evalModReduce(const VarianceKey &lhs) {
@@ -216,6 +227,18 @@ class VarianceKey {
 
   VarianceKey evalRelinearizeBV() const {
     return VarianceKey::evalRelinearizeBV(*this);
+  }
+
+  Variance bound(const Variance &v) const {
+    int budget = 0;
+    for (size_t i = 0; i <= l; ++i) {
+      budget += p.qi[i];
+    }
+    double logBound = log(v.alphaBound(p.n)) / log(2);
+    if (logBound >= budget) {
+      return Variance::unbounded();
+    }
+    return v;
   }
 
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
@@ -256,10 +279,13 @@ class VarianceValues {
         str += parent.toDOTNode(valueNameMap) + " -> " +
                k.toDOTNode(valueNameMap) + " [label=\"" +
                std::get<0>(p).toBound(k.p.n) + " " + std::get<2>(p) + "\"";
-        if (markBold) {
+        if (markBold && std::get<0>(p).isBounded()) {
           str += " color=black fontcolor=black";
         } else {
           str += " color=gray fontcolor=gray";
+          if (!std::get<0>(p).isBounded()) {
+            str += " style=dashed";
+          }
         }
         str += "]\n";
       }
@@ -334,14 +360,14 @@ class VarianceValues {
     double std0 = 3.2;
     VarianceKey k = VarianceKey(p, cv, p.L, result);
     auto v = Variance::evalEncryptPk(k.p.n, k.p.t, std0);
-    return VarianceValues(k, v, {}, "enc");
+    return VarianceValues(k, k.bound(v), {}, "enc");
   }
 
   static VarianceValues evalModReduce(const VarianceValues &lhs) {
     VarianceKey k = lhs.k.evalModReduce();
     Variance v = Variance::evalModReduce(lhs.getVariance(), 1L << k.p.qi[k.l],
                                          k.p.n, k.p.t);
-    return VarianceValues(k, v, {lhs.k}, "modd");
+    return VarianceValues(k, k.bound(v), {lhs.k}, "modd");
   }
 
   VarianceValues evalModReduce() const {
@@ -355,7 +381,7 @@ class VarianceValues {
     VarianceKey k = lhs.k.evalMultNoRelin(rhs.k, result);
     Variance v =
         Variance::evalMultNoRelin(lhs.getVariance(), rhs.getVariance(), k.p.n);
-    return VarianceValues(k, v, {lhs.k, rhs.k}, "mult");
+    return VarianceValues(k, k.bound(v), {lhs.k, rhs.k}, "mult");
   }
 
   VarianceValues evalMultNoRelin(const VarianceValues &rhs,
@@ -367,8 +393,9 @@ class VarianceValues {
     assert(lhs.k.canRelinearize());
     VarianceKey k = lhs.k.evalRelinearizeBV();
     Variance v = Variance::evalRelinearizeBV(lhs.getVariance(), k.p.n, k.p.t,
-                                             3.2, k.l, 1L << k.p.digitSize);
-    return VarianceValues(k, v, {lhs.k}, "relin");
+                                             3.2, k.p.digitPerQi * (k.l + 1),
+                                             1L << k.p.digitSize);
+    return VarianceValues(k, k.bound(v), {lhs.k}, "relin");
   }
 
   VarianceValues evalRelinearizeBV() const {
@@ -505,11 +532,12 @@ class VarianceStates {
         // then try to create new keys
         visited.insert(i);
 
-        if (states[i].k.canRelinearize()) {
+        if (states[i].k.canRelinearize() &&
+            states[i].getVariance().isBounded()) {
           insert(states[i].evalRelinearizeBV());
         }
 
-        if (states[i].k.canModReduce()) {
+        if (states[i].k.canModReduce() && states[i].getVariance().isBounded()) {
           insert(states[i].evalModReduce());
         }
       }
@@ -534,7 +562,8 @@ class VarianceStates {
     VarianceStates vss;
     for (auto &l : lhs.states) {
       for (auto &r : rhs.states) {
-        if (l.k.sameLevel(r.k)) {
+        if (l.k.sameLevel(r.k) && l.getVariance().isBounded() &&
+            r.getVariance().isBounded()) {
           auto vs = l.evalMultNoRelin(r, result);
           vss.insert(vs);
         }
