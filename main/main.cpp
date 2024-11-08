@@ -108,16 +108,31 @@ int main(int argc, char* argv[]) {
     arg1.push_back(arg1Vals[i % 8]);
   }
 
-  auto arg0Encrypted = func__encrypt__arg0(keyPair.secretKey, cryptoContext,
-                                           arg0, keyPair.publicKey);
-  auto arg1Encrypted = func__encrypt__arg1(keyPair.secretKey, cryptoContext,
-                                           arg1, keyPair.publicKey);
   // auto arg0Encrypted = func__encrypt__arg0(keyPair.secretKey, cryptoContext,
-  //                                          1, keyPair.publicKey);
+  //                                          arg0, keyPair.publicKey);
   // auto arg1Encrypted = func__encrypt__arg1(keyPair.secretKey, cryptoContext,
-  //                                          2, keyPair.publicKey);
+  //                                          arg1, keyPair.publicKey);
+  auto arg0Encrypted = func__encrypt__arg0(keyPair.secretKey, cryptoContext, 0,
+                                           keyPair.publicKey);
+  auto arg1Encrypted = func__encrypt__arg1(keyPair.secretKey, cryptoContext, 1,
+                                           keyPair.publicKey);
+  auto arg2Encrypted = func__encrypt__arg2(keyPair.secretKey, cryptoContext, 0,
+                                           keyPair.publicKey);
+  auto arg3Encrypted = func__encrypt__arg3(keyPair.secretKey, cryptoContext, 1,
+                                           keyPair.publicKey);
+  auto arg4Encrypted = func__encrypt__arg4(keyPair.secretKey, cryptoContext, 0,
+                                           keyPair.publicKey);
+  auto arg5Encrypted = func__encrypt__arg5(keyPair.secretKey, cryptoContext, 1,
+                                           keyPair.publicKey);
+  auto arg6Encrypted = func__encrypt__arg6(keyPair.secretKey, cryptoContext, 0,
+                                           keyPair.publicKey);
+  auto arg7Encrypted = func__encrypt__arg7(keyPair.secretKey, cryptoContext, 1,
+                                           keyPair.publicKey);
+
   auto outputEncrypted =
-      func(keyPair.secretKey, cryptoContext, arg0Encrypted, arg1Encrypted);
+      func(keyPair.secretKey, cryptoContext, arg0Encrypted, arg1Encrypted,
+           arg2Encrypted, arg3Encrypted, arg4Encrypted, arg5Encrypted,
+           arg6Encrypted, arg7Encrypted);
   auto actual = func__decrypt__result0(keyPair.secretKey, cryptoContext,
                                        outputEncrypted, keyPair.secretKey);
 

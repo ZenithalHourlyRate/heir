@@ -629,9 +629,9 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
   os << paramsName << ".SetPlaintextModulus(" << 65537 << ");\n";
   // os << paramsName << ".SetPlaintextModulus(" << plainMod << ");\n";
 
-  os << paramsName << ".SetKeySwitchTechnique(BV);\n";
-  os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
-  os << paramsName << ".SetDigitSize(0);\n";
+  // os << paramsName << ".SetKeySwitchTechnique(BV);\n";
+  // os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
+  // os << paramsName << ".SetDigitSize(0);\n";
   return success();
 }
 
