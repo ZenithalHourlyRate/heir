@@ -51,12 +51,11 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
         }
 
         valueNameMap[result] = std::to_string(valueName++);
-
-        // LLVM_DEBUG(llvm::dbgs() <<
-        // opRange->getValue().toDOTNode(valueNameMap)
-        //                         <<
-        //                         opRange->getValue().toDOTEdge(valueNameMap));
-
+#if 1
+        LLVM_DEBUG(llvm::dbgs() << opRange->getValue().toDOTNode(valueNameMap)
+                                << opRange->getValue().toDOTEdge(valueNameMap));
+#endif
+#if 0
         auto &vss = opRange->getValue();
         auto params = vss.reachable();
         if (params.size() != 0) {
@@ -69,6 +68,7 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
           LLVM_DEBUG(llvm::dbgs() << "No reachable params for "
                                   << valueNameMap.at(result) << "\n");
         }
+#endif
       }
       return WalkResult::advance();
     });
