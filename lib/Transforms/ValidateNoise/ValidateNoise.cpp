@@ -58,15 +58,15 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
         //                         opRange->getValue().toDOTEdge(valueNameMap));
 
         auto &vss = opRange->getValue();
-        auto keys = vss.reachable();
-        if (keys.size() != 0) {
-          LLVM_DEBUG(llvm::dbgs() << "Reachable keys for "
+        auto params = vss.reachable();
+        if (params.size() != 0) {
+          LLVM_DEBUG(llvm::dbgs() << "Reachable params for "
                                   << valueNameMap.at(result) << "\n");
-          for (auto &k : keys) {
-            LLVM_DEBUG(llvm::dbgs() << k.getParam() << "\n");
+          for (auto &p : params) {
+            LLVM_DEBUG(llvm::dbgs() << p << "\n");
           }
         } else {
-          LLVM_DEBUG(llvm::dbgs() << "No reachable keys for "
+          LLVM_DEBUG(llvm::dbgs() << "No reachable params for "
                                   << valueNameMap.at(result) << "\n");
         }
       }

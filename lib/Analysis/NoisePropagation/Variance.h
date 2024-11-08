@@ -208,7 +208,9 @@ class VarianceKey {
   }
 
   bool canModReduce() const { return l > 0; };
-  bool canRelinearize() const { return cv > 2; };
+  bool canRelinearize() const {
+    return cv > 2 && (p.maxRelinSkDeg == 0 || p.maxRelinSkDeg + 1 >= cv);
+  };
 
   bool isFinal() const { return l == 0 && cv == 2; };
 
@@ -628,26 +630,32 @@ class VarianceStates {
     }
   }
 
-  std::vector<VarianceKey> reachable() const {
-    std::vector<VarianceKey> ret;
+  std::vector<Param> reachable() const {
+    std::vector<Param> ret;
     for (auto &s : states) {
       if (s.k.isFinal() && s.reachable()) {
-        ret.push_back({s.k});
+        ret.push_back({s.k.p});
       }
     }
+    std::sort(ret.begin(), ret.end());
     return ret;
   }
 
   static VarianceStates evalEncryptPk(Value result, int t, int l) {
     VarianceStates vss;
     std::vector<Param> params;
-    for (auto depth : {l, l - 1, l - 2}) {
-      for (auto qiSize = 30; qiSize <= 60; qiSize += 5) {
-        for (auto digitSize : {0, 30}) {
-          params.push_back(Param::genParam(depth, digitSize, 0, t, qiSize));
-        }
-        for (auto dnum : {2, 3, depth + 1}) {
-          params.push_back(Param::genParam(depth, 0, dnum, t, qiSize));
+    // params.push_back(Param::genParam(2, 30, 0, t, 35, 2));
+    for (auto depth : {l, l - 1}) {
+      for (auto relinDeg : {0, 2, 3}) {
+        for (auto qiSize : {0, 30, 40, 50, 60}) {
+          for (auto digitSize : {0, 30}) {
+            params.push_back(
+                Param::genParam(depth, digitSize, 0, t, qiSize, relinDeg));
+          }
+          for (auto dnum : {2, 3, depth + 1}) {
+            params.push_back(
+                Param::genParam(depth, 0, dnum, t, qiSize, relinDeg));
+          }
         }
       }
     }
