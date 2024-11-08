@@ -644,7 +644,10 @@ class VarianceStates {
   static VarianceStates evalEncryptPk(Value result, int t, int l) {
     VarianceStates vss;
     std::vector<Param> params;
-    // params.push_back(Param::genParam(2, 30, 0, t, 35, 2));
+#if 1
+    params.push_back(Param::genParam(2, 0, 3, t, 50, 2));
+#endif
+#if 0
     for (auto depth : {l, l - 1}) {
       for (auto relinDeg : {0, 2, 3}) {
         for (auto qiSize : {0, 30, 40, 50, 60}) {
@@ -659,6 +662,7 @@ class VarianceStates {
         }
       }
     }
+#endif
     for (auto &p : params) {
       LLVM_DEBUG(llvm::dbgs() << p << "\n");
       auto vs = VarianceValues::evalEncryptPk(result, p);
