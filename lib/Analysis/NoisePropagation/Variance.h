@@ -210,6 +210,10 @@ class VarianceKey {
   bool canModReduce() const { return l > 0; };
   bool canRelinearize() const { return cv > 2; };
 
+  bool isFinal() const { return l == 0 && cv == 2; };
+
+  Param getParam() const { return p; };
+
   static VarianceKey evalModReduce(const VarianceKey &lhs) {
     assert(lhs.canModReduce());
     return VarianceKey(lhs.p, lhs.cv, lhs.l - 1, lhs.v, lhs.ghs);
@@ -377,6 +381,15 @@ class VarianceValues {
   }
 
   std::string getReason() const { return std::get<2>(getMinimal()); }
+
+  bool reachable() const {
+    for (auto &t : v) {
+      if (std::get<0>(t).isBounded()) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   static VarianceValues evalEncryptPk(Value result, Param p) {
     int cv = 2;
@@ -615,10 +628,29 @@ class VarianceStates {
     }
   }
 
+  std::vector<VarianceKey> reachable() const {
+    std::vector<VarianceKey> ret;
+    for (auto &s : states) {
+      if (s.k.isFinal() && s.reachable()) {
+        ret.push_back({s.k});
+      }
+    }
+    return ret;
+  }
+
   static VarianceStates evalEncryptPk(Value result, int t, int l) {
     VarianceStates vss;
-    std::vector<Param> params = {Param::genParam(l, 0, 4, t)};
-    // Param::genParam(l, 0, 0, t)};
+    std::vector<Param> params;
+    for (auto depth : {l, l - 1, l - 2}) {
+      for (auto qiSize = 30; qiSize <= 60; qiSize += 5) {
+        for (auto digitSize : {0, 30}) {
+          params.push_back(Param::genParam(depth, digitSize, 0, t, qiSize));
+        }
+        for (auto dnum : {2, 3, depth + 1}) {
+          params.push_back(Param::genParam(depth, 0, dnum, t, qiSize));
+        }
+      }
+    }
     for (auto &p : params) {
       LLVM_DEBUG(llvm::dbgs() << p << "\n");
       auto vs = VarianceValues::evalEncryptPk(result, p);
