@@ -52,8 +52,23 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
 
         valueNameMap[result] = std::to_string(valueName++);
 
-        LLVM_DEBUG(llvm::dbgs() << opRange->getValue().toDOTNode(valueNameMap)
-                                << opRange->getValue().toDOTEdge(valueNameMap));
+        // LLVM_DEBUG(llvm::dbgs() <<
+        // opRange->getValue().toDOTNode(valueNameMap)
+        //                         <<
+        //                         opRange->getValue().toDOTEdge(valueNameMap));
+
+        auto &vss = opRange->getValue();
+        auto keys = vss.reachable();
+        if (keys.size() != 0) {
+          LLVM_DEBUG(llvm::dbgs() << "Reachable keys for "
+                                  << valueNameMap.at(result) << "\n");
+          for (auto &k : keys) {
+            LLVM_DEBUG(llvm::dbgs() << k.getParam() << "\n");
+          }
+        } else {
+          LLVM_DEBUG(llvm::dbgs() << "No reachable keys for "
+                                  << valueNameMap.at(result) << "\n");
+        }
       }
       return WalkResult::advance();
     });

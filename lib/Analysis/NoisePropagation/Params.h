@@ -100,16 +100,22 @@ class Param {
     return os;
   }
 
-  static Param genParam(int depth, int digitSize, int dnum, int t) {
+  static Param genParam(int depth, int digitSize, int dnum, int t,
+                        int qiSize = 0) {
     for (auto &p : HEStd_128_classic) {
       int maxQ = p.maxQ;
       if (dnum != 0) {
         maxQ = ceil(double(maxQ) * dnum / (dnum + 1));
       }
-      int width = ceil(double(maxQ) / (depth + 1));
-      // not wide enough
-      if (width < 30 || width > 60) {
-        continue;
+      int maxWidth = ceil(double(maxQ) / (depth + 1));
+      int width = maxWidth;
+      if (qiSize == 0 || qiSize > maxWidth) {
+        // not wide enough
+        if (maxWidth < 20 || maxWidth > 60) {
+          continue;
+        }
+      } else if (qiSize <= maxWidth) {
+        width = qiSize;
       }
 
       Param param;
