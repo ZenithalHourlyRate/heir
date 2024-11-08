@@ -23,12 +23,17 @@ class Param {
  public:
   int n;
   int t;
-  int digitSize;
   int L;
   // qi.size() == L + 1
   std::vector<int> qi;
+
+  int maxRelinSkDeg;
+
+  // BV
+  int digitSize;
   int digitPerQi;
-  // derived param
+
+  // GHS
   int dnum;
   int alpha;
   std::vector<int> pi;
@@ -74,7 +79,8 @@ class Param {
   }
 
   void print(llvm::raw_ostream &os) const {
-    os << "Param: " << "n = " << n << ", L = " << L << ", qi = [";
+    os << "Param: " << "n = " << n << ", L = " << L
+       << ", relinDeg = " << maxRelinSkDeg << ", qi = [";
     for (auto &q : qi) {
       os << q;
       os << ", ";
@@ -90,8 +96,31 @@ class Param {
 
   bool operator==(const Param &rhs) const {
     return n == rhs.n && t == rhs.t && digitSize == rhs.digitSize &&
+           digitPerQi == rhs.digitPerQi && maxRelinSkDeg == rhs.maxRelinSkDeg &&
            L == rhs.L && dnum == rhs.dnum && alpha == rhs.alpha &&
            qi == rhs.qi && pi == rhs.pi;
+  }
+
+  bool operator<(const Param &rhs) const {
+    if (n != rhs.n) {
+      return n < rhs.n;
+    }
+    if (L != rhs.L) {
+      return L < rhs.L;
+    }
+    if (maxRelinSkDeg != rhs.maxRelinSkDeg) {
+      if (maxRelinSkDeg == 0) {
+        return false;
+      }
+      if (rhs.maxRelinSkDeg == 0) {
+        return true;
+      }
+      return maxRelinSkDeg < rhs.maxRelinSkDeg;
+    }
+    if (logQlP(L, dnum != 0) != rhs.logQlP(L, rhs.dnum != 0)) {
+      return logQlP(L, dnum != 0) < rhs.logQlP(L, rhs.dnum != 0);
+    }
+    return false;
   }
 
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
@@ -100,8 +129,8 @@ class Param {
     return os;
   }
 
-  static Param genParam(int depth, int digitSize, int dnum, int t,
-                        int qiSize = 0) {
+  static Param genParam(int depth, int digitSize, int dnum, int t, int qiSize,
+                        int maxRelinSkDeg) {
     for (auto &p : HEStd_128_classic) {
       int maxQ = p.maxQ;
       if (dnum != 0) {
@@ -109,13 +138,15 @@ class Param {
       }
       int maxWidth = ceil(double(maxQ) / (depth + 1));
       int width = maxWidth;
-      if (qiSize == 0 || qiSize > maxWidth) {
+      if (qiSize == 0) {
         // not wide enough
         if (maxWidth < 20 || maxWidth > 60) {
           continue;
         }
       } else if (qiSize <= maxWidth) {
         width = qiSize;
+      } else {
+        continue;
       }
 
       Param param;
@@ -124,6 +155,7 @@ class Param {
       param.digitSize = digitSize;
       param.digitPerQi = 1;
       param.L = depth;
+      param.maxRelinSkDeg = maxRelinSkDeg;
       // TODO: support firstModSize
       int budget = maxQ;
       for (size_t i = 0; i != depth + 1; ++i) {
