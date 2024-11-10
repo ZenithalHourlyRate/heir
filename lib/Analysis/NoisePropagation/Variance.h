@@ -194,7 +194,25 @@ class VarianceKey {
            ghs == rhs.ghs;
   }
 
+  bool operator!=(const VarianceKey &rhs) const { return !(*this == rhs); }
+
   bool operator<(const VarianceKey &rhs) const {
+    if (p != rhs.p) {
+      return p < rhs.p;
+    }
+    if (cv != rhs.cv) {
+      return cv < rhs.cv;
+    }
+    if (l != rhs.l) {
+      return l < rhs.l;
+    }
+    if (ghs != rhs.ghs) {
+      return ghs < rhs.ghs;
+    }
+    return false;
+  }
+
+  bool dominatedBy(const VarianceKey &rhs) const {
     assert(p == rhs.p && v == rhs.v && ghs == rhs.ghs);
     return cv <= rhs.cv && l <= rhs.l && !(cv == rhs.cv && l == rhs.l);
   }
@@ -213,6 +231,11 @@ class VarianceKey {
   };
 
   bool isFinal() const { return l == 0 && cv == 2; };
+
+  bool isAbortFinal() const {
+    return !isFinal() && cv > 2 &&
+           (p.maxRelinSkDeg != 0 && p.maxRelinSkDeg + 1 < cv);
+  };
 
   Param getParam() const { return p; };
 
@@ -283,6 +306,7 @@ class VarianceKey {
 };
 
 class VarianceValues {
+ public:
   friend class VarianceStates;
 
   VarianceValues() = default;
@@ -344,7 +368,11 @@ class VarianceValues {
     os << "); ";
   }
 
-  bool operator==(const VarianceValues &rhs) const { return v == rhs.v; }
+  bool operator==(const VarianceValues &rhs) const {
+    return k == rhs.k && v == rhs.v;
+  }
+
+  bool operator!=(const VarianceValues &rhs) const { return !(*this == rhs); }
 
   VarianceValues(VarianceKey k, Variance var,
                  std::vector<VarianceKey> parents = {}, std::string reason = "")
@@ -357,10 +385,22 @@ class VarianceValues {
     v.push_back(tuple);
   }
 
+  void insert(
+      std::tuple<Variance, std::vector<VarianceKey>, std::string> &&tuple) {
+    v.push_back(std::move(tuple));
+  }
+
   void join(const VarianceValues &rhs) {
     assert(k == rhs.k);
     for (auto &p : rhs.v) {
       insert(p);
+    }
+  }
+
+  void join(VarianceValues &&rhs) {
+    assert(k == rhs.k);
+    for (auto &p : rhs.v) {
+      insert(std::move(p));
     }
   }
 
@@ -384,14 +424,7 @@ class VarianceValues {
 
   std::string getReason() const { return std::get<2>(getMinimal()); }
 
-  bool reachable() const {
-    for (auto &t : v) {
-      if (std::get<0>(t).isBounded()) {
-        return true;
-      }
-    }
-    return false;
-  }
+  bool reachable() const { return getVariance().isBounded(); }
 
   static VarianceValues evalEncryptPk(Value result, Param p) {
     int cv = 2;
@@ -433,9 +466,11 @@ class VarianceValues {
     Variance v =
         Variance::evalRelinearizeBV(lhs.getVariance(), k.p.n, k.p.t, 3.2,
                                     k.p.numDigit(k.l, k.ghs), k.p.digit());
+#if 0
     LLVM_DEBUG(llvm::dbgs()
                << "original " << lhs.getVariance().toBound(k.p.n) << " relin "
                << v.toBound(k.p.n) << k.p.logQlP(k.l, k.ghs) << "\n");
+#endif
     return VarianceValues(k, k.bound(v), {lhs.k}, "relin");
   }
 
@@ -464,7 +499,7 @@ class VarianceValues {
 
     Variance vModDown = Variance::evalModReduce(vRelin, kModDown.p.P(),
                                                 kModDown.p.n, kModDown.p.t);
-
+#if 0
     LLVM_DEBUG(llvm::dbgs()
                << "original " << lhs.getVariance().toBound(kModUp.p.n)
                << " modup " << vModUp.toBound(kModUp.p.n) << " bound "
@@ -473,6 +508,7 @@ class VarianceValues {
                << kRelin.p.logQlP(kRelin.l, kRelin.ghs) << " moddown "
                << vModDown.toBound(kModUp.p.n) << " bound "
                << kModDown.p.logQlP(kModDown.l, kModDown.ghs) << "\n");
+#endif
     return VarianceValues(kModDown, kModDown.bound(vModDown), {lhs.k}, "relin");
   }
 
@@ -507,10 +543,15 @@ class VarianceStates {
   std::string toDOTNode(
       const DenseMap<Value, std::string> &valueNameMap) const {
     std::string str;
-    str += "subgraph cluster_" + valueNameMap.at(states[0].k.v) + "{\n";
-    for (auto &s : states) {
-      str += s.toDOTNode(valueNameMap);
-      str += "\n";
+    auto &v = states.begin()->second.begin()->first.v;
+    str += "subgraph cluster_" + valueNameMap.at(v) + "{\n";
+    for (auto &[p, kToVs] : states) {
+      for (auto &[k, vs] : kToVs) {
+        if (!k.isAbortFinal() && vs.reachable()) {
+          str += vs.toDOTNode(valueNameMap);
+          str += "\n";
+        }
+      }
     }
     str += "}\n";
     return str;
@@ -519,60 +560,71 @@ class VarianceStates {
   std::string toDOTEdge(
       const DenseMap<Value, std::string> &valueNameMap) const {
     std::string str;
-    for (auto &s : states) {
-      str += s.toDOTEdge(valueNameMap);
+    for (auto &[p, kToVs] : states) {
+      for (auto &[k, vs] : kToVs) {
+        if (!k.isAbortFinal() && vs.reachable()) {
+          str += vs.toDOTEdge(valueNameMap);
+        }
+      }
     }
     return str;
   }
 
   void print(llvm::raw_ostream &os) const {
     os << "\n[\n";
-    for (auto &s : states) {
-      os << "\t";
-      os << s;
-      os << ",\n";
+    for (auto &[p, kToVs] : states) {
+      for (auto &[k, vs] : kToVs) {
+        os << "\t";
+        os << vs;
+        os << ",\n";
+      }
     }
     os << "]\n";
   }
 
   bool operator==(const VarianceStates &rhs) const {
-    if (states.size() != rhs.states.size()) {
-      return false;
-    }
-    for (auto &l : states) {
-      bool found = false;
-      for (auto &r : rhs.states) {
-        if (l.k == r.k) {
-          found = true;
-          if (!(l.v == r.v)) {
-            return false;
-          }
-        }
-      }
-      if (!found) {
-        return false;
-      }
-    }
-    return true;
+    return states == rhs.states;
   }
 
   void insert(const VarianceValues &values) {
-    bool inserted = false;
-    for (auto &v : states) {
-      if (v.k == values.k) {
-        v.join(values);
-        inserted = true;
-        break;
-      }
+    if (!values.reachable()) {
+      return;
     }
-    if (!inserted) {
-      states.push_back(values);
+    auto &k = values.k;
+    auto &p = values.k.p;
+    if (states.find(p) != states.end()) {
+      auto &kToVs = states[p];
+      if (kToVs.find(k) != kToVs.end()) {
+        auto &vs = kToVs[k];
+        vs.join(values);
+      } else {
+        kToVs[k] = values;
+      }
+    } else {
+      states[p] = {{k, values}};
     }
   }
 
-  void insert(const VarianceKey &k, const Variance &v,
-              const std::vector<VarianceKey> &parents = {}) {
-    insert(VarianceValues(k, v, parents));
+  void insert(VarianceValues &&values) {
+    if (!values.reachable()) {
+      return;
+    }
+    auto &&k = values.k;
+    auto &&p = values.k.p;
+    if (states.find(p) != states.end()) {
+      auto &kToVs = states[p];
+      if (kToVs.find(k) != kToVs.end()) {
+        auto &vs = kToVs[k];
+        vs.join(std::move(values));
+      } else {
+        VarianceKey kc = values.k;
+        kToVs[kc] = std::move(values);
+      }
+    } else {
+      VarianceKey kc = values.k;
+      Param pc = values.k.p;
+      states[pc] = {{kc, std::move(values)}};
+    }
   }
 
   // join to left side
@@ -581,60 +633,79 @@ class VarianceStates {
     if (lhs == rhs) {
       return lhs;
     }
-    for (auto &r : rhs.states) {
-      lhs.insert(r);
+    if (lhs.size() == 0) {
+      lhs.states = rhs.states;
+      return lhs;
+    }
+    for (auto &[p, kToVs] : rhs.states) {
+      for (auto &[k, vs] : kToVs) {
+        lhs.insert(vs);
+      }
     }
     return lhs;
   }
 
-  VarianceStates join(const VarianceStates &rhs) {
+  VarianceStates join(VarianceStates &rhs) {
     return VarianceStates::join(*this, rhs);
+  }
+
+  size_t size() const {
+    size_t ret = 0;
+    for (auto &[_, kToVs] : states) {
+      ret += kToVs.size();
+    }
+    return ret;
   }
 
   // use modreduce / relin to expand the space
   void expand() {
-    std::set<size_t> visited;
-    while (visited.size() != states.size()) {
-      for (size_t i = 0; i != states.size(); ++i) {
-        if (visited.find(i) != visited.end()) {
-          continue;
-        }
-
-        bool dominated = false;
-        for (size_t j = 0; j != states.size(); ++j) {
-          if (visited.find(j) != visited.end()) {
+    LLVM_DEBUG(llvm::dbgs() << "expand before: " << size() << "\n");
+    for (auto &[p, kToVs] : states) {
+      std::set<VarianceKey> visited;
+      while (visited.size() != kToVs.size()) {
+        for (auto &[k, vs] : kToVs) {
+          if (visited.find(k) != visited.end()) {
             continue;
           }
-          if (states[i].k.sameParam(states[j].k) && states[i].k < states[j].k) {
-            dominated = true;
-            break;
+
+          bool dominated = false;
+          for (auto &[rk, rvs] : kToVs) {
+            if (visited.find(rk) != visited.end()) {
+              continue;
+            }
+            if (k.sameParam(rk) && k.dominatedBy(rk)) {
+              dominated = true;
+              break;
+            }
           }
-        }
 
-        if (dominated) {
-          continue;
-        }
+          if (dominated) {
+            continue;
+          }
 
-        // then try to create new keys
-        visited.insert(i);
+          // then try to create new keys
+          visited.insert(k);
 
-        if (states[i].k.canRelinearize() &&
-            states[i].getVariance().isBounded()) {
-          insert(states[i].evalRelinearize());
-        }
+          if (k.canRelinearize() && vs.reachable()) {
+            insert(vs.evalRelinearize());
+          }
 
-        if (states[i].k.canModReduce() && states[i].getVariance().isBounded()) {
-          insert(states[i].evalModReduce());
+          if (k.canModReduce() && vs.reachable()) {
+            insert(vs.evalModReduce());
+          }
         }
       }
     }
+    LLVM_DEBUG(llvm::dbgs() << "expand after: " << size() << "\n");
   }
 
   std::vector<Param> reachable() const {
     std::vector<Param> ret;
-    for (auto &s : states) {
-      if (s.k.isFinal() && s.reachable()) {
-        ret.push_back({s.k.p});
+    for (auto &[p, kToVs] : states) {
+      for (auto &[k, vs] : kToVs) {
+        if (k.isFinal() && vs.reachable()) {
+          ret.push_back(p);
+        }
       }
     }
     std::sort(ret.begin(), ret.end());
@@ -644,14 +715,15 @@ class VarianceStates {
   static VarianceStates evalEncryptPk(Value result, int t, int l) {
     VarianceStates vss;
     std::vector<Param> params;
-#if 1
-    params.push_back(Param::genParam(2, 0, 3, t, 50, 2));
-#endif
 #if 0
+    params.push_back(Param::genParam(2, 0, 0, t, 60, 0));
+#endif
+#if 1
     for (auto depth : {l, l - 1}) {
       for (auto relinDeg : {0, 2, 3}) {
         for (auto qiSize : {0, 30, 40, 50, 60}) {
-          for (auto digitSize : {0, 30}) {
+          // for (auto digitSize : {0, 30, 2}) {
+          for (auto digitSize = 30; digitSize >= 2; digitSize--) {
             params.push_back(
                 Param::genParam(depth, digitSize, 0, t, qiSize, relinDeg));
           }
@@ -663,10 +735,13 @@ class VarianceStates {
       }
     }
 #endif
+    LLVM_DEBUG(llvm::dbgs() << "param size: " << params.size() << "\n");
     for (auto &p : params) {
+#if 0
       LLVM_DEBUG(llvm::dbgs() << p << "\n");
+#endif
       auto vs = VarianceValues::evalEncryptPk(result, p);
-      vss.insert(vs);
+      vss.insert(std::move(vs));
     }
     vss.expand();
     return vss;
@@ -676,12 +751,17 @@ class VarianceStates {
                                         const VarianceStates &rhs,
                                         Value result) {
     VarianceStates vss;
-    for (auto &l : lhs.states) {
-      for (auto &r : rhs.states) {
-        if (l.k.sameLevel(r.k) && l.getVariance().isBounded() &&
-            r.getVariance().isBounded()) {
-          auto vs = l.evalMultNoRelin(r, result);
-          vss.insert(vs);
+    for (auto &[p, lm] : lhs.states) {
+      if (rhs.states.find(p) != rhs.states.end()) {
+        auto &rm = rhs.states.at(p);
+        for (auto &[lk, l] : lm) {
+          for (auto &[rk, r] : rm) {
+            if (lk.sameLevel(rk) && l.getVariance().isBounded() &&
+                r.getVariance().isBounded()) {
+              auto vs = l.evalMultNoRelin(r, result);
+              vss.insert(std::move(vs));
+            }
+          }
         }
       }
     }
@@ -695,7 +775,7 @@ class VarianceStates {
   // friend Diagnostic &operator<<(Diagnostic &diagnostic,
   //                               const VarianceStates &variance);
  private:
-  std::vector<VarianceValues> states;
+  std::map<Param, std::map<VarianceKey, VarianceValues>> states;
 };
 
 }  // namespace heir

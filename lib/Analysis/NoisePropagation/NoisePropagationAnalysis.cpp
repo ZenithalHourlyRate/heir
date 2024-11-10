@@ -110,9 +110,11 @@ LogicalResult NoiseStatesAnalysis::visitOperation(
         // LLVM_DEBUG(llvm::dbgs() << " Mul states " << vss << "\n");
       });
 
+  LLVM_DEBUG(llvm::dbgs() << "join start\n");
   VarianceStatesLattice *lattice = results[0];
   VarianceStates old = lattice->getValue();
   ChangeResult changed = lattice->join(vss);
+  LLVM_DEBUG(llvm::dbgs() << "join end\n");
   propagateIfChanged(lattice, changed);
   return success();
 }
