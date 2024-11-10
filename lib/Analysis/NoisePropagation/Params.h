@@ -101,9 +101,15 @@ class Param {
            qi == rhs.qi && pi == rhs.pi;
   }
 
+  bool operator!=(const Param &rhs) const { return !(*this == rhs); }
+
+  // TODO: fix this weak < operator
   bool operator<(const Param &rhs) const {
     if (n != rhs.n) {
       return n < rhs.n;
+    }
+    if (t != rhs.t) {
+      return t < rhs.t;
     }
     if (L != rhs.L) {
       return L < rhs.L;
@@ -117,8 +123,17 @@ class Param {
       }
       return maxRelinSkDeg < rhs.maxRelinSkDeg;
     }
-    if (logQlP(L, dnum != 0) != rhs.logQlP(L, rhs.dnum != 0)) {
-      return logQlP(L, dnum != 0) < rhs.logQlP(L, rhs.dnum != 0);
+    if (digitSize != rhs.digitSize) {
+      return digitSize < rhs.digitSize;
+    }
+    if (dnum != rhs.dnum) {
+      return dnum < rhs.dnum;
+    }
+    if (logQlP(L, dnum != 0) != rhs.logQlP(rhs.L, rhs.dnum != 0)) {
+      return logQlP(L, dnum != 0) < rhs.logQlP(rhs.L, rhs.dnum != 0);
+    }
+    if (qi[0] != rhs.qi[0]) {
+      return qi[0] < rhs.qi[0];
     }
     return false;
   }
@@ -196,6 +211,7 @@ class Param {
       }
       return param;
     }
+    assert(false && "failed to generate good param");
     Param param;
     return param;
   }

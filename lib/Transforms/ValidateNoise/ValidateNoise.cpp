@@ -51,11 +51,11 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
         }
 
         valueNameMap[result] = std::to_string(valueName++);
-#if 1
+#if 0
         LLVM_DEBUG(llvm::dbgs() << opRange->getValue().toDOTNode(valueNameMap)
                                 << opRange->getValue().toDOTEdge(valueNameMap));
 #endif
-#if 0
+#if 1
         auto &vss = opRange->getValue();
         auto params = vss.reachable();
         if (params.size() != 0) {
