@@ -143,6 +143,23 @@ class Param {
     param.print(os);
     return os;
   }
+};
+
+class ParamsFactory {
+ public:
+  using ParamKey = std::tuple<int, int, int, int, int, int>;
+
+  static std::map<ParamKey, Param> AllParams;
+
+  static const Param *getParam(int depth, int digitSize, int dnum, int t,
+                               int qiSize, int maxRelinSkDeg) {
+    ParamKey k(depth, digitSize, dnum, t, qiSize, maxRelinSkDeg);
+    if (AllParams.find(k) == AllParams.end()) {
+      auto p = genParam(depth, digitSize, dnum, t, qiSize, maxRelinSkDeg);
+      AllParams[k] = std::move(p);
+    }
+    return &AllParams.at(k);
+  }
 
   static Param genParam(int depth, int digitSize, int dnum, int t, int qiSize,
                         int maxRelinSkDeg) {
