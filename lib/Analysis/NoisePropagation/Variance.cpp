@@ -9,6 +9,8 @@ namespace heir {
 
 std::map<ParamsFactory::ParamKey, Param> ParamsFactory::AllParams = {};
 
+std::set<VarianceKey> VarianceKeyFactory::AllVarianceKeys = {};
+
 std::string Variance::toString() const {
   switch (varianceType) {
     case (VarianceType::UNINITIALIZED):
