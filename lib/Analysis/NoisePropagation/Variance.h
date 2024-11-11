@@ -173,32 +173,32 @@ class VarianceKey {
 
   VarianceKey() = default;
 
-  VarianceKey(Param p, int cv, int l, Value v, bool ghs)
-      : p(p), cv(cv), l(l), v(v), ghs(ghs) {}
+  VarianceKey(const Param *p, int cv, int l, bool ghs)
+      : p(p), cv(cv), l(l), ghs(ghs) {}
 
   std::string toDOTNode(
       const DenseMap<Value, std::string> &valueNameMap) const {
-    return "\"" + valueNameMap.at(v) +
-           //"_n_" + std::to_string(p.n) + "_dS_" +
-           //  std::to_string(p.digitSize) + "_dN_" + std::to_string(p.dnum) +
+    return std::string("\"") +  // valueName +
+                                //"_n_" + std::to_string(p.n) + "_dS_" +
+                                //  std::to_string(p.digitSize) + "_dN_" +
+                                //  std::to_string(p.dnum) +
            "_cv_" + std::to_string(cv) + "_l_" + std::to_string(l) + "\"";
   }
 
   void print(llvm::raw_ostream &os) const {
-    os << "(n " << p.n << " dS " << p.digitSize << " dN " << p.dnum << " cv "
+    os << "(n " << p->n << " dS " << p->digitSize << " dN " << p->dnum << " cv "
        << cv << " l " << l << " ghs " << int(ghs) << ")";
   }
 
   bool operator==(const VarianceKey &rhs) const {
-    return p == rhs.p && cv == rhs.cv && l == rhs.l && v == rhs.v &&
-           ghs == rhs.ghs;
+    return *p == *rhs.p && cv == rhs.cv && l == rhs.l && ghs == rhs.ghs;
   }
 
   bool operator!=(const VarianceKey &rhs) const { return !(*this == rhs); }
 
   bool operator<(const VarianceKey &rhs) const {
-    if (p != rhs.p) {
-      return p < rhs.p;
+    if (*p != *rhs.p) {
+      return *p < *rhs.p;
     }
     if (cv != rhs.cv) {
       return cv < rhs.cv;
@@ -213,35 +213,33 @@ class VarianceKey {
   }
 
   bool dominatedBy(const VarianceKey &rhs) const {
-    assert(p == rhs.p && v == rhs.v && ghs == rhs.ghs);
+    assert(*p == *rhs.p && ghs == rhs.ghs);
     return cv <= rhs.cv && l <= rhs.l && !(cv == rhs.cv && l == rhs.l);
   }
 
-  bool sameParam(const VarianceKey &rhs) const {
-    return p == rhs.p && v == rhs.v;
-  }
+  bool sameParam(const VarianceKey &rhs) const { return *p == *rhs.p; }
 
   bool sameLevel(const VarianceKey &rhs) const {
-    return p == rhs.p && l == rhs.l && ghs == rhs.ghs;
+    return *p == *rhs.p && l == rhs.l && ghs == rhs.ghs;
   }
 
   bool canModReduce() const { return l > 0; };
   bool canRelinearize() const {
-    return cv > 2 && (p.maxRelinSkDeg == 0 || p.maxRelinSkDeg + 1 >= cv);
+    return cv > 2 && (p->maxRelinSkDeg == 0 || p->maxRelinSkDeg + 1 >= cv);
   };
 
   bool isFinal() const { return l == 0 && cv == 2; };
 
   bool isAbortFinal() const {
     return !isFinal() && cv > 2 &&
-           (p.maxRelinSkDeg != 0 && p.maxRelinSkDeg + 1 < cv);
+           (p->maxRelinSkDeg != 0 && p->maxRelinSkDeg + 1 < cv);
   };
 
-  Param getParam() const { return p; };
+  const Param &getParam() const { return *p; };
 
   static VarianceKey evalModReduce(const VarianceKey &lhs) {
     assert(lhs.canModReduce());
-    return VarianceKey(lhs.p, lhs.cv, lhs.l - 1, lhs.v, lhs.ghs);
+    return VarianceKey(lhs.p, lhs.cv, lhs.l - 1, lhs.ghs);
   }
 
   VarianceKey evalModReduce() const {
@@ -249,18 +247,18 @@ class VarianceKey {
   }
 
   static VarianceKey evalMultNoRelin(const VarianceKey &lhs,
-                                     const VarianceKey &rhs, Value result) {
+                                     const VarianceKey &rhs) {
     assert(lhs.sameLevel(rhs));
-    return VarianceKey(lhs.p, lhs.cv + rhs.cv - 1, lhs.l, result, lhs.ghs);
+    return VarianceKey(lhs.p, lhs.cv + rhs.cv - 1, lhs.l, lhs.ghs);
   }
 
-  VarianceKey evalMultNoRelin(const VarianceKey &rhs, Value result) const {
-    return VarianceKey::evalMultNoRelin(*this, rhs, result);
+  VarianceKey evalMultNoRelin(const VarianceKey &rhs) const {
+    return VarianceKey::evalMultNoRelin(*this, rhs);
   }
 
   static VarianceKey evalRelinearizeBV(const VarianceKey &lhs) {
     assert(lhs.canRelinearize());
-    return VarianceKey(lhs.p, lhs.cv - 1, lhs.l, lhs.v, lhs.ghs);
+    return VarianceKey(lhs.p, lhs.cv - 1, lhs.l, lhs.ghs);
   }
 
   VarianceKey evalRelinearizeBV() const {
@@ -269,7 +267,7 @@ class VarianceKey {
 
   static VarianceKey evalRelinearizeGHSModUp(const VarianceKey &lhs) {
     assert(!lhs.ghs);
-    return VarianceKey(lhs.p, lhs.cv, lhs.l, lhs.v, true);
+    return VarianceKey(lhs.p, lhs.cv, lhs.l, true);
   }
 
   VarianceKey evalRelinearizeGHSModUp() const {
@@ -278,7 +276,7 @@ class VarianceKey {
 
   static VarianceKey evalRelinearizeGHSModDown(const VarianceKey &lhs) {
     assert(lhs.ghs);
-    return VarianceKey(lhs.p, lhs.cv, lhs.l, lhs.v, false);
+    return VarianceKey(lhs.p, lhs.cv, lhs.l, false);
   }
 
   VarianceKey evalRelinearizeGHSModDown() const {
@@ -286,7 +284,7 @@ class VarianceKey {
   }
 
   Variance bound(const Variance &v) const {
-    if (v.logAlphaBound(p.n) >= p.logQlP(l, ghs)) {
+    if (v.logAlphaBound(p->n) >= p->logQlP(l, ghs)) {
       return Variance::unbounded();
     }
     return v;
@@ -298,10 +296,9 @@ class VarianceKey {
   // friend Diagnostic &operator<<(Diagnostic &diagnostic,
   //                               const VarianceKey &key);
  private:
-  Param p;
+  const Param *p;
   int cv;
   int l;
-  Value v;
   bool ghs;
 };
 
@@ -331,7 +328,7 @@ class VarianceValues {
       for (auto &parent : std::get<1>(p)) {
         str += parent.toDOTNode(valueNameMap) + " -> " +
                k.toDOTNode(valueNameMap) + " [label=\"" +
-               std::get<0>(p).toBound(k.p.n) + " " + std::get<2>(p) + "\"";
+               std::get<0>(p).toBound(k.p->n) + " " + std::get<2>(p) + "\"";
         if (markBold && std::get<0>(p).isBounded()) {
           str += " color=black fontcolor=black";
         } else {
@@ -359,7 +356,7 @@ class VarianceValues {
     //   os << "); ";
     // }
     os << "Bound(";
-    os << std::to_string(log(getVariance().alphaBound(k.p.n)) / log(2));
+    os << std::to_string(log(getVariance().alphaBound(k.p->n)) / log(2));
     os << ") parent:(";
     for (auto &parent : getParents()) {
       os << parent;
@@ -426,18 +423,18 @@ class VarianceValues {
 
   bool reachable() const { return getVariance().isBounded(); }
 
-  static VarianceValues evalEncryptPk(Value result, Param p) {
+  static VarianceValues evalEncryptPk(const Param *p) {
     int cv = 2;
     double std0 = 3.2;
-    VarianceKey k = VarianceKey(p, cv, p.L, result, false);
-    auto v = Variance::evalEncryptPk(k.p.n, k.p.t, std0);
+    VarianceKey k = VarianceKey(p, cv, p->L, false);
+    auto v = Variance::evalEncryptPk(k.p->n, k.p->t, std0);
     return VarianceValues(k, k.bound(v), {}, "enc");
   }
 
   static VarianceValues evalModReduce(const VarianceValues &lhs) {
     VarianceKey k = lhs.k.evalModReduce();
-    Variance v = Variance::evalModReduce(lhs.getVariance(), 1L << k.p.qi[k.l],
-                                         k.p.n, k.p.t);
+    Variance v = Variance::evalModReduce(lhs.getVariance(), 1L << k.p->qi[k.l],
+                                         k.p->n, k.p->t);
     return VarianceValues(k, k.bound(v), {lhs.k}, "modd");
   }
 
@@ -446,30 +443,28 @@ class VarianceValues {
   }
 
   static VarianceValues evalMultNoRelin(const VarianceValues &lhs,
-                                        const VarianceValues &rhs,
-                                        Value result) {
+                                        const VarianceValues &rhs) {
     assert(lhs.k.sameLevel(rhs.k));
-    VarianceKey k = lhs.k.evalMultNoRelin(rhs.k, result);
+    VarianceKey k = lhs.k.evalMultNoRelin(rhs.k);
     Variance v =
-        Variance::evalMultNoRelin(lhs.getVariance(), rhs.getVariance(), k.p.n);
+        Variance::evalMultNoRelin(lhs.getVariance(), rhs.getVariance(), k.p->n);
     return VarianceValues(k, k.bound(v), {lhs.k, rhs.k}, "mult");
   }
 
-  VarianceValues evalMultNoRelin(const VarianceValues &rhs,
-                                 Value result) const {
-    return VarianceValues::evalMultNoRelin(*this, rhs, result);
+  VarianceValues evalMultNoRelin(const VarianceValues &rhs) const {
+    return VarianceValues::evalMultNoRelin(*this, rhs);
   }
 
   static VarianceValues evalRelinearizeBV(const VarianceValues &lhs) {
     assert(lhs.k.canRelinearize());
     VarianceKey k = lhs.k.evalRelinearizeBV();
     Variance v =
-        Variance::evalRelinearizeBV(lhs.getVariance(), k.p.n, k.p.t, 3.2,
-                                    k.p.numDigit(k.l, k.ghs), k.p.digit());
+        Variance::evalRelinearizeBV(lhs.getVariance(), k.p->n, k.p->t, 3.2,
+                                    k.p->numDigit(k.l, k.ghs), k.p->digit());
 #if 0
     LLVM_DEBUG(llvm::dbgs()
-               << "original " << lhs.getVariance().toBound(k.p.n) << " relin "
-               << v.toBound(k.p.n) << k.p.logQlP(k.l, k.ghs) << "\n");
+               << "original " << lhs.getVariance().toBound(k.p->n) << " relin "
+               << v.toBound(k.p->n) << k.p->logQlP(k.l, k.ghs) << "\n");
 #endif
     return VarianceValues(k, k.bound(v), {lhs.k}, "relin");
   }
@@ -483,22 +478,22 @@ class VarianceValues {
     VarianceKey kRelin = kModUp.evalRelinearizeBV();
     VarianceKey kModDown = kRelin.evalRelinearizeGHSModDown();
 
-    Variance vModUp = Variance::evalModUp(lhs.getVariance(), kModUp.p.P(),
-                                          kModUp.p.n, kModUp.p.t);
+    Variance vModUp = Variance::evalModUp(lhs.getVariance(), kModUp.p->P(),
+                                          kModUp.p->n, kModUp.p->t);
     if (!kModUp.bound(vModUp).isBounded()) {
       return VarianceValues(kModDown, kModUp.bound(vModUp), {lhs.k}, "relin");
     }
 
     assert(kModUp.canRelinearize());
     Variance vRelin = Variance::evalRelinearizeBV(
-        vModUp, kRelin.p.n, kRelin.p.t, 3.2,
-        kRelin.p.numDigit(kRelin.l, kRelin.ghs), kRelin.p.digit());
+        vModUp, kRelin.p->n, kRelin.p->t, 3.2,
+        kRelin.p->numDigit(kRelin.l, kRelin.ghs), kRelin.p->digit());
     if (!kRelin.bound(vRelin).isBounded()) {
       return VarianceValues(kModDown, kRelin.bound(vRelin), {lhs.k}, "relin");
     }
 
-    Variance vModDown = Variance::evalModReduce(vRelin, kModDown.p.P(),
-                                                kModDown.p.n, kModDown.p.t);
+    Variance vModDown = Variance::evalModReduce(vRelin, kModDown.p->P(),
+                                                kModDown.p->n, kModDown.p->t);
 #if 0
     LLVM_DEBUG(llvm::dbgs()
                << "original " << lhs.getVariance().toBound(kModUp.p.n)
@@ -517,7 +512,7 @@ class VarianceValues {
   }
 
   VarianceValues evalRelinearize() const {
-    if (k.p.dnum == 0) {
+    if (k.p->dnum == 0) {
       return VarianceValues::evalRelinearizeBV(*this);
     } else {
       return VarianceValues::evalRelinearizeGHS(*this);
@@ -543,8 +538,8 @@ class VarianceStates {
   std::string toDOTNode(
       const DenseMap<Value, std::string> &valueNameMap) const {
     std::string str;
-    auto &v = states.begin()->second.begin()->first.v;
-    str += "subgraph cluster_" + valueNameMap.at(v) + "{\n";
+    // auto &v = states.begin()->second.begin()->first.v;
+    str += std::string("subgraph cluster_") + /*valueName +*/ "{\n";
     for (auto &[p, kToVs] : states) {
       for (auto &[k, vs] : kToVs) {
         if (!k.isAbortFinal() && vs.reachable()) {
@@ -583,7 +578,7 @@ class VarianceStates {
   }
 
   bool operator==(const VarianceStates &rhs) const {
-    return states == rhs.states;
+    return result == rhs.result && states == rhs.states;
   }
 
   void insert(const VarianceValues &values) {
@@ -591,7 +586,7 @@ class VarianceStates {
       return;
     }
     auto &k = values.k;
-    auto &p = values.k.p;
+    auto &p = *values.k.p;
     if (states.find(p) != states.end()) {
       auto &kToVs = states[p];
       if (kToVs.find(k) != kToVs.end()) {
@@ -609,8 +604,8 @@ class VarianceStates {
     if (!values.reachable()) {
       return;
     }
-    auto &&k = values.k;
-    auto &&p = values.k.p;
+    auto &k = values.k;
+    auto &p = *values.k.p;
     if (states.find(p) != states.end()) {
       auto &kToVs = states[p];
       if (kToVs.find(k) != kToVs.end()) {
@@ -622,7 +617,7 @@ class VarianceStates {
       }
     } else {
       VarianceKey kc = values.k;
-      Param pc = values.k.p;
+      Param pc = *values.k.p;
       states[pc] = {{kc, std::move(values)}};
     }
   }
@@ -634,9 +629,11 @@ class VarianceStates {
       return lhs;
     }
     if (lhs.size() == 0) {
+      lhs.result = rhs.result;
       lhs.states = rhs.states;
       return lhs;
     }
+    lhs.result = rhs.result;
     for (auto &[p, kToVs] : rhs.states) {
       for (auto &[k, vs] : kToVs) {
         lhs.insert(vs);
@@ -714,7 +711,9 @@ class VarianceStates {
 
   static VarianceStates evalEncryptPk(Value result, int t, int l) {
     VarianceStates vss;
-    std::vector<Param> params;
+    vss.result = result;
+
+    std::vector<const Param *> params;
 #if 0
     params.push_back(Param::genParam(2, 0, 0, t, 60, 0));
 #endif
@@ -724,12 +723,12 @@ class VarianceStates {
         for (auto qiSize : {0, 30, 40, 50, 60}) {
           // for (auto digitSize : {0, 30, 2}) {
           for (auto digitSize = 30; digitSize >= 2; digitSize--) {
-            params.push_back(
-                Param::genParam(depth, digitSize, 0, t, qiSize, relinDeg));
+            params.push_back(ParamsFactory::getParam(depth, digitSize, 0, t,
+                                                     qiSize, relinDeg));
           }
           for (auto dnum : {2, 3, depth + 1}) {
             params.push_back(
-                Param::genParam(depth, 0, dnum, t, qiSize, relinDeg));
+                ParamsFactory::getParam(depth, 0, dnum, t, qiSize, relinDeg));
           }
         }
       }
@@ -740,7 +739,7 @@ class VarianceStates {
 #if 0
       LLVM_DEBUG(llvm::dbgs() << p << "\n");
 #endif
-      auto vs = VarianceValues::evalEncryptPk(result, p);
+      auto vs = VarianceValues::evalEncryptPk(p);
       vss.insert(std::move(vs));
     }
     vss.expand();
@@ -751,6 +750,7 @@ class VarianceStates {
                                         const VarianceStates &rhs,
                                         Value result) {
     VarianceStates vss;
+    vss.result = result;
     for (auto &[p, lm] : lhs.states) {
       if (rhs.states.find(p) != rhs.states.end()) {
         auto &rm = rhs.states.at(p);
@@ -758,7 +758,7 @@ class VarianceStates {
           for (auto &[rk, r] : rm) {
             if (lk.sameLevel(rk) && l.getVariance().isBounded() &&
                 r.getVariance().isBounded()) {
-              auto vs = l.evalMultNoRelin(r, result);
+              auto vs = l.evalMultNoRelin(r);
               vss.insert(std::move(vs));
             }
           }
@@ -775,6 +775,7 @@ class VarianceStates {
   // friend Diagnostic &operator<<(Diagnostic &diagnostic,
   //                               const VarianceStates &variance);
  private:
+  Value result;
   std::map<Param, std::map<VarianceKey, VarianceValues>> states;
 };
 
