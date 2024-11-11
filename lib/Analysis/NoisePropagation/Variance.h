@@ -320,6 +320,27 @@ class VarianceKeyFactory {
   }
 };
 
+class VarianceStates;
+
+struct VarianceParent {
+  VarianceParent() = default;
+
+  VarianceParent(const VarianceStates *parentStates,
+                 const VarianceKey *parentKey, const std::string reason)
+      : parentStates(parentStates), parentKey(parentKey), reason(reason) {}
+
+  bool operator==(const VarianceParent &rhs) const {
+    // FIXME: no deref now
+    return parentStates == rhs.parentStates && parentKey == rhs.parentKey &&
+           reason == rhs.reason;
+  }
+
+  // FIXME: lifetime of VarianceStates!
+  const VarianceStates *parentStates;
+  const VarianceKey *parentKey;
+  std::string reason;
+};
+
 class VarianceValues {
  public:
   friend class VarianceStates;
@@ -340,23 +361,23 @@ class VarianceValues {
     std::string str;
     for (auto &p : v) {
       bool markBold = false;
-      if (std::get<1>(p) == getParents()) {
-        markBold = true;
-      }
-      for (auto &parent : std::get<1>(p)) {
-        str += parent->toDOTNode(valueNameMap) + " -> " +
-               k->toDOTNode(valueNameMap) + " [label=\"" +
-               std::get<0>(p).toBound(k->p->n) + " " + std::get<2>(p) + "\"";
-        if (markBold && std::get<0>(p).isBounded()) {
-          str += " color=black fontcolor=black";
-        } else {
-          str += " color=gray fontcolor=gray";
-          if (!std::get<0>(p).isBounded()) {
-            str += " style=dashed";
-          }
-        }
-        str += "]\n";
-      }
+      // if (std::get<1>(p) == getParents()) {
+      //   markBold = true;
+      // }
+      // for (auto &parent : std::get<1>(p)) {
+      //   str += parent->toDOTNode(valueNameMap) + " -> " +
+      //          k->toDOTNode(valueNameMap) + " [label=\"" +
+      //          std::get<0>(p).toBound(k->p->n) + " " + std::get<2>(p) + "\"";
+      //   if (markBold && std::get<0>(p).isBounded()) {
+      //     str += " color=black fontcolor=black";
+      //   } else {
+      //     str += " color=gray fontcolor=gray";
+      //     if (!std::get<0>(p).isBounded()) {
+      //       str += " style=dashed";
+      //     }
+      //   }
+      //   str += "]\n";
+      // }
     }
     return str;
   }
@@ -376,33 +397,30 @@ class VarianceValues {
     os << "Bound(";
     os << std::to_string(log(getVariance().alphaBound(k->p->n)) / log(2));
     os << ") parent:(";
-    for (auto &parent : getParents()) {
-      os << parent;
-      os << ", ";
-    }
+    // for (auto &parent : getParents()) {
+    //   os << parent;
+    //   os << ", ";
+    // }
     os << "); ";
   }
 
   bool operator==(const VarianceValues &rhs) const {
-    return k == rhs.k && v == rhs.v;
+    return *k == *rhs.k && v == rhs.v;
   }
 
   bool operator!=(const VarianceValues &rhs) const { return !(*this == rhs); }
 
   VarianceValues(const VarianceKey *k, Variance var,
-                 std::vector<const VarianceKey *> parents = {},
-                 std::string reason = "")
+                 std::vector<VarianceParent> parents = {})
       : k(k) {
-    insert(std::make_tuple(var, parents, reason));
+    insert(std::make_tuple(var, parents));
   }
 
-  void insert(const std::tuple<Variance, std::vector<const VarianceKey *>,
-                               std::string> &tuple) {
+  void insert(const std::tuple<Variance, std::vector<VarianceParent>> &tuple) {
     v.push_back(tuple);
   }
 
-  void insert(std::tuple<Variance, std::vector<const VarianceKey *>,
-                         std::string> &&tuple) {
+  void insert(std::tuple<Variance, std::vector<VarianceParent>> &&tuple) {
     v.push_back(std::move(tuple));
   }
 
@@ -420,8 +438,7 @@ class VarianceValues {
     }
   }
 
-  std::tuple<Variance, std::vector<const VarianceKey *>, std::string>
-  getMinimal() const {
+  std::tuple<Variance, std::vector<VarianceParent>> getMinimal() const {
     auto index = 0;
     for (size_t i = 0; i != v.size(); ++i) {
       Variance res = Variance::min(std::get<0>(v[index]), std::get<0>(v[i]));
@@ -434,11 +451,11 @@ class VarianceValues {
 
   Variance getVariance() const { return std::get<0>(getMinimal()); }
 
-  std::vector<const VarianceKey *> getParents() const {
-    return std::get<1>(getMinimal());
-  }
+  // std::vector<const VarianceKey *> getParents() const {
+  //   return std::get<1>(getMinimal());
+  // }
 
-  std::string getReason() const { return std::get<2>(getMinimal()); }
+  // std::string getReason() const { return std::get<2>(getMinimal()); }
 
   bool reachable() const { return getVariance().isBounded(); }
 
@@ -446,31 +463,33 @@ class VarianceValues {
     double std0 = 3.2;
     auto *k = VarianceKeyFactory::evalEncryptPk(p);
     auto v = Variance::evalEncryptPk(k->p->n, k->p->t, std0);
-    return VarianceValues(k, k->bound(v), {}, "enc");
+    auto parent = VarianceParent(nullptr, nullptr, "enc");
+    return VarianceValues(k, k->bound(v), {parent});
   }
 
   static VarianceValues evalModReduce(const VarianceValues &lhs) {
     const VarianceKey *k = VarianceKeyFactory::evalModReduce(*lhs.k);
     Variance v = Variance::evalModReduce(
         lhs.getVariance(), 1L << k->p->qi[k->l], k->p->n, k->p->t);
-    return VarianceValues(k, k->bound(v), {lhs.k}, "modd");
+    auto parent = VarianceParent(nullptr, lhs.k, "modd");
+    return VarianceValues(k, k->bound(v), {parent});
   }
 
   VarianceValues evalModReduce() const {
     return VarianceValues::evalModReduce(*this);
   }
 
-  static VarianceValues evalMultNoRelin(const VarianceValues &lhs,
+  static VarianceValues evalMultNoRelin(const VarianceStates &lhsStates,
+                                        const VarianceValues &lhs,
+                                        const VarianceStates &rhsStates,
                                         const VarianceValues &rhs) {
     assert(lhs.k->sameLevel(*rhs.k));
     const VarianceKey *k = VarianceKeyFactory::evalMultNoRelin(*lhs.k, *rhs.k);
     Variance v = Variance::evalMultNoRelin(lhs.getVariance(), rhs.getVariance(),
                                            k->p->n);
-    return VarianceValues(k, k->bound(v), {lhs.k, rhs.k}, "mult");
-  }
-
-  VarianceValues evalMultNoRelin(const VarianceValues &rhs) const {
-    return VarianceValues::evalMultNoRelin(*this, rhs);
+    auto parentL = VarianceParent(&lhsStates, lhs.k, "mult");
+    auto parentR = VarianceParent(&rhsStates, rhs.k, "mult");
+    return VarianceValues(k, k->bound(v), {parentL, parentR});
   }
 
   static VarianceValues evalRelinearizeBV(const VarianceValues &lhs) {
@@ -484,7 +503,8 @@ class VarianceValues {
                << "original " << lhs.getVariance().toBound(k.p->n) << " relin "
                << v.toBound(k.p->n) << k.p->logQlP(k.l, k.ghs) << "\n");
 #endif
-    return VarianceValues(k, k->bound(v), {lhs.k}, "relin");
+    auto parent = VarianceParent(nullptr, lhs.k, "relin");
+    return VarianceValues(k, k->bound(v), {parent});
   }
 
   VarianceValues evalRelinearizeBV() const {
@@ -501,7 +521,8 @@ class VarianceValues {
     Variance vModUp = Variance::evalModUp(lhs.getVariance(), kModUp->p->P(),
                                           kModUp->p->n, kModUp->p->t);
     if (!kModUp->bound(vModUp).isBounded()) {
-      return VarianceValues(kModDown, kModUp->bound(vModUp), {lhs.k}, "relin");
+      auto parent = VarianceParent(nullptr, lhs.k, "relin");
+      return VarianceValues(kModDown, kModUp->bound(vModUp), {parent});
     }
 
     assert(kModUp->canRelinearize());
@@ -509,7 +530,8 @@ class VarianceValues {
         vModUp, kRelin->p->n, kRelin->p->t, 3.2,
         kRelin->p->numDigit(kRelin->l, kRelin->ghs), kRelin->p->digit());
     if (!kRelin->bound(vRelin).isBounded()) {
-      return VarianceValues(kModDown, kRelin->bound(vRelin), {lhs.k}, "relin");
+      auto parent = VarianceParent(nullptr, lhs.k, "relin");
+      return VarianceValues(kModDown, kRelin->bound(vRelin), {parent});
     }
 
     Variance vModDown = Variance::evalModReduce(vRelin, kModDown->p->P(),
@@ -524,8 +546,8 @@ class VarianceValues {
                << vModDown.toBound(kModUp->p.n) << " bound "
                << kModDown->p.logQlP(kModDown->l, kModDown->ghs) << "\n");
 #endif
-    return VarianceValues(kModDown, kModDown->bound(vModDown), {lhs.k},
-                          "relin");
+    auto parent = VarianceParent(nullptr, lhs.k, "relinG");
+    return VarianceValues(kModDown, kModDown->bound(vModDown), {parent});
   }
 
   VarianceValues evalRelinearizeGHS() const {
@@ -549,9 +571,7 @@ class VarianceValues {
  private:
   const VarianceKey *k;
   // variance, its parent(s) and reason
-  std::vector<
-      std::tuple<Variance, std::vector<const VarianceKey *>, std::string>>
-      v;
+  std::vector<std::tuple<Variance, std::vector<VarianceParent>>> v;
 };
 
 class VarianceStates {
@@ -781,7 +801,7 @@ class VarianceStates {
           for (auto &[rk, r] : rm) {
             if (lk.sameLevel(rk) && l.getVariance().isBounded() &&
                 r.getVariance().isBounded()) {
-              auto vs = l.evalMultNoRelin(r);
+              auto vs = VarianceValues::evalMultNoRelin(lhs, l, rhs, r);
               vss.insert(std::move(vs));
             }
           }
