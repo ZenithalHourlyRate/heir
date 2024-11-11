@@ -177,12 +177,11 @@ class VarianceKey {
   VarianceKey(const Param *p, int cv, int l, bool ghs)
       : p(p), cv(cv), l(l), ghs(ghs) {}
 
-  std::string toDOTNode(
-      const DenseMap<Value, std::string> &valueNameMap) const {
-    return std::string("\"") +  // valueName +
-                                //"_n_" + std::to_string(p.n) + "_dS_" +
-                                //  std::to_string(p.digitSize) + "_dN_" +
-                                //  std::to_string(p.dnum) +
+  std::string toDOTNode(const std::string valueName) const {
+    return "\"" + valueName +
+           //"_n_" + std::to_string(p.n) + "_dS_" +
+           //  std::to_string(p.digitSize) + "_dN_" +
+           //  std::to_string(p.dnum) +
            "_cv_" + std::to_string(cv) + "_l_" + std::to_string(l) + "\"";
   }
 
@@ -347,40 +346,16 @@ class VarianceValues {
 
   VarianceValues() = default;
 
-  std::string toDOTNode(
-      const DenseMap<Value, std::string> &valueNameMap) const {
+  std::string toDOTNode(const std::string &valueName) const {
     std::string str;
-    str += k->toDOTNode(valueNameMap);
+    str += k->toDOTNode(valueName);
     // str += " [label=\"" + getVariance().toBound(k.p.n) + " " + getReason() +
     // "\"]";
     return str;
   }
 
-  std::string toDOTEdge(
-      const DenseMap<Value, std::string> &valueNameMap) const {
-    std::string str;
-    for (auto &p : v) {
-      bool markBold = false;
-      // if (std::get<1>(p) == getParents()) {
-      //   markBold = true;
-      // }
-      // for (auto &parent : std::get<1>(p)) {
-      //   str += parent->toDOTNode(valueNameMap) + " -> " +
-      //          k->toDOTNode(valueNameMap) + " [label=\"" +
-      //          std::get<0>(p).toBound(k->p->n) + " " + std::get<2>(p) + "\"";
-      //   if (markBold && std::get<0>(p).isBounded()) {
-      //     str += " color=black fontcolor=black";
-      //   } else {
-      //     str += " color=gray fontcolor=gray";
-      //     if (!std::get<0>(p).isBounded()) {
-      //       str += " style=dashed";
-      //     }
-      //   }
-      //   str += "]\n";
-      // }
-    }
-    return str;
-  }
+  std::string toDOTEdge(const Value &result,
+                        const DenseMap<Value, std::string> &valueNameMap) const;
 
   void print(llvm::raw_ostream &os) const {
     os << k;
@@ -438,7 +413,7 @@ class VarianceValues {
     }
   }
 
-  std::tuple<Variance, std::vector<VarianceParent>> getMinimal() const {
+  const std::tuple<Variance, std::vector<VarianceParent>> &getMinimal() const {
     auto index = 0;
     for (size_t i = 0; i != v.size(); ++i) {
       Variance res = Variance::min(std::get<0>(v[index]), std::get<0>(v[i]));
@@ -451,11 +426,9 @@ class VarianceValues {
 
   Variance getVariance() const { return std::get<0>(getMinimal()); }
 
-  // std::vector<const VarianceKey *> getParents() const {
-  //   return std::get<1>(getMinimal());
-  // }
-
-  // std::string getReason() const { return std::get<2>(getMinimal()); }
+  const std::vector<VarianceParent> &getParents() const {
+    return std::get<1>(getMinimal());
+  }
 
   bool reachable() const { return getVariance().isBounded(); }
 
@@ -463,8 +436,7 @@ class VarianceValues {
     double std0 = 3.2;
     auto *k = VarianceKeyFactory::evalEncryptPk(p);
     auto v = Variance::evalEncryptPk(k->p->n, k->p->t, std0);
-    auto parent = VarianceParent(nullptr, nullptr, "enc");
-    return VarianceValues(k, k->bound(v), {parent});
+    return VarianceValues(k, k->bound(v), {});
   }
 
   static VarianceValues evalModReduce(const VarianceValues &lhs) {
@@ -581,12 +553,11 @@ class VarianceStates {
   std::string toDOTNode(
       const DenseMap<Value, std::string> &valueNameMap) const {
     std::string str;
-    // auto &v = states.begin()->second.begin()->first.v;
-    str += std::string("subgraph cluster_") + /*valueName +*/ "{\n";
+    str += std::string("subgraph cluster_") + valueNameMap.at(result) + "{\n";
     for (auto &[p, kToVs] : states) {
       for (auto &[k, vs] : kToVs) {
         if (!k.isAbortFinal() && vs.reachable()) {
-          str += vs.toDOTNode(valueNameMap);
+          str += vs.toDOTNode(valueNameMap.at(result));
           str += "\n";
         }
       }
@@ -601,7 +572,7 @@ class VarianceStates {
     for (auto &[p, kToVs] : states) {
       for (auto &[k, vs] : kToVs) {
         if (!k.isAbortFinal() && vs.reachable()) {
-          str += vs.toDOTEdge(valueNameMap);
+          str += vs.toDOTEdge(result, valueNameMap);
         }
       }
     }
@@ -619,6 +590,8 @@ class VarianceStates {
     }
     os << "]\n";
   }
+
+  const Value &getResult() const { return result; };
 
   bool operator==(const VarianceStates &rhs) const {
     return result == rhs.result && states == rhs.states;
@@ -757,10 +730,10 @@ class VarianceStates {
     vss.result = result;
 
     std::vector<const Param *> params;
-#if 0
-    params.push_back(Param::genParam(2, 0, 0, t, 60, 0));
-#endif
 #if 1
+    params.push_back(ParamsFactory::getParam(2, 0, 0, t, 60, 0));
+#endif
+#if 0
     for (auto depth : {l, l - 1}) {
       for (auto relinDeg : {0, 2, 3}) {
         for (auto qiSize : {0, 30, 40, 50, 60}) {

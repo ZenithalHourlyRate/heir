@@ -128,5 +128,38 @@ Variance Variance::evalRelinearizeBV(const Variance &input, double n, double t,
 //     return Variance::evalRelinearize(input, n, t, std0, numDigit, beta);
 // }
 
+std::string VarianceValues::toDOTEdge(
+    const Value &result,
+    const DenseMap<Value, std::string> &valueNameMap) const {
+  std::string str;
+  for (auto &p : v) {
+    bool markBold = false;
+    if (std::get<1>(p) == getParents()) {
+      markBold = true;
+    }
+    auto &variance = std::get<0>(p);
+    for (auto &parent : std::get<1>(p)) {
+      std::string valueName = valueNameMap.at(result);
+      std::string parentValueName = valueName;
+      if (parent.parentStates != nullptr) {
+        parentValueName = valueNameMap.at(parent.parentStates->getResult());
+      }
+      str += parent.parentKey->toDOTNode(parentValueName) + " -> " +
+             k->toDOTNode(valueName) + " [label=\"" +
+             variance.toBound(k->p->n) + " " + parent.reason + "\"";
+      if (markBold && variance.isBounded()) {
+        str += " color=black fontcolor=black";
+      } else {
+        str += " color=gray fontcolor=gray";
+        if (!variance.isBounded()) {
+          str += " style=dashed";
+        }
+      }
+      str += "]\n";
+    }
+  }
+  return str;
+}
+
 }  // namespace heir
 }  // namespace mlir
