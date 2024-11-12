@@ -234,6 +234,89 @@ class ParamsFactory {
   }
 };
 
+struct BGVCostEntry {
+  BGVCostEntry(int n, int L, int cv) : n(n), L(L), cv(cv) {}
+
+  bool operator<(const BGVCostEntry &rhs) const {
+    if (n != rhs.n) {
+      return n < rhs.n;
+    }
+    if (L != rhs.L) {
+      return L < rhs.L;
+    }
+    if (cv != rhs.cv) {
+      return cv < rhs.cv;
+    }
+    return false;
+  }
+
+  int n;
+  int L;
+  int cv;
+};
+
+struct BGVMultCostEntry : public BGVCostEntry {
+  BGVMultCostEntry(int n, int L, int cv, int cv2)
+      : BGVCostEntry(n, L, cv), cv2(cv2) {}
+
+  bool operator<(const BGVMultCostEntry &rhs) const {
+    if (cv2 != rhs.cv2) {
+      return cv2 < rhs.cv2;
+    }
+    return BGVCostEntry::operator<(rhs);
+  }
+
+  int cv2;
+};
+
+struct BGVRelinBVCostEntry : public BGVCostEntry {
+  BGVRelinBVCostEntry(int n, int L, int cv, int digitSize)
+      : BGVCostEntry(n, L, cv), digitSize(digitSize) {}
+
+  bool operator<(const BGVRelinBVCostEntry &rhs) const {
+    if (digitSize != rhs.digitSize) {
+      return digitSize < rhs.digitSize;
+    }
+    return BGVCostEntry::operator<(rhs);
+  }
+
+  // TODO: digitPerQi
+  int digitSize;
+};
+
+struct BGVRelinHYBRIDCostEntry : public BGVCostEntry {
+  BGVRelinHYBRIDCostEntry(int n, int L, int cv, int l, int dnum)
+      : BGVCostEntry(n, L, cv), l(l), dnum(dnum) {}
+
+  bool operator<(const BGVRelinHYBRIDCostEntry &rhs) const {
+    if (l != rhs.l) {
+      return l < rhs.l;
+    }
+    if (dnum != rhs.dnum) {
+      return dnum < rhs.dnum;
+    }
+    return BGVCostEntry::operator<(rhs);
+  }
+
+  int l;
+  int dnum;
+};
+
+struct CostModel {
+  using Cost = double;
+  using BGVAddCostEntries = std::map<BGVCostEntry, Cost>;
+  using BGVMultCostEntries = std::map<BGVMultCostEntry, Cost>;
+  using BGVRelinBVCostEntries = std::map<BGVRelinBVCostEntry, Cost>;
+  using BGVRelinHYBRIDCostEntries = std::map<BGVRelinHYBRIDCostEntry, Cost>;
+  using BGVModReduceCostEntries = std::map<BGVCostEntry, Cost>;
+
+  static BGVAddCostEntries AllBGVAddCostEntries;
+  static BGVMultCostEntries AllBGVMultCostEntries;
+  static BGVRelinBVCostEntries AllBGVRelinBVCostEntries;
+  static BGVRelinHYBRIDCostEntries AllBGVRelinHYBRIDCostEntries;
+  static BGVModReduceCostEntries AllBGVModReduceCostEntries;
+};
+
 }  // namespace heir
 }  // namespace mlir
 

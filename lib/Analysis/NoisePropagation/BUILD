@@ -8,6 +8,7 @@ cc_library(
     srcs = ["NoisePropagationAnalysis.cpp"],
     hdrs = ["NoisePropagationAnalysis.h"],
     deps = [
+        ":Params",
         ":Variance",
         "@heir//lib/Dialect/BGV/IR:Dialect",
         "@heir//lib/Interfaces:NoiseInterfaces",
@@ -23,6 +24,18 @@ cc_library(
     hdrs = [
         "Params.h",
         "Variance.h",
+    ],
+    deps = [
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+    ],
+)
+
+cc_library(
+    name = "Params",
+    srcs = ["Params.cpp"],
+    hdrs = [
+        "Params.h",
     ],
     deps = [
         "@llvm-project//llvm:Support",
