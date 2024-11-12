@@ -144,9 +144,11 @@ std::string VarianceValues::toDOTEdge(
       if (parent.parentStates != nullptr) {
         parentValueName = valueNameMap.at(parent.parentStates->getResult());
       }
+
       str += parent.parentKey->toDOTNode(parentValueName) + " -> " +
              k->toDOTNode(valueName) + " [label=\"" +
-             variance.toBound(k->p->n) + " " + parent.reason + "\"";
+             variance.toBound(k->p->n) + " " + parent.reason + " " +
+             std::to_string(int(parent.cost)) + "\"";
       if (markBold && variance.isBounded()) {
         str += " color=black fontcolor=black";
       } else {

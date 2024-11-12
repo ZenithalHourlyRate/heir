@@ -3,8 +3,11 @@
 
 #include <cmath>
 
+#include "llvm/include/llvm/Support/Debug.h"        // from @llvm-project
 #include "llvm/include/llvm/Support/raw_ostream.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Diagnostics.h"       // from @llvm-project
+
+#define DEBUG_TYPE "Variance"
 
 namespace mlir {
 namespace heir {
@@ -280,6 +283,7 @@ struct BGVRelinBVCostEntry : public BGVCostEntry {
     return BGVCostEntry::operator<(rhs);
   }
 
+  // TODO: relin Sk Deg
   // TODO: digitPerQi
   int digitSize;
 };
@@ -298,9 +302,12 @@ struct BGVRelinHYBRIDCostEntry : public BGVCostEntry {
     return BGVCostEntry::operator<(rhs);
   }
 
+  // TODO: relin Sk Deg
   int l;
   int dnum;
 };
+
+// #define IGNORE_MODEL
 
 struct CostModel {
   using Cost = double;
@@ -315,6 +322,91 @@ struct CostModel {
   static BGVRelinBVCostEntries AllBGVRelinBVCostEntries;
   static BGVRelinHYBRIDCostEntries AllBGVRelinHYBRIDCostEntries;
   static BGVModReduceCostEntries AllBGVModReduceCostEntries;
+
+  static Cost getBGVAddCost(int n, int L, int cv) {
+    auto k = BGVCostEntry(n, L, cv);
+    if (AllBGVAddCostEntries.find(k) != AllBGVAddCostEntries.end()) {
+      return AllBGVAddCostEntries.at(k);
+    }
+#ifndef IGNORE_MODEL
+    LLVM_DEBUG(llvm::dbgs() << "n " << n << "L " << L << "cv " << cv << "\n");
+    assert(false);
+#else
+    return 1e7;
+#endif
+  }
+
+  static Cost getBGVMultCost(int n, int L, int cv, int cv2) {
+    // TODO: cv
+    cv = 2;
+    cv2 = 2;
+    if (L == 0) L = 1;
+    auto k = BGVMultCostEntry(n, L, cv, cv2);
+    if (AllBGVMultCostEntries.find(k) != AllBGVMultCostEntries.end()) {
+      return AllBGVMultCostEntries.at(k);
+    }
+#ifndef IGNORE_MODEL
+    LLVM_DEBUG(llvm::dbgs() << "n " << n << "L " << L << "cv " << cv << "cv2 "
+                            << cv2 << "\n");
+    assert(false);
+#else
+    return 1e7;
+#endif
+  }
+
+  static Cost getBGVRelinBVCost(int n, int L, int cv, int digitSize) {
+    // TODO: cv
+    cv = 2;
+    if (L == 0) L = 1;
+    auto k = BGVRelinBVCostEntry(n, L, cv, digitSize);
+    if (AllBGVRelinBVCostEntries.find(k) != AllBGVRelinBVCostEntries.end()) {
+      return AllBGVRelinBVCostEntries.at(k);
+    }
+#ifndef IGNORE_MODEL
+    LLVM_DEBUG(llvm::dbgs()
+               << "n " << n << "L " << L << "dS " << digitSize << "\n");
+    assert(false);
+#else
+    return 1e7;
+#endif
+  }
+
+  static Cost getBGVRelinHYBRIDCost(int n, int L, int cv, int l, int dnum) {
+    if (l == 0) l = 1;
+    // TODO: use L
+    L = l;
+    // TODO: cv
+    cv = 2;
+    auto k = BGVRelinHYBRIDCostEntry(n, L, cv, l, dnum);
+    if (AllBGVRelinHYBRIDCostEntries.find(k) !=
+        AllBGVRelinHYBRIDCostEntries.end()) {
+      return AllBGVRelinHYBRIDCostEntries.at(k);
+    }
+#ifndef IGNORE_MODEL
+    LLVM_DEBUG(llvm::dbgs()
+               << "n " << n << "L " << L << "dnum " << dnum << "\n");
+    assert(false);
+#else
+    return 1e7;
+#endif
+  }
+
+  static Cost getBGVModReduceCost(int n, int L, int cv) {
+    // TODO: cv
+    cv = 2;
+    if (L > 4) L = 4;
+    auto k = BGVCostEntry(n, L, cv);
+    if (AllBGVModReduceCostEntries.find(k) !=
+        AllBGVModReduceCostEntries.end()) {
+      return AllBGVModReduceCostEntries.at(k);
+    }
+#ifndef IGNORE_MODEL
+    LLVM_DEBUG(llvm::dbgs() << "n " << n << "L " << L << "\n");
+    assert(false);
+#else
+    return 1e7;
+#endif
+  }
 };
 
 }  // namespace heir

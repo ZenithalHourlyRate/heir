@@ -325,8 +325,12 @@ struct VarianceParent {
   VarianceParent() = default;
 
   VarianceParent(const VarianceStates *parentStates,
-                 const VarianceKey *parentKey, const std::string reason)
-      : parentStates(parentStates), parentKey(parentKey), reason(reason) {}
+                 const VarianceKey *parentKey, std::string reason,
+                 CostModel::Cost cost)
+      : parentStates(parentStates),
+        parentKey(parentKey),
+        reason(reason),
+        cost(cost) {}
 
   bool operator==(const VarianceParent &rhs) const {
     // FIXME: no deref now
@@ -338,6 +342,7 @@ struct VarianceParent {
   const VarianceStates *parentStates;
   const VarianceKey *parentKey;
   std::string reason;
+  CostModel::Cost cost;
 };
 
 class VarianceValues {
@@ -430,6 +435,22 @@ class VarianceValues {
     return std::get<1>(getMinimal());
   }
 
+  const std::string getReason() const {
+    auto parents = getParents();
+    if (parents.size() == 0) {
+      return "enc";
+    }
+    return getParents()[0].reason;
+  }
+
+  const CostModel::Cost getCost() const {
+    auto parents = getParents();
+    if (parents.size() == 0) {
+      return 0;
+    }
+    return getParents()[0].cost;
+  }
+
   bool reachable() const { return getVariance().isBounded(); }
 
   static VarianceValues evalEncryptPk(const Param *p) {
@@ -443,7 +464,10 @@ class VarianceValues {
     const VarianceKey *k = VarianceKeyFactory::evalModReduce(*lhs.k);
     Variance v = Variance::evalModReduce(
         lhs.getVariance(), 1L << k->p->qi[k->l], k->p->n, k->p->t);
-    auto parent = VarianceParent(nullptr, lhs.k, "modd");
+
+    auto cost = lhs.getCost() + CostModel::getBGVModReduceCost(
+                                    lhs.k->p->n, lhs.k->l, lhs.k->cv);
+    auto parent = VarianceParent(nullptr, lhs.k, "modd", cost);
     return VarianceValues(k, k->bound(v), {parent});
   }
 
@@ -459,8 +483,11 @@ class VarianceValues {
     const VarianceKey *k = VarianceKeyFactory::evalMultNoRelin(*lhs.k, *rhs.k);
     Variance v = Variance::evalMultNoRelin(lhs.getVariance(), rhs.getVariance(),
                                            k->p->n);
-    auto parentL = VarianceParent(&lhsStates, lhs.k, "mult");
-    auto parentR = VarianceParent(&rhsStates, rhs.k, "mult");
+    auto cost =
+        lhs.getCost() + rhs.getCost() +
+        CostModel::getBGVMultCost(lhs.k->p->n, lhs.k->l, lhs.k->cv, rhs.k->cv);
+    auto parentL = VarianceParent(&lhsStates, lhs.k, "mult", cost);
+    auto parentR = VarianceParent(&rhsStates, rhs.k, "mult", cost);
     return VarianceValues(k, k->bound(v), {parentL, parentR});
   }
 
@@ -470,12 +497,15 @@ class VarianceValues {
     Variance v = Variance::evalRelinearizeBV(
         lhs.getVariance(), k->p->n, k->p->t, 3.2, k->p->numDigit(k->l, k->ghs),
         k->p->digit());
+    auto cost = lhs.getCost() +
+                CostModel::getBGVRelinBVCost(lhs.k->p->n, lhs.k->l, lhs.k->cv,
+                                             lhs.k->p->digitSize);
 #if 0
     LLVM_DEBUG(llvm::dbgs()
                << "original " << lhs.getVariance().toBound(k.p->n) << " relin "
                << v.toBound(k.p->n) << k.p->logQlP(k.l, k.ghs) << "\n");
 #endif
-    auto parent = VarianceParent(nullptr, lhs.k, "relin");
+    auto parent = VarianceParent(nullptr, lhs.k, "relin", cost);
     return VarianceValues(k, k->bound(v), {parent});
   }
 
@@ -493,7 +523,7 @@ class VarianceValues {
     Variance vModUp = Variance::evalModUp(lhs.getVariance(), kModUp->p->P(),
                                           kModUp->p->n, kModUp->p->t);
     if (!kModUp->bound(vModUp).isBounded()) {
-      auto parent = VarianceParent(nullptr, lhs.k, "relin");
+      auto parent = VarianceParent(nullptr, lhs.k, "relin", 0);
       return VarianceValues(kModDown, kModUp->bound(vModUp), {parent});
     }
 
@@ -502,7 +532,7 @@ class VarianceValues {
         vModUp, kRelin->p->n, kRelin->p->t, 3.2,
         kRelin->p->numDigit(kRelin->l, kRelin->ghs), kRelin->p->digit());
     if (!kRelin->bound(vRelin).isBounded()) {
-      auto parent = VarianceParent(nullptr, lhs.k, "relin");
+      auto parent = VarianceParent(nullptr, lhs.k, "relin", 0);
       return VarianceValues(kModDown, kRelin->bound(vRelin), {parent});
     }
 
@@ -518,7 +548,10 @@ class VarianceValues {
                << vModDown.toBound(kModUp->p.n) << " bound "
                << kModDown->p.logQlP(kModDown->l, kModDown->ghs) << "\n");
 #endif
-    auto parent = VarianceParent(nullptr, lhs.k, "relinG");
+    auto cost = lhs.getCost() + CostModel::getBGVRelinHYBRIDCost(
+                                    lhs.k->p->n, lhs.k->p->L, lhs.k->cv,
+                                    lhs.k->l, lhs.k->p->dnum);
+    auto parent = VarianceParent(nullptr, lhs.k, "relinG", cost);
     return VarianceValues(kModDown, kModDown->bound(vModDown), {parent});
   }
 
@@ -712,12 +745,12 @@ class VarianceStates {
     LLVM_DEBUG(llvm::dbgs() << "expand after: " << size() << "\n");
   }
 
-  std::vector<Param> reachable() const {
-    std::vector<Param> ret;
+  std::vector<std::pair<Param, CostModel::Cost>> reachable() const {
+    std::vector<std::pair<Param, CostModel::Cost>> ret;
     for (auto &[p, kToVs] : states) {
       for (auto &[k, vs] : kToVs) {
         if (k.isFinal() && vs.reachable()) {
-          ret.push_back(p);
+          ret.push_back({p, vs.getCost()});
         }
       }
     }
@@ -731,7 +764,15 @@ class VarianceStates {
 
     std::vector<const Param *> params;
 #if 1
-    params.push_back(ParamsFactory::getParam(2, 0, 0, t, 60, 0));
+    params.push_back(ParamsFactory::getParam(2, 30, 0, t, 55, 2));
+    params.push_back(ParamsFactory::getParam(2, 2, 0, t, 55, 2));
+    params.push_back(ParamsFactory::getParam(2, 0, 2, t, 30, 2));
+    params.push_back(ParamsFactory::getParam(1, 30, 0, t, 55, 2));
+    params.push_back(ParamsFactory::getParam(1, 2, 0, t, 55, 2));
+    params.push_back(ParamsFactory::getParam(1, 0, 2, t, 30, 2));
+    params.push_back(ParamsFactory::getParam(3, 30, 0, t, 55, 2));
+    params.push_back(ParamsFactory::getParam(3, 2, 0, t, 55, 2));
+    params.push_back(ParamsFactory::getParam(3, 0, 2, t, 55, 2));
 #endif
 #if 0
     for (auto depth : {l, l - 1}) {
