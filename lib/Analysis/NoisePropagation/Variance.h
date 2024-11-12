@@ -351,6 +351,14 @@ class VarianceValues {
 
   VarianceValues() = default;
 
+  VarianceValues(const VarianceKey *k) : k(k) {}
+
+  VarianceValues(const VarianceKey *k, Variance var,
+                 std::vector<VarianceParent> parents)
+      : k(k) {
+    insert(std::make_tuple(var, parents));
+  }
+
   std::string toDOTNode(const std::string &valueName) const {
     std::string str;
     str += k->toDOTNode(valueName);
@@ -390,17 +398,17 @@ class VarianceValues {
 
   bool operator!=(const VarianceValues &rhs) const { return !(*this == rhs); }
 
-  VarianceValues(const VarianceKey *k, Variance var,
-                 std::vector<VarianceParent> parents = {})
-      : k(k) {
-    insert(std::make_tuple(var, parents));
-  }
-
   void insert(const std::tuple<Variance, std::vector<VarianceParent>> &tuple) {
+    if (!std::get<0>(tuple).isBounded()) {
+      return;
+    }
     v.push_back(tuple);
   }
 
   void insert(std::tuple<Variance, std::vector<VarianceParent>> &&tuple) {
+    if (!std::get<0>(tuple).isBounded()) {
+      return;
+    }
     v.push_back(std::move(tuple));
   }
 
@@ -436,22 +444,52 @@ class VarianceValues {
   }
 
   const std::string getReason() const {
-    auto parents = getParents();
+    auto &parents = getParents();
     if (parents.size() == 0) {
       return "enc";
     }
-    return getParents()[0].reason;
+    return parents[0].reason;
   }
 
   const CostModel::Cost getCost() const {
-    auto parents = getParents();
+    auto &parents = getParents();
     if (parents.size() == 0) {
       return 0;
     }
-    return getParents()[0].cost;
+    return parents[0].cost;
   }
 
-  bool reachable() const { return getVariance().isBounded(); }
+  const Variance getVariance(size_t index) const {
+    return std::get<0>(v[index]);
+  }
+
+  const CostModel::Cost getCost(size_t index) const {
+    auto &parents = std::get<1>(v[index]);
+    if (parents.size() == 0) {
+      return 0;
+    }
+    return parents[0].cost;
+  }
+
+  const std::vector<CostModel::Cost> getCosts() const {
+    std::vector<CostModel::Cost> ret;
+    for (size_t i = 0; i != v.size(); ++i) {
+      auto &parents = std::get<1>(v[i]);
+      if (parents.size() == 0) {
+        ret.push_back(0);
+      } else {
+        ret.push_back(parents[0].cost);
+      }
+    }
+    return ret;
+  }
+
+  bool reachable() const {
+    if (v.size() == 0) {
+      return false;
+    }
+    return getVariance().isBounded();
+  }
 
   static VarianceValues evalEncryptPk(const Param *p) {
     double std0 = 3.2;
@@ -462,13 +500,17 @@ class VarianceValues {
 
   static VarianceValues evalModReduce(const VarianceValues &lhs) {
     const VarianceKey *k = VarianceKeyFactory::evalModReduce(*lhs.k);
-    Variance v = Variance::evalModReduce(
-        lhs.getVariance(), 1L << k->p->qi[k->l], k->p->n, k->p->t);
+    VarianceValues ret(k);
+    for (size_t i = 0; i != lhs.v.size(); ++i) {
+      Variance v = Variance::evalModReduce(
+          lhs.getVariance(i), 1L << k->p->qi[k->l], k->p->n, k->p->t);
 
-    auto cost = lhs.getCost() + CostModel::getBGVModReduceCost(
-                                    lhs.k->p->n, lhs.k->l, lhs.k->cv);
-    auto parent = VarianceParent(nullptr, lhs.k, "modd", cost);
-    return VarianceValues(k, k->bound(v), {parent});
+      auto cost = lhs.getCost(i) + CostModel::getBGVModReduceCost(
+                                       lhs.k->p->n, lhs.k->l, lhs.k->cv);
+      auto parent = VarianceParent(nullptr, lhs.k, "modd", cost);
+      ret.join(VarianceValues(k, k->bound(v), {parent}));
+    }
+    return ret;
   }
 
   VarianceValues evalModReduce() const {
@@ -481,32 +523,44 @@ class VarianceValues {
                                         const VarianceValues &rhs) {
     assert(lhs.k->sameLevel(*rhs.k));
     const VarianceKey *k = VarianceKeyFactory::evalMultNoRelin(*lhs.k, *rhs.k);
-    Variance v = Variance::evalMultNoRelin(lhs.getVariance(), rhs.getVariance(),
-                                           k->p->n);
-    auto cost =
-        lhs.getCost() + rhs.getCost() +
-        CostModel::getBGVMultCost(lhs.k->p->n, lhs.k->l, lhs.k->cv, rhs.k->cv);
-    auto parentL = VarianceParent(&lhsStates, lhs.k, "mult", cost);
-    auto parentR = VarianceParent(&rhsStates, rhs.k, "mult", cost);
-    return VarianceValues(k, k->bound(v), {parentL, parentR});
+    VarianceValues ret(k);
+    for (size_t i = 0; i != lhs.v.size(); ++i) {
+      for (size_t j = 0; j != rhs.v.size(); ++j) {
+        Variance v = Variance::evalMultNoRelin(lhs.getVariance(i),
+                                               rhs.getVariance(j), k->p->n);
+        // LLVM_DEBUG(llvm::dbgs() << "left: " << lhs.v.size() << " rhs: " <<
+        // rhs.v.size() << "\n");
+        auto cost = lhs.getCost(i) + rhs.getCost(j) +
+                    CostModel::getBGVMultCost(lhs.k->p->n, lhs.k->l, lhs.k->cv,
+                                              rhs.k->cv);
+        auto parentL = VarianceParent(&lhsStates, lhs.k, "mult", cost);
+        auto parentR = VarianceParent(&rhsStates, rhs.k, "mult", cost);
+        ret.join(VarianceValues(k, k->bound(v), {parentL, parentR}));
+      }
+    }
+    return ret;
   }
 
   static VarianceValues evalRelinearizeBV(const VarianceValues &lhs) {
     assert(lhs.k->canRelinearize());
     auto *k = VarianceKeyFactory::evalRelinearizeBV(*lhs.k);
-    Variance v = Variance::evalRelinearizeBV(
-        lhs.getVariance(), k->p->n, k->p->t, 3.2, k->p->numDigit(k->l, k->ghs),
-        k->p->digit());
-    auto cost = lhs.getCost() +
-                CostModel::getBGVRelinBVCost(lhs.k->p->n, lhs.k->l, lhs.k->cv,
-                                             lhs.k->p->digitSize);
+    VarianceValues ret(k);
+    for (size_t i = 0; i != lhs.v.size(); ++i) {
+      Variance v = Variance::evalRelinearizeBV(
+          lhs.getVariance(i), k->p->n, k->p->t, 3.2,
+          k->p->numDigit(k->l, k->ghs), k->p->digit());
+      auto cost = lhs.getCost(i) +
+                  CostModel::getBGVRelinBVCost(lhs.k->p->n, lhs.k->l, lhs.k->cv,
+                                               lhs.k->p->digitSize);
 #if 0
-    LLVM_DEBUG(llvm::dbgs()
-               << "original " << lhs.getVariance().toBound(k.p->n) << " relin "
-               << v.toBound(k.p->n) << k.p->logQlP(k.l, k.ghs) << "\n");
+      LLVM_DEBUG(llvm::dbgs()
+                 << "original " << lhs.getVariance().toBound(k.p->n) << " relin "
+                 << v.toBound(k.p->n) << k.p->logQlP(k.l, k.ghs) << "\n");
 #endif
-    auto parent = VarianceParent(nullptr, lhs.k, "relin", cost);
-    return VarianceValues(k, k->bound(v), {parent});
+      auto parent = VarianceParent(nullptr, lhs.k, "relin", cost);
+      ret.join(VarianceValues(k, k->bound(v), {parent}));
+    }
+    return ret;
   }
 
   VarianceValues evalRelinearizeBV() const {
@@ -520,39 +574,41 @@ class VarianceValues {
     const VarianceKey *kModDown =
         VarianceKeyFactory::evalRelinearizeGHSModDown(*kRelin);
 
-    Variance vModUp = Variance::evalModUp(lhs.getVariance(), kModUp->p->P(),
-                                          kModUp->p->n, kModUp->p->t);
-    if (!kModUp->bound(vModUp).isBounded()) {
-      auto parent = VarianceParent(nullptr, lhs.k, "relin", 0);
-      return VarianceValues(kModDown, kModUp->bound(vModUp), {parent});
-    }
+    VarianceValues ret(kModDown);
+    for (size_t i = 0; i != lhs.v.size(); ++i) {
+      Variance vModUp = Variance::evalModUp(lhs.getVariance(i), kModUp->p->P(),
+                                            kModUp->p->n, kModUp->p->t);
+      if (!kModUp->bound(vModUp).isBounded()) {
+        continue;
+      }
 
-    assert(kModUp->canRelinearize());
-    Variance vRelin = Variance::evalRelinearizeBV(
-        vModUp, kRelin->p->n, kRelin->p->t, 3.2,
-        kRelin->p->numDigit(kRelin->l, kRelin->ghs), kRelin->p->digit());
-    if (!kRelin->bound(vRelin).isBounded()) {
-      auto parent = VarianceParent(nullptr, lhs.k, "relin", 0);
-      return VarianceValues(kModDown, kRelin->bound(vRelin), {parent});
-    }
+      assert(kModUp->canRelinearize());
+      Variance vRelin = Variance::evalRelinearizeBV(
+          vModUp, kRelin->p->n, kRelin->p->t, 3.2,
+          kRelin->p->numDigit(kRelin->l, kRelin->ghs), kRelin->p->digit());
+      if (!kRelin->bound(vRelin).isBounded()) {
+        continue;
+      }
 
-    Variance vModDown = Variance::evalModReduce(vRelin, kModDown->p->P(),
-                                                kModDown->p->n, kModDown->p->t);
+      Variance vModDown = Variance::evalModReduce(
+          vRelin, kModDown->p->P(), kModDown->p->n, kModDown->p->t);
 #if 0
-    LLVM_DEBUG(llvm::dbgs()
-               << "original " << lhs.getVariance().toBound(kModUp->p.n)
-               << " modup " << vModUp.toBound(kModUp->p.n) << " bound "
-               << kModUp->p.logQlP(kModUp->l, kModUp->ghs) << " relin "
-               << vRelin.toBound(kModUp->p.n) << " bound "
-               << kRelin->p.logQlP(kRelin->l, kRelin->ghs) << " moddown "
-               << vModDown.toBound(kModUp->p.n) << " bound "
-               << kModDown->p.logQlP(kModDown->l, kModDown->ghs) << "\n");
+      LLVM_DEBUG(llvm::dbgs()
+                 << "original " << lhs.getVariance().toBound(kModUp->p.n)
+                 << " modup " << vModUp.toBound(kModUp->p.n) << " bound "
+                 << kModUp->p.logQlP(kModUp->l, kModUp->ghs) << " relin "
+                 << vRelin.toBound(kModUp->p.n) << " bound "
+                 << kRelin->p.logQlP(kRelin->l, kRelin->ghs) << " moddown "
+                 << vModDown.toBound(kModUp->p.n) << " bound "
+                 << kModDown->p.logQlP(kModDown->l, kModDown->ghs) << "\n");
 #endif
-    auto cost = lhs.getCost() + CostModel::getBGVRelinHYBRIDCost(
-                                    lhs.k->p->n, lhs.k->p->L, lhs.k->cv,
-                                    lhs.k->l, lhs.k->p->dnum);
-    auto parent = VarianceParent(nullptr, lhs.k, "relinG", cost);
-    return VarianceValues(kModDown, kModDown->bound(vModDown), {parent});
+      auto cost = lhs.getCost(i) + CostModel::getBGVRelinHYBRIDCost(
+                                       lhs.k->p->n, lhs.k->p->L, lhs.k->cv,
+                                       lhs.k->l, lhs.k->p->dnum);
+      auto parent = VarianceParent(nullptr, lhs.k, "relinG", cost);
+      ret.join(VarianceValues(kModDown, kModDown->bound(vModDown), {parent}));
+    }
+    return ret;
   }
 
   VarianceValues evalRelinearizeGHS() const {
@@ -705,7 +761,7 @@ class VarianceStates {
 
   // use modreduce / relin to expand the space
   void expand() {
-    LLVM_DEBUG(llvm::dbgs() << "expand before: " << size() << "\n");
+    // LLVM_DEBUG(llvm::dbgs() << "expand before: " << size() << "\n");
     for (auto &[p, kToVs] : states) {
       std::set<VarianceKey> visited;
       while (visited.size() != kToVs.size()) {
@@ -742,15 +798,16 @@ class VarianceStates {
         }
       }
     }
-    LLVM_DEBUG(llvm::dbgs() << "expand after: " << size() << "\n");
+    // LLVM_DEBUG(llvm::dbgs() << "expand after: " << size() << "\n");
   }
 
-  std::vector<std::pair<Param, CostModel::Cost>> reachable() const {
-    std::vector<std::pair<Param, CostModel::Cost>> ret;
+  std::vector<std::pair<Param, std::vector<CostModel::Cost>>> reachable()
+      const {
+    std::vector<std::pair<Param, std::vector<CostModel::Cost>>> ret;
     for (auto &[p, kToVs] : states) {
       for (auto &[k, vs] : kToVs) {
         if (k.isFinal() && vs.reachable()) {
-          ret.push_back({p, vs.getCost()});
+          ret.push_back({p, vs.getCosts()});
         }
       }
     }
@@ -791,7 +848,7 @@ class VarianceStates {
       }
     }
 #endif
-    LLVM_DEBUG(llvm::dbgs() << "param size: " << params.size() << "\n");
+    // LLVM_DEBUG(llvm::dbgs() << "param size: " << params.size() << "\n");
     for (auto &p : params) {
 #if 0
       LLVM_DEBUG(llvm::dbgs() << p << "\n");
