@@ -258,7 +258,7 @@ class VarianceKey {
   // }
 
   Variance bound(const Variance &v) const {
-    if (v.logAlphaBound(p->n) >= p->logQlP(l, ghs)) {
+    if (v.logAlphaBound(p->n) >= p->logQlP(l, ghs) - 1) {
       return Variance::unbounded();
     }
     return v;
