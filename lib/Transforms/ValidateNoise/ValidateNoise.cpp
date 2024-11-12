@@ -63,8 +63,19 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
                                   << valueNameMap.at(result) << "\n");
           for (auto &p : params) {
             auto pa = p.first;
-            auto cost = p.second;
-            LLVM_DEBUG(llvm::dbgs() << pa << " cost " << int(cost) << "\n");
+            auto costs = p.second;
+            auto cmin = std::min_element(costs.begin(), costs.end());
+            LLVM_DEBUG(llvm::dbgs()
+                       << pa << " min cost " << int(*cmin) << " cost [");
+            int count = 0;
+            for (auto &c : costs) {
+              if (count++ > 4) {
+                LLVM_DEBUG(llvm::dbgs() << "...");
+                break;
+              }
+              LLVM_DEBUG(llvm::dbgs() << int(c) << " ");
+            }
+            LLVM_DEBUG(llvm::dbgs() << "]\n");
           }
         } else {
           LLVM_DEBUG(llvm::dbgs() << "No reachable params for "
