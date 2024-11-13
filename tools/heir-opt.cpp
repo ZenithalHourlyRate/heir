@@ -285,6 +285,12 @@ int main(int argc, char **argv) {
       "tensor_ext.rotate",
       mlir::heir::heirSIMDVectorizerPipelineBuilder);
 
+  PassPipelineRegistration<mlir::heir::MlirToSecretArithPipelineOptions>(
+      "mlir-to-secret-arith",
+      "Convert a func using standard MLIR dialects to secret dialect with "
+      "arith ops",
+      mlirToSecretArithPipelineBuilder);
+
   PassPipelineRegistration<mlir::heir::MlirToRLWEPipelineOptions>(
       "mlir-to-bgv",
       "Convert a func using standard MLIR dialects to FHE using "

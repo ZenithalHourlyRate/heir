@@ -71,9 +71,8 @@ void heirSIMDVectorizerPipelineBuilder(OpPassManager &manager) {
   manager.addPass(createCSEPass());
 }
 
-void mlirToRLWEPipeline(OpPassManager &pm,
-                        const MlirToRLWEPipelineOptions &options,
-                        const RLWEScheme scheme) {
+void mlirToSecretArithPipelineBuilder(
+    OpPassManager &pm, const MlirToSecretArithPipelineOptions &options) {
   // Secretize inputs
   pm.addPass(createSecretize(SecretizeOptions{options.entryFunction}));
   pm.addPass(createWrapGeneric());
@@ -87,6 +86,14 @@ void mlirToRLWEPipeline(OpPassManager &pm,
 
   // Vectorize and optimize rotations
   heirSIMDVectorizerPipelineBuilder(pm);
+}
+
+void mlirToRLWEPipeline(OpPassManager &pm,
+                        const MlirToRLWEPipelineOptions &options,
+                        const RLWEScheme scheme) {
+  MlirToSecretArithPipelineOptions mlirToSecretArithPipelineOpts{};
+  mlirToSecretArithPipelineOpts.entryFunction = options.entryFunction;
+  mlirToSecretArithPipelineBuilder(pm, mlirToSecretArithPipelineOpts);
 
   // Prepare to lower to RLWE Scheme
   pm.addPass(secret::createSecretDistributeGeneric());
