@@ -33,7 +33,7 @@ struct AnnotateSecretManagement
       solver.load<dataflow::DeadCodeAnalysis>();
       solver.load<dataflow::SparseConstantPropagation>();
       solver.load<MulDepthAnalysis>();
-      if (failed(solver.initializeAndRun(getOperation()))) {
+      if (failed(solver.initializeAndRun(genericOp))) {
         getOperation()->emitOpError() << "Failed to run the analysis.\n";
         signalPassFailure();
         return;
@@ -41,7 +41,7 @@ struct AnnotateSecretManagement
 
       int64_t maxMulDepth = 0;
       // walk the operations to find the max MulDepth
-      genericOp.walk([&](Operation *op) {
+      genericOp.getBody()->walk([&](Operation *op) {
         // if the lengths of the operands is 0, then return
         if (op->getNumResults() == 0) return WalkResult::advance();
         const MulDepthLattice *resultLattice =
@@ -56,7 +56,7 @@ struct AnnotateSecretManagement
       genericOp->setAttr("depth", builder.getIntegerAttr(
                                       builder.getIntegerType(64), maxMulDepth));
 
-      genericOp.walk<WalkOrder::PreOrder>([&](Operation *op) {
+      genericOp.getBody()->walk<WalkOrder::PreOrder>([&](Operation *op) {
         // if the lengths of the operands is 0, then return
         // if (op->getNumResults() == 0) return WalkResult::advance();
 

@@ -16,9 +16,14 @@ LogicalResult NoiseStatesAnalysis::visitOperation(
     Operation *op, ArrayRef<const VarianceStatesLattice *> operands,
     ArrayRef<VarianceStatesLattice *> results) {
   auto propagate = [&](Value value, VarianceStates &vss) {
+    // LLVM_DEBUG(llvm::dbgs() << "join before size " << vss.size() << " " <<
+    // vss.getResult() << "\n");
     auto *lattice = getLatticeElement(value);
     ChangeResult changed = lattice->join(vss);
-    propagateIfChanged(lattice, changed);
+    propagateIfChanged(lattice, ChangeResult::Change);
+    // LLVM_DEBUG(llvm::dbgs() << "join result size " <<
+    // lattice->getValue().size() << " " << lattice->getValue().getResult() <<
+    // "\n");
   };
 
   llvm::TypeSwitch<Operation &>(*op)
@@ -31,14 +36,19 @@ LogicalResult NoiseStatesAnalysis::visitOperation(
                 llvm::dyn_cast<IntegerAttr>(genericOp->getAttr("depth"))) {
           maxMulDepth = depthAttr.getValue().getLimitedValue();
         }
-        for (Value arg : body->getArguments()) {
-          auto vss = VarianceStates::evalEncryptPk(arg, 65537, maxMulDepth);
+        for (Value &arg : body->getArguments()) {
+          auto vss = VarianceStates::evalEncryptPk(65537, maxMulDepth);
+          // LLVM_DEBUG(llvm::dbgs() << "enc value " << arg << " contained " <<
+          // vss.getResult() << " vss " << &vss << "\n");
           propagate(arg, vss);
         }
       })
       .Case<arith::MulIOp>([&](auto mulOp) {
-        auto vss = VarianceStates::evalMultNoRelin(
-            operands[0]->getValue(), operands[1]->getValue(), op->getResult(0));
+        // LLVM_DEBUG(llvm::dbgs() << "mult operand " << " size " <<
+        // operands[0]->getValue().size() << " " <<
+        // operands[0]->getValue().getResult() << "\n");
+        auto vss = VarianceStates::evalMultNoRelin(operands[0]->getValue(),
+                                                   operands[1]->getValue());
         propagate(op->getResult(0), vss);
       });
   return success();

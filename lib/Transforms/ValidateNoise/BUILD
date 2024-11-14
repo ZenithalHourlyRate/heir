@@ -13,7 +13,7 @@ cc_library(
         ":pass_inc_gen",
         "@heir//lib/Analysis/NoisePropagation:NoisePropagationAnalysis",
         "@heir//lib/Analysis/NoisePropagation:Variance",
-        "@heir//lib/Dialect/LWE/IR:Dialect",
+        "@heir//lib/Dialect/Secret/IR:Dialect",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Analysis",
         "@llvm-project//mlir:Pass",
