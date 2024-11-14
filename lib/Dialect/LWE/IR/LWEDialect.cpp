@@ -276,32 +276,6 @@ LogicalResult PlaintextSpaceAttr::verify(
   return success();
 }
 
-void AddOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
-                             SetNoiseFn setValueNoise) {
-  if (!argNoises[0].isInitialized() || !argNoises[1].isInitialized()) {
-    emitOpError() << "uses SSA value with uninitialized noise variance.";
-    return setValueNoise(getResult(), Variance::unbounded());
-  }
-  return setValueNoise(
-      getResult(),
-      (argNoises[0].isBounded() && argNoises[1].isBounded())
-          ? Variance::of(argNoises[0].getValue() + argNoises[1].getValue())
-          : Variance::unbounded());
-}
-bool AddOp::hasArgumentIndependentResultNoise() { return false; }
-
-void TrivialEncryptOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
-                                        SetNoiseFn setValueNoise) {
-  return setValueNoise(getResult(), Variance::of(15));
-}
-bool TrivialEncryptOp::hasArgumentIndependentResultNoise() { return true; }
-
-void RTrivialEncryptOp::inferResultNoise(llvm::ArrayRef<Variance> argNoises,
-                                         SetNoiseFn setValueNoise) {
-  return setValueNoise(getResult(), Variance::of(15));
-}
-bool RTrivialEncryptOp::hasArgumentIndependentResultNoise() { return true; }
-
 }  // namespace lwe
 }  // namespace heir
 }  // namespace mlir

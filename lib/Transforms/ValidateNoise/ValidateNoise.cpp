@@ -3,7 +3,6 @@
 #include "lib/Analysis/NoisePropagation/NoisePropagationAnalysis.h"
 #include "lib/Analysis/NoisePropagation/Variance.h"
 #include "lib/Dialect/LWE/IR/LWETypes.h"
-#include "lib/Interfaces/NoiseInterfaces.h"
 #include "llvm/include/llvm/Support/Debug.h"  // from @llvm-project
 #include "mlir/include/mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"  // from @llvm-project
 #include "mlir/include/mlir/Analysis/DataFlow/DeadCodeAnalysis.h"  // from @llvm-project

@@ -11,7 +11,6 @@ cc_library(
         ":Params",
         ":Variance",
         "@heir//lib/Dialect/BGV/IR:Dialect",
-        "@heir//lib/Interfaces:NoiseInterfaces",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Analysis",
         "@llvm-project//mlir:IR",

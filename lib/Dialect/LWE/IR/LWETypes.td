@@ -40,7 +40,7 @@ def RLWECiphertext : LWE_Type<"RLWECiphertext", "rlwe_ciphertext"> {
   );
 }
 
-// def RLWECiphertextLike : TypeOrContainer<RLWECiphertext, "ciphertext-like">;
+def RLWECiphertextLike : TypeOrContainer<RLWECiphertext, "ciphertext-like">;
 
 def RLWESecretKey : LWE_Type<"RLWESecretKey", "rlwe_secret_key"> {
   let summary = "A secret key for RLWE";
@@ -78,8 +78,5 @@ def RLWEPlaintext : LWE_Type<"RLWEPlaintext", "rlwe_plaintext"> {
     "Type":$underlying_type
   );
 }
-
-def CompatibleRLWECiphertext : AnyTypeOf<[RLWECiphertext,NewLWECiphertext], "compatible">;
-def RLWECiphertextLike : TypeOrContainer<CompatibleRLWECiphertext, "ciphertext-like">;
 
 #endif  // LIB_DIALECT_LWE_IR_LWETYPES_TD_
