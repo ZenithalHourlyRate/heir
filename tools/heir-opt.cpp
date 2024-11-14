@@ -42,6 +42,7 @@
 #include "lib/Dialect/TfheRustBool/IR/TfheRustBoolDialect.h"
 #include "lib/Pipelines/ArithmeticPipelineRegistration.h"
 #include "lib/Pipelines/PipelineRegistration.h"
+#include "lib/Transforms/AnnotateSecretManagement/Passes.h"
 #include "lib/Transforms/ApplyFolders/ApplyFolders.h"
 #include "lib/Transforms/ConvertIfToSelect/ConvertIfToSelect.h"
 #include "lib/Transforms/ConvertSecretExtractToStaticExtract/ConvertSecretExtractToStaticExtract.h"
@@ -204,6 +205,7 @@ int main(int argc, char **argv) {
   tensor_ext::registerTensorExtPasses();
   openfhe::registerOpenfhePasses();
   registerElementwiseToAffinePasses();
+  registerAnnotateSecretManagementPasses();
   registerSecretizePasses();
   registerFullLoopUnrollPasses();
   registerConvertIfToSelectPasses();
@@ -286,6 +288,12 @@ int main(int argc, char **argv) {
       "scalar types to equivalent programs that operate on vectors and use "
       "tensor_ext.rotate",
       mlir::heir::heirSIMDVectorizerPipelineBuilder);
+
+  PassPipelineRegistration<mlir::heir::MlirToSecretArithPipelineOptions>(
+      "mlir-to-secret-arith",
+      "Convert a func using standard MLIR dialects to secret dialect with "
+      "arith ops",
+      mlirToSecretArithPipelineBuilder);
 
   PassPipelineRegistration<mlir::heir::MlirToRLWEPipelineOptions>(
       "mlir-to-bgv",
