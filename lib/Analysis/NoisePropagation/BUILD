@@ -10,9 +10,10 @@ cc_library(
     deps = [
         ":Params",
         ":Variance",
-        "@heir//lib/Dialect/BGV/IR:Dialect",
+        "@heir//lib/Dialect/Secret/IR:Dialect",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Analysis",
+        "@llvm-project//mlir:ArithDialect",
         "@llvm-project//mlir:IR",
     ],
 )
