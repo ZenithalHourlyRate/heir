@@ -58,8 +58,9 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
         auto &vss = opRange->getValue();
         auto params = vss.reachable();
         if (params.size() != 0) {
-          LLVM_DEBUG(llvm::dbgs() << "Reachable params for "
-                                  << valueNameMap.at(result) << "\n");
+          LLVM_DEBUG(llvm::dbgs()
+                     << "Reachable params for " << valueNameMap.at(result)
+                     << " " << result << "\n");
           for (auto &p : params) {
             auto pa = p.first;
             auto costs = p.second;

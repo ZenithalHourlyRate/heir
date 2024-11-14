@@ -38,20 +38,6 @@ class BGV_CiphertextPlaintextOp<string mnemonic, list<Trait> traits =
   );
 }
 
-def BGV_MyEncryptOp : BGV_Op<"my_encrypt", [Pure]> {
-  let summary = "encrypt";
-
-  let arguments = (ins
-    AnyType:$input
-  );
-
-  let results = (outs
-    NewLWECiphertext:$output
-  );
-
-  let assemblyFormat = "operands attr-dict `:` qualified(type($input)) `->` qualified(type($output))" ;
-}
-
 def BGV_AddOp : BGV_Op<"add", [Pure, Commutative, SameOperandsAndResultType]> {
   let summary = "Addition operation between ciphertexts.";
 
@@ -244,6 +230,24 @@ def BGV_RelinearizeOp : BGV_Op<"relinearize", [SameOperandsAndResultRings, Infer
 
 def BGV_MyRelinearizeOp : BGV_Op<"my_relinearize", [SameOperandsAndResultRings]> {
   let summary = "Relinearize the ciphertext.";
+
+  let description = [{
+  }];
+
+  let arguments = (ins
+    NewLWECiphertext:$input
+  );
+
+  let results = (outs
+    NewLWECiphertext:$output
+  );
+
+  //let hasVerifier = 1;
+  let assemblyFormat = "operands attr-dict `:` qualified(type($input)) `->` qualified(type($output))" ;
+}
+
+def BGV_MyModulusSwitchOp : BGV_Op<"my_modulus_switch"> {
+  let summary = "";
 
   let description = [{
   }];

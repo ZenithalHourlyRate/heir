@@ -1,6 +1,5 @@
 #include "lib/Analysis/MulDepthAnalysis/MulDepthAnalysis.h"
-#include "lib/Dialect/Secret/IR/SecretDialect.h"
-#include "lib/Dialect/Secret/IR/SecretTypes.h"
+#include "lib/Dialect/Secret/IR/SecretOps.h"
 #include "lib/Transforms/AnnotateSecretManagement/Passes.h"
 #include "llvm/include/llvm/ADT/TypeSwitch.h"  // from @llvm-project
 #include "llvm/include/llvm/Support/Debug.h"   // from @llvm-project
@@ -69,8 +68,6 @@ struct AnnotateSecretManagement
               mulDepthRhsValue = mulDepthRhs.getValue();
             }
 
-            // LLVM_DEBUG(llvm::dbgs() << "mul depth: " << mulDepthValue <<
-            // "\n");
             op->setAttr("depth",
                         builder.getIntegerAttr(builder.getIntegerType(64),
                                                mulDepthResultValue));
