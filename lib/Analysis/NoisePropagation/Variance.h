@@ -321,26 +321,46 @@ class VarianceKeyFactory {
 
 class VarianceStates;
 
+enum VarianceParentType { Self, Operand0, Operand1 };
+
 struct VarianceParent {
   VarianceParent() = default;
 
-  VarianceParent(const VarianceStates *parentStates,
-                 const VarianceKey *parentKey, std::string reason,
+  VarianceParent(VarianceParentType type, const VarianceKey *parentKey,
                  CostModel::Cost cost)
-      : parentStates(parentStates),
-        parentKey(parentKey),
-        reason(reason),
-        cost(cost) {}
+      : type(type), parentKey(parentKey), cost(cost) {}
 
   bool operator==(const VarianceParent &rhs) const {
-    // FIXME: no deref now
-    return parentStates == rhs.parentStates && parentKey == rhs.parentKey &&
-           reason == rhs.reason;
+    return type == rhs.type && parentKey == rhs.parentKey && cost == rhs.cost;
   }
 
-  // FIXME: lifetime of VarianceStates!
-  const VarianceStates *parentStates;
+  VarianceParentType getType() const { return type; }
+
+  const VarianceKey *getParentKey() const { return parentKey; }
+
+  VarianceParentType type;
   const VarianceKey *parentKey;
+  CostModel::Cost cost;
+};
+
+struct VarianceParents {
+  VarianceParents() = default;
+
+  VarianceParents(std::vector<VarianceParent> parents, std::string reason,
+                  CostModel::Cost cost)
+      : parents(parents), reason(reason), cost(cost) {}
+
+  bool operator==(const VarianceParents &rhs) const {
+    return parents == rhs.parents && reason == rhs.reason;
+  }
+
+  const std::vector<VarianceParent> &getParents() const { return parents; }
+
+  const std::string getReason() const { return reason; }
+
+  const CostModel::Cost getCost() const { return cost; }
+
+  std::vector<VarianceParent> parents;
   std::string reason;
   CostModel::Cost cost;
 };
@@ -353,8 +373,7 @@ class VarianceValues {
 
   VarianceValues(const VarianceKey *k) : k(k) {}
 
-  VarianceValues(const VarianceKey *k, Variance var,
-                 std::vector<VarianceParent> parents)
+  VarianceValues(const VarianceKey *k, Variance var, VarianceParents parents)
       : k(k) {
     insert(std::make_tuple(var, parents));
   }
@@ -367,8 +386,11 @@ class VarianceValues {
     return str;
   }
 
-  std::string toDOTEdge(const Value &result,
-                        const DenseMap<Value, std::string> &valueNameMap) const;
+  std::string toDOTEdge(
+      std::vector<Value> values,
+      const DenseMap<Value, std::string> &valueNameMap,
+      const std::vector<std::tuple<VarianceKey, VarianceParents>> &selected)
+      const;
 
   void print(llvm::raw_ostream &os) const {
     os << k;
@@ -382,14 +404,14 @@ class VarianceValues {
     //   }
     //   os << "); ";
     // }
-    os << "Bound(";
-    os << std::to_string(log(getVariance().alphaBound(k->p->n)) / log(2));
-    os << ") parent:(";
+    // os << "Bound(";
+    // os << std::to_string(log(getVariance().alphaBound(k->p->n)) / log(2));
+    // os << ") parent:(";
     // for (auto &parent : getParents()) {
     //   os << parent;
     //   os << ", ";
     // }
-    os << "); ";
+    // os << "); ";
   }
 
   bool operator==(const VarianceValues &rhs) const {
@@ -398,14 +420,14 @@ class VarianceValues {
 
   bool operator!=(const VarianceValues &rhs) const { return !(*this == rhs); }
 
-  void insert(const std::tuple<Variance, std::vector<VarianceParent>> &tuple) {
+  void insert(const std::tuple<Variance, VarianceParents> &tuple) {
     if (!std::get<0>(tuple).isBounded()) {
       return;
     }
     v.push_back(tuple);
   }
 
-  void insert(std::tuple<Variance, std::vector<VarianceParent>> &&tuple) {
+  void insert(std::tuple<Variance, VarianceParents> &&tuple) {
     if (!std::get<0>(tuple).isBounded()) {
       return;
     }
@@ -426,60 +448,61 @@ class VarianceValues {
     }
   }
 
-  const std::tuple<Variance, std::vector<VarianceParent>> &getMinimal() const {
-    auto index = 0;
-    for (size_t i = 0; i != v.size(); ++i) {
-      Variance res = Variance::min(std::get<0>(v[index]), std::get<0>(v[i]));
-      if (res == std::get<0>(v[i])) {
-        index = i;
-      }
-    }
-    return v[index];
-  }
-
-  Variance getVariance() const { return std::get<0>(getMinimal()); }
-
-  const std::vector<VarianceParent> &getParents() const {
-    return std::get<1>(getMinimal());
-  }
-
-  const std::string getReason() const {
-    auto &parents = getParents();
-    if (parents.size() == 0) {
-      return "enc";
-    }
-    return parents[0].reason;
-  }
-
-  const CostModel::Cost getCost() const {
-    auto &parents = getParents();
-    if (parents.size() == 0) {
-      return 0;
-    }
-    return parents[0].cost;
-  }
-
-  const Variance getVariance(size_t index) const {
+  const Variance &getVariance(size_t index) const {
     return std::get<0>(v[index]);
   }
 
-  const CostModel::Cost getCost(size_t index) const {
-    auto &parents = std::get<1>(v[index]);
-    if (parents.size() == 0) {
-      return 0;
-    }
-    return parents[0].cost;
+  const VarianceParents &getParents(size_t index) const {
+    return std::get<1>(v[index]);
   }
+
+  const std::string getReason(size_t index) const {
+    return getParents(index).getReason();
+  }
+
+  const CostModel::Cost getCost(size_t index) const {
+    return getParents(index).getCost();
+  }
+
+  const size_t getMinimalByVariance() const {
+    auto index = 0;
+    for (size_t i = 0; i != v.size(); ++i) {
+      Variance res = Variance::min(getVariance(index), getVariance(i));
+      if (res == getVariance(i)) {
+        index = i;
+      }
+    }
+    return index;
+  }
+
+  const size_t getMinimalByCost() const {
+    auto index = 0;
+    for (size_t i = 0; i != v.size(); ++i) {
+      CostModel::Cost res = std::min(getCost(index), getCost(i));
+      if (res == getCost(i)) {
+        index = i;
+      }
+    }
+    return index;
+  }
+
+  const Variance &getVarianceByMinVariance() const {
+    return getVariance(getMinimalByVariance());
+  }
+  const Variance &getVarianceByMinCost() const {
+    return getVariance(getMinimalByCost());
+  }
+
+  const VarianceParents &getParents() const {
+    return getParents(getMinimalByCost());
+  }
+
+  const CostModel::Cost getCost() const { return getCost(getMinimalByCost()); }
 
   const std::vector<CostModel::Cost> getCosts() const {
     std::vector<CostModel::Cost> ret;
     for (size_t i = 0; i != v.size(); ++i) {
-      auto &parents = std::get<1>(v[i]);
-      if (parents.size() == 0) {
-        ret.push_back(0);
-      } else {
-        ret.push_back(parents[0].cost);
-      }
+      ret.push_back(getCost(i));
     }
     return ret;
   }
@@ -488,14 +511,16 @@ class VarianceValues {
     if (v.size() == 0) {
       return false;
     }
-    return getVariance().isBounded();
+    return getVarianceByMinVariance().isBounded();
   }
 
   static VarianceValues evalEncryptPk(const Param *p) {
     double std0 = 3.2;
     auto *k = VarianceKeyFactory::evalEncryptPk(p);
     auto v = Variance::evalEncryptPk(k->p->n, k->p->t, std0);
-    return VarianceValues(k, k->bound(v), {});
+    // TODO: encrypt cost?
+    auto parents = VarianceParents({}, "enc", 0);
+    return VarianceValues(k, k->bound(v), parents);
   }
 
   static VarianceValues evalModReduce(const VarianceValues &lhs) {
@@ -507,8 +532,10 @@ class VarianceValues {
 
       auto cost = lhs.getCost(i) + CostModel::getBGVModReduceCost(
                                        lhs.k->p->n, lhs.k->l, lhs.k->cv);
-      auto parent = VarianceParent(nullptr, lhs.k, "modd", cost);
-      ret.join(VarianceValues(k, k->bound(v), {parent}));
+      auto parent =
+          VarianceParent(VarianceParentType::Self, lhs.k, lhs.getCost(i));
+      auto parents = VarianceParents({parent}, "modd", cost);
+      ret.join(VarianceValues(k, k->bound(v), parents));
     }
     return ret;
   }
@@ -517,9 +544,7 @@ class VarianceValues {
     return VarianceValues::evalModReduce(*this);
   }
 
-  static VarianceValues evalMultNoRelin(const VarianceStates &lhsStates,
-                                        const VarianceValues &lhs,
-                                        const VarianceStates &rhsStates,
+  static VarianceValues evalMultNoRelin(const VarianceValues &lhs,
                                         const VarianceValues &rhs) {
     assert(lhs.k->sameLevel(*rhs.k));
     const VarianceKey *k = VarianceKeyFactory::evalMultNoRelin(*lhs.k, *rhs.k);
@@ -533,9 +558,12 @@ class VarianceValues {
         auto cost = lhs.getCost(i) + rhs.getCost(j) +
                     CostModel::getBGVMultCost(lhs.k->p->n, lhs.k->l, lhs.k->cv,
                                               rhs.k->cv);
-        auto parentL = VarianceParent(&lhsStates, lhs.k, "mult", cost);
-        auto parentR = VarianceParent(&rhsStates, rhs.k, "mult", cost);
-        ret.join(VarianceValues(k, k->bound(v), {parentL, parentR}));
+        auto parentL =
+            VarianceParent(VarianceParentType::Operand0, lhs.k, lhs.getCost(i));
+        auto parentR =
+            VarianceParent(VarianceParentType::Operand1, rhs.k, rhs.getCost(j));
+        auto parents = VarianceParents({parentL, parentR}, "mult", cost);
+        ret.join(VarianceValues(k, k->bound(v), parents));
       }
     }
     return ret;
@@ -557,8 +585,10 @@ class VarianceValues {
                  << "original " << lhs.getVariance().toBound(k.p->n) << " relin "
                  << v.toBound(k.p->n) << k.p->logQlP(k.l, k.ghs) << "\n");
 #endif
-      auto parent = VarianceParent(nullptr, lhs.k, "relin", cost);
-      ret.join(VarianceValues(k, k->bound(v), {parent}));
+      auto parent =
+          VarianceParent(VarianceParentType::Self, lhs.k, lhs.getCost(i));
+      auto parents = VarianceParents({parent}, "relin", cost);
+      ret.join(VarianceValues(k, k->bound(v), parents));
     }
     return ret;
   }
@@ -605,8 +635,10 @@ class VarianceValues {
       auto cost = lhs.getCost(i) + CostModel::getBGVRelinHYBRIDCost(
                                        lhs.k->p->n, lhs.k->p->L, lhs.k->cv,
                                        lhs.k->l, lhs.k->p->dnum);
-      auto parent = VarianceParent(nullptr, lhs.k, "relinG", cost);
-      ret.join(VarianceValues(kModDown, kModDown->bound(vModDown), {parent}));
+      auto parent =
+          VarianceParent(VarianceParentType::Self, lhs.k, lhs.getCost(i));
+      auto parents = VarianceParents({parent}, "relinG", cost);
+      ret.join(VarianceValues(kModDown, kModDown->bound(vModDown), parents));
     }
     return ret;
   }
@@ -632,7 +664,7 @@ class VarianceValues {
  private:
   const VarianceKey *k;
   // variance, its parent(s) and reason
-  std::vector<std::tuple<Variance, std::vector<VarianceParent>>> v;
+  std::vector<std::tuple<Variance, VarianceParents>> v;
 };
 
 class VarianceStates {
@@ -640,13 +672,15 @@ class VarianceStates {
   VarianceStates() = default;
 
   std::string toDOTNode(
+      std::vector<Value> values,
       const DenseMap<Value, std::string> &valueNameMap) const {
     std::string str;
-    str += std::string("subgraph cluster_") + valueNameMap.at(result) + "{\n";
+    str +=
+        std::string("subgraph cluster_") + valueNameMap.at(values[0]) + "{\n";
     for (auto &[p, kToVs] : states) {
       for (auto &[k, vs] : kToVs) {
         if (!k.isAbortFinal() && vs.reachable()) {
-          str += vs.toDOTNode(valueNameMap.at(result));
+          str += vs.toDOTNode(valueNameMap.at(values[0]));
           str += "\n";
         }
       }
@@ -656,12 +690,15 @@ class VarianceStates {
   }
 
   std::string toDOTEdge(
-      const DenseMap<Value, std::string> &valueNameMap) const {
+      std::vector<Value> values,
+      const DenseMap<Value, std::string> &valueNameMap,
+      const std::vector<std::tuple<VarianceKey, VarianceParents>> &selected)
+      const {
     std::string str;
     for (auto &[p, kToVs] : states) {
       for (auto &[k, vs] : kToVs) {
         if (!k.isAbortFinal() && vs.reachable()) {
-          str += vs.toDOTEdge(result, valueNameMap);
+          str += vs.toDOTEdge(values, valueNameMap, selected);
         }
       }
     }
@@ -680,10 +717,8 @@ class VarianceStates {
     os << "]\n";
   }
 
-  const Value &getResult() const { return result; };
-
   bool operator==(const VarianceStates &rhs) const {
-    return result == rhs.result && states == rhs.states;
+    return states == rhs.states;
   }
 
   void insert(const VarianceValues &values) {
@@ -734,11 +769,9 @@ class VarianceStates {
       return lhs;
     }
     if (lhs.size() == 0) {
-      lhs.result = rhs.result;
       lhs.states = rhs.states;
       return lhs;
     }
-    lhs.result = rhs.result;
     for (auto &[p, kToVs] : rhs.states) {
       for (auto &[k, vs] : kToVs) {
         lhs.insert(vs);
@@ -815,21 +848,41 @@ class VarianceStates {
     return ret;
   }
 
-  static VarianceStates evalEncryptPk(Value result, int t, int l) {
+  VarianceKey getMinimalCostEntry() const {
+    VarianceKey key;
+    CostModel::Cost cost = 1e20;
+    for (auto &[p, kToVs] : states) {
+      for (auto &[k, vs] : kToVs) {
+        if (k.isFinal() && vs.reachable()) {
+          if (vs.getCost() < cost) {
+            key = k;
+            cost = vs.getCost();
+          }
+        }
+      }
+    }
+    return key;
+  }
+
+  const VarianceParents &getParents(VarianceKey key) const {
+    auto &kToVs = states.find(key.getParam())->second;
+    return kToVs.find(key)->second.getParents();
+  }
+
+  static VarianceStates evalEncryptPk(int t, int l) {
     VarianceStates vss;
-    vss.result = result;
 
     std::vector<const Param *> params;
 #if 1
-    params.push_back(ParamsFactory::getParam(2, 30, 0, t, 55, 2));
-    params.push_back(ParamsFactory::getParam(2, 2, 0, t, 55, 2));
-    params.push_back(ParamsFactory::getParam(2, 0, 2, t, 30, 2));
-    params.push_back(ParamsFactory::getParam(1, 30, 0, t, 55, 2));
-    params.push_back(ParamsFactory::getParam(1, 2, 0, t, 55, 2));
-    params.push_back(ParamsFactory::getParam(1, 0, 2, t, 30, 2));
+    // params.push_back(ParamsFactory::getParam(2, 30, 0, t, 55, 2));
+    // params.push_back(ParamsFactory::getParam(2, 2, 0, t, 55, 2));
+    // params.push_back(ParamsFactory::getParam(2, 0, 2, t, 30, 2));
+    // params.push_back(ParamsFactory::getParam(1, 30, 0, t, 55, 2));
+    // params.push_back(ParamsFactory::getParam(1, 2, 0, t, 55, 2));
+    // params.push_back(ParamsFactory::getParam(1, 0, 2, t, 30, 2));
     params.push_back(ParamsFactory::getParam(3, 30, 0, t, 55, 2));
-    params.push_back(ParamsFactory::getParam(3, 2, 0, t, 55, 2));
-    params.push_back(ParamsFactory::getParam(3, 0, 2, t, 55, 2));
+    // params.push_back(ParamsFactory::getParam(3, 2, 0, t, 55, 2));
+    // params.push_back(ParamsFactory::getParam(3, 0, 2, t, 55, 2));
 #endif
 #if 0
     for (auto depth : {l, l - 1}) {
@@ -861,18 +914,15 @@ class VarianceStates {
   }
 
   static VarianceStates evalMultNoRelin(const VarianceStates &lhs,
-                                        const VarianceStates &rhs,
-                                        Value result) {
+                                        const VarianceStates &rhs) {
     VarianceStates vss;
-    vss.result = result;
     for (auto &[p, lm] : lhs.states) {
       if (rhs.states.find(p) != rhs.states.end()) {
         auto &rm = rhs.states.at(p);
         for (auto &[lk, l] : lm) {
           for (auto &[rk, r] : rm) {
-            if (lk.sameLevel(rk) && l.getVariance().isBounded() &&
-                r.getVariance().isBounded()) {
-              auto vs = VarianceValues::evalMultNoRelin(lhs, l, rhs, r);
+            if (lk.sameLevel(rk) && l.reachable() && r.reachable()) {
+              auto vs = VarianceValues::evalMultNoRelin(l, r);
               vss.insert(std::move(vs));
             }
           }
@@ -889,7 +939,6 @@ class VarianceStates {
   // friend Diagnostic &operator<<(Diagnostic &diagnostic,
   //                               const VarianceStates &variance);
  private:
-  Value result;
   std::map<Param, std::map<VarianceKey, VarianceValues>> states;
 };
 

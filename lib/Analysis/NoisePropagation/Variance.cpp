@@ -129,28 +129,38 @@ Variance Variance::evalRelinearizeBV(const Variance &input, double n, double t,
 // }
 
 std::string VarianceValues::toDOTEdge(
-    const Value &result,
-    const DenseMap<Value, std::string> &valueNameMap) const {
+    std::vector<Value> values, const DenseMap<Value, std::string> &valueNameMap,
+    const std::vector<std::tuple<VarianceKey, VarianceParents>> &selected)
+    const {
   std::string str;
   for (auto &p : v) {
-    bool markBold = false;
-    if (std::get<1>(p) == getParents()) {
-      markBold = true;
-    }
     auto &variance = std::get<0>(p);
-    for (auto &parent : std::get<1>(p)) {
-      std::string valueName = valueNameMap.at(result);
+    auto &parents = std::get<1>(p);
+
+    bool markRed = false;
+    for (auto &[curKey, curParents] : selected) {
+      if (*k == curKey && parents == curParents) {
+        markRed = true;
+      }
+    }
+    if (!markRed) continue;
+
+    for (auto &parent : parents.getParents()) {
+      std::string valueName = valueNameMap.at(values[0]);
       std::string parentValueName = valueName;
-      if (parent.parentStates != nullptr) {
-        parentValueName = valueNameMap.at(parent.parentStates->getResult());
+      if (parent.type != VarianceParentType::Self) {
+        auto parentValue = values[1];
+        if (parent.type == VarianceParentType::Operand1)
+          parentValue = values[2];
+        parentValueName = valueNameMap.at(parentValue);
       }
 
       str += parent.parentKey->toDOTNode(parentValueName) + " -> " +
              k->toDOTNode(valueName) + " [label=\"" +
-             variance.toBound(k->p->n) + " " + parent.reason + " " +
-             std::to_string(int(parent.cost)) + "\"";
-      if (markBold && variance.isBounded()) {
-        str += " color=black fontcolor=black";
+             variance.toBound(k->p->n) + " " + parents.reason + " " +
+             std::to_string(int(parents.cost)) + "\"";
+      if (markRed && variance.isBounded()) {
+        str += " color=red fontcolor=red";
       } else {
         str += " color=gray fontcolor=gray";
         if (!variance.isBounded()) {
