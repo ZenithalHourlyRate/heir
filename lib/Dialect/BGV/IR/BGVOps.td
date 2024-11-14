@@ -9,7 +9,6 @@ include "mlir/Interfaces/InferTypeOpInterface.td"
 include "lib/Dialect/LWE/IR/LWETypes.td"
 include "lib/Dialect/LWE/IR/LWETraits.td"
 include "lib/Dialect/Polynomial/IR/PolynomialAttributes.td"
-include "lib/Interfaces/NoiseInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
 class BGV_Op<string mnemonic, list<Trait> traits = []> :
@@ -39,7 +38,7 @@ class BGV_CiphertextPlaintextOp<string mnemonic, list<Trait> traits =
   );
 }
 
-def BGV_EncryptOp : BGV_Op<"encrypt", [Pure, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+def BGV_MyEncryptOp : BGV_Op<"my_encrypt", [Pure]> {
   let summary = "encrypt";
 
   let arguments = (ins
@@ -47,22 +46,37 @@ def BGV_EncryptOp : BGV_Op<"encrypt", [Pure, DeclareOpInterfaceMethods<NoiseProp
   );
 
   let results = (outs
-    CompatibleRLWECiphertext:$output
+    NewLWECiphertext:$output
   );
 
   let assemblyFormat = "operands attr-dict `:` qualified(type($input)) `->` qualified(type($output))" ;
 }
 
-def BGV_AddOp : BGV_Op<"add", [Pure, Commutative, SameOperandsAndResultType, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+def BGV_AddOp : BGV_Op<"add", [Pure, Commutative, SameOperandsAndResultType]> {
   let summary = "Addition operation between ciphertexts.";
 
   let arguments = (ins
-    CompatibleRLWECiphertext:$lhs,
-    CompatibleRLWECiphertext:$rhs
+    RLWECiphertext:$lhs,
+    RLWECiphertext:$rhs
   );
 
   let results = (outs
-    CompatibleRLWECiphertext:$output
+    RLWECiphertext:$output
+  );
+
+  let assemblyFormat = "operands attr-dict `:` qualified(type($output))" ;
+}
+
+def BGV_MyAddOp : BGV_Op<"my_add", [Pure, Commutative, SameOperandsAndResultType]> {
+  let summary = "Addition operation between ciphertexts.";
+
+  let arguments = (ins
+    NewLWECiphertext:$lhs,
+    NewLWECiphertext:$rhs
+  );
+
+  let results = (outs
+    NewLWECiphertext:$output
   );
 
   let assemblyFormat = "operands attr-dict `:` qualified(type($output))" ;
@@ -107,16 +121,16 @@ def BGV_MulOp : BGV_Op<"mul", [Pure, Commutative, SameOperandsAndResultRings, Sa
 }
 
 
-def BGV_MyMulOp : BGV_Op<"my_mul", [Pure, Commutative, SameOperandsAndResultRings, SameTypeOperands, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+def BGV_MyMulOp : BGV_Op<"my_mul", [Pure, Commutative, SameOperandsAndResultRings, SameTypeOperands]> {
   let summary = "Multiplication operation between ciphertexts.";
 
   let arguments = (ins
-    CompatibleRLWECiphertext:$lhs,
-    CompatibleRLWECiphertext:$rhs
+    NewLWECiphertext:$lhs,
+    NewLWECiphertext:$rhs
   );
 
   let results = (outs
-    CompatibleRLWECiphertext:$output
+    NewLWECiphertext:$output
   );
 
   //let hasVerifier = 1;
@@ -143,16 +157,16 @@ def BGV_RotateOp : BGV_Op<"rotate", [Pure, AllTypesMatch<["input", "output"]>]> 
   let assemblyFormat = "operands attr-dict `:` qualified(type($input))" ;
 }
 
-def BGV_MyRotateOp : BGV_Op<"my_rotate", [Pure, AllTypesMatch<["input", "output"]>, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+def BGV_MyRotateOp : BGV_Op<"my_rotate", [Pure, AllTypesMatch<["input", "output"]>]> {
   let summary = "Rotate the coefficients of the ciphertext using a Galois automorphism.";
 
   let arguments = (ins
-    CompatibleRLWECiphertext:$input,
+    NewLWECiphertext:$input,
     Builtin_IntegerAttr:$offset
   );
 
   let results = (outs
-    CompatibleRLWECiphertext:$output
+    NewLWECiphertext:$output
   );
 
   //let hasVerifier = 1;
@@ -228,18 +242,18 @@ def BGV_RelinearizeOp : BGV_Op<"relinearize", [SameOperandsAndResultRings, Infer
   let assemblyFormat = "operands attr-dict `:` qualified(type($input)) `->` qualified(type($output))" ;
 }
 
-def BGV_MyRelinearizeOp : BGV_Op<"my_relinearize", [SameOperandsAndResultRings, DeclareOpInterfaceMethods<NoisePropagationInterface>]> {
+def BGV_MyRelinearizeOp : BGV_Op<"my_relinearize", [SameOperandsAndResultRings]> {
   let summary = "Relinearize the ciphertext.";
 
   let description = [{
   }];
 
   let arguments = (ins
-    CompatibleRLWECiphertext:$input
+    NewLWECiphertext:$input
   );
 
   let results = (outs
-    CompatibleRLWECiphertext:$output
+    NewLWECiphertext:$output
   );
 
   //let hasVerifier = 1;

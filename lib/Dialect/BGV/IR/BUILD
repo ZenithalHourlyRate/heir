@@ -35,7 +35,6 @@ td_library(
         "BGVOps.td",
     ],
     deps = [
-        "@heir//lib/Interfaces:NoiseInterfacesTdFiles",
         "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
         "@llvm-project//mlir:OpBaseTdFiles",
     ],
