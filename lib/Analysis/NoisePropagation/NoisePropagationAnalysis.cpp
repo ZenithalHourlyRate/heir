@@ -26,8 +26,13 @@ LogicalResult NoiseStatesAnalysis::visitOperation(
         Block *body = genericOp.getBody();
         LLVM_DEBUG(llvm::dbgs() << "Visiting secret genericOp with block arg "
                                 << body->getArguments().size() << "\n");
+        auto maxMulDepth = 0;
+        if (auto depthAttr =
+                llvm::dyn_cast<IntegerAttr>(genericOp->getAttr("depth"))) {
+          maxMulDepth = depthAttr.getValue().getLimitedValue();
+        }
         for (Value arg : body->getArguments()) {
-          auto vss = VarianceStates::evalEncryptPk(arg, 65537, 3);
+          auto vss = VarianceStates::evalEncryptPk(arg, 65537, maxMulDepth);
           propagate(arg, vss);
         }
       })
