@@ -27,59 +27,78 @@ struct AnnotateSecretManagement
     ModuleOp module = getOperation();
     OpBuilder builder(module);
 
-    // Analyse the operations to find the MulDepth
-    DataFlowSolver solver;
-    solver.load<dataflow::DeadCodeAnalysis>();
-    solver.load<dataflow::SparseConstantPropagation>();
-    solver.load<MulDepthAnalysis>();
-    if (failed(solver.initializeAndRun(getOperation()))) {
-      getOperation()->emitOpError() << "Failed to run the analysis.\n";
-      signalPassFailure();
-      return;
-    }
+    getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
+      // Analyse the operations to find the MulDepth
+      DataFlowSolver solver;
+      solver.load<dataflow::DeadCodeAnalysis>();
+      solver.load<dataflow::SparseConstantPropagation>();
+      solver.load<MulDepthAnalysis>();
+      if (failed(solver.initializeAndRun(getOperation()))) {
+        getOperation()->emitOpError() << "Failed to run the analysis.\n";
+        signalPassFailure();
+        return;
+      }
 
-    getOperation()->walk<WalkOrder::PreOrder>([&](Operation *op) {
-      // if the lengths of the operands is 0, then return
-      // if (op->getNumResults() == 0) return WalkResult::advance();
+      int64_t maxMulDepth = 0;
+      // walk the operations to find the max MulDepth
+      genericOp.walk([&](Operation *op) {
+        // if the lengths of the operands is 0, then return
+        if (op->getNumResults() == 0) return WalkResult::advance();
+        const MulDepthLattice *resultLattice =
+            solver.lookupState<MulDepthLattice>(op->getResult(0));
+        if (resultLattice->getValue().isInitialized()) {
+          maxMulDepth =
+              std::max(maxMulDepth, resultLattice->getValue().getValue());
+        }
+        return WalkResult::advance();
+      });
 
-      llvm::TypeSwitch<Operation &>(*op).Case<arith::MulIOp, arith::MulFOp>(
-          [&](auto arithOp) {
-            auto &mulDepthResult =
-                solver.lookupState<MulDepthLattice>(op->getResult(0))
-                    ->getValue();
-            auto &mulDepthLhs =
-                solver.lookupState<MulDepthLattice>(op->getOperand(0))
-                    ->getValue();
-            auto &mulDepthRhs =
-                solver.lookupState<MulDepthLattice>(op->getOperand(1))
-                    ->getValue();
+      genericOp->setAttr("depth", builder.getIntegerAttr(
+                                      builder.getIntegerType(64), maxMulDepth));
 
-            auto mulDepthResultValue = 0;
-            auto mulDepthLhsValue = 0;
-            auto mulDepthRhsValue = 0;
+      genericOp.walk<WalkOrder::PreOrder>([&](Operation *op) {
+        // if the lengths of the operands is 0, then return
+        // if (op->getNumResults() == 0) return WalkResult::advance();
 
-            if (mulDepthResult.isInitialized()) {
-              mulDepthResultValue = mulDepthResult.getValue();
-            }
-            if (mulDepthLhs.isInitialized()) {
-              mulDepthLhsValue = mulDepthLhs.getValue();
-            }
-            if (mulDepthRhs.isInitialized()) {
-              mulDepthRhsValue = mulDepthRhs.getValue();
-            }
+        llvm::TypeSwitch<Operation &>(*op).Case<arith::MulIOp, arith::MulFOp>(
+            [&](auto arithOp) {
+              auto &mulDepthResult =
+                  solver.lookupState<MulDepthLattice>(op->getResult(0))
+                      ->getValue();
+              auto &mulDepthLhs =
+                  solver.lookupState<MulDepthLattice>(op->getOperand(0))
+                      ->getValue();
+              auto &mulDepthRhs =
+                  solver.lookupState<MulDepthLattice>(op->getOperand(1))
+                      ->getValue();
 
-            op->setAttr("depth",
-                        builder.getIntegerAttr(builder.getIntegerType(64),
-                                               mulDepthResultValue));
-            op->setAttr("lhs",
-                        builder.getIntegerAttr(builder.getIntegerType(64),
-                                               mulDepthLhsValue));
-            op->setAttr("rhs",
-                        builder.getIntegerAttr(builder.getIntegerType(64),
-                                               mulDepthRhsValue));
-            op->setAttr("relin",
-                        builder.getIntegerAttr(builder.getIntegerType(64), 3));
-          });
+              auto mulDepthResultValue = 0;
+              auto mulDepthLhsValue = 0;
+              auto mulDepthRhsValue = 0;
+
+              if (mulDepthResult.isInitialized()) {
+                mulDepthResultValue = mulDepthResult.getValue();
+              }
+              if (mulDepthLhs.isInitialized()) {
+                mulDepthLhsValue = mulDepthLhs.getValue();
+              }
+              if (mulDepthRhs.isInitialized()) {
+                mulDepthRhsValue = mulDepthRhs.getValue();
+              }
+
+              op->setAttr("depth",
+                          builder.getIntegerAttr(builder.getIntegerType(64),
+                                                 mulDepthResultValue));
+              op->setAttr("lhs",
+                          builder.getIntegerAttr(builder.getIntegerType(64),
+                                                 mulDepthLhsValue));
+              op->setAttr("rhs",
+                          builder.getIntegerAttr(builder.getIntegerType(64),
+                                                 mulDepthRhsValue));
+              op->setAttr("relin", builder.getIntegerAttr(
+                                       builder.getIntegerType(64), 3));
+            });
+      });
     });
   }
 };
