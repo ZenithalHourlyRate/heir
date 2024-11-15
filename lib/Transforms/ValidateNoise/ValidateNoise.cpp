@@ -56,14 +56,16 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       auto resultValue = yieldOp->getOperand(0);
 
       std::vector<std::tuple<Value, VarianceKey, VarianceParent>> tree;
+      std::vector<std::tuple<Value, VarianceKey, VarianceParents>> all_selected;
 
       // init the tree
       auto vss = getVarianceStates(resultValue);
-      auto key = vss.getMinimalCostEntry();
-      auto parents = vss.getParents(key);
+      auto key = vss.getMinimalCostKey();
+      auto parents = vss.getParentsByMinCost(key);
       for (auto &parent : parents.getParents()) {
         tree.emplace_back(resultValue, key, parent);
       }
+      all_selected.emplace_back(resultValue, key, parents);
 
       // tarverse the parent tree
 
@@ -86,10 +88,13 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
         auto parentValue = getParentValue(currentValue, currentParent);
         auto *parentKey = currentParent.getParentKey();
 
-        auto parents = getVarianceStates(parentValue).getParents(*parentKey);
-        for (auto &parent : parents.getParents()) {
-          tree.emplace_back(parentValue, *parentKey, parent);
+        auto parentParents =
+            getVarianceStates(parentValue)
+                .getParentsBySuccessorParent(*parentKey, currentParent);
+        for (auto &parentParent : parentParents.getParents()) {
+          tree.emplace_back(parentValue, *parentKey, parentParent);
         }
+        all_selected.emplace_back(parentValue, *parentKey, parentParents);
 
         // updateName(currentValue->getResult());
         // updateName(parentValue->getResult());
@@ -107,9 +112,8 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
         auto vss = getVarianceStates(result);
 
         std::vector<std::tuple<VarianceKey, VarianceParents>> selected;
-        for (auto &[value, key, parent] : tree) {
+        for (auto &[value, key, parents] : all_selected) {
           if (value == result) {
-            auto parents = getVarianceStates(value).getParents(key);
             selected.emplace_back(key, parents);
           }
         }
