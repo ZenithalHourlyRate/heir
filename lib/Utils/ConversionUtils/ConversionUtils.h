@@ -8,6 +8,7 @@
 #include "lib/Dialect/TensorExt/IR/TensorExtOps.h"
 #include "llvm/include/llvm/ADT/STLExtras.h"            // from @llvm-project
 #include "llvm/include/llvm/Support/Casting.h"          // from @llvm-project
+#include "llvm/include/llvm/Support/Debug.h"            // from @llvm-project
 #include "mlir/include/mlir/Dialect/Arith/IR/Arith.h"   // from @llvm-project
 #include "mlir/include/mlir/Dialect/Func/IR/FuncOps.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Attributes.h"            // from @llvm-project
@@ -26,6 +27,8 @@
 
 namespace mlir {
 namespace heir {
+
+#define DEBUG_TYPE "ConversionUtils"
 
 LogicalResult convertAnyOperand(const TypeConverter *typeConverter,
                                 Operation *op, ArrayRef<Value> operands,
@@ -189,7 +192,7 @@ class SecretGenericOpCipherPlainConversion
   }
 };
 
-template <typename M, typename T, typename Y>
+template <typename M, typename T, typename Y, typename R = Y>
 class SecretGenericOpMulConversion : public SecretGenericOpConversion<M, T> {
  public:
   using SecretGenericOpConversion<M, T>::SecretGenericOpConversion;
@@ -205,9 +208,36 @@ class SecretGenericOpMulConversion : public SecretGenericOpConversion<M, T> {
     if (!plaintextValues.empty()) {
       return failure();
     }
-    rewriter.replaceOpWithNewOp<Y>(op, rewriter.create<T>(op.getLoc(), inputs),
-                                   rewriter.getDenseI32ArrayAttr({0, 1, 2}),
-                                   rewriter.getDenseI32ArrayAttr({0, 1}));
+    ArrayAttr mgmt_attr =
+        llvm::dyn_cast<ArrayAttr>(op.getBody()->front().getAttr("mgmt"));
+    LLVM_DEBUG(llvm::dbgs() << mgmt_attr << "\n");
+    if (mgmt_attr) {
+      ImplicitLocOpBuilder b(op->getLoc(), rewriter);
+      auto mul = b.create<T>(inputs);
+      Value currentResult = mul;
+
+      // polynomial::RingAttr ring =
+      // llvm::dyn_cast<lwe::RLWECiphertextType>(inputs[0].getType()).getRlweParams().getRing();
+
+      ArrayRef<Attribute> mgmt_array = mgmt_attr.getValue();
+      for (auto &attr : mgmt_array) {
+        StringAttr stringAttr = llvm::dyn_cast<StringAttr>(attr);
+        std::string mgmt = stringAttr.getValue().str();
+        if (mgmt == "relin") {
+          currentResult = b.create<Y>(currentResult,
+                                      rewriter.getDenseI32ArrayAttr({0, 1, 2}),
+                                      rewriter.getDenseI32ArrayAttr({0, 1}));
+        } else {
+          currentResult = b.create<R>(currentResult);
+        }
+      }
+      rewriter.replaceOp(op, currentResult);
+    } else {
+      rewriter.replaceOpWithNewOp<Y>(op,
+                                     rewriter.create<T>(op.getLoc(), inputs),
+                                     rewriter.getDenseI32ArrayAttr({0, 1, 2}),
+                                     rewriter.getDenseI32ArrayAttr({0, 1}));
+    }
     return success();
   }
 };
