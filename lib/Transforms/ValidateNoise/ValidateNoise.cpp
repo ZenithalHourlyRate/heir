@@ -96,27 +96,39 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
         }
         all_selected.emplace_back(parentValue, *parentKey, parentParents);
 
-        // updateName(currentValue->getResult());
-        // updateName(parentValue->getResult());
-
         index++;
       }
 
-      for (auto &[value, key, parent] : tree) {
-        LLVM_DEBUG(llvm::dbgs()
-                   << "value " << value << " key " << key << " parnetKey "
-                   << *parent.getParentKey() << "\n");
-      }
+      // for (auto &[value, key, parent] : tree) {
+      //   LLVM_DEBUG(llvm::dbgs()
+      //              << "value " << value << " key " << key << " parnetKey "
+      //              << *parent.getParentKey() << "\n");
+      // }
 
-      auto dumpDOT = [&](Value result) {
-        auto vss = getVarianceStates(result);
-
+      auto selected = [&](Value result) {
         std::vector<std::tuple<VarianceKey, VarianceParents>> selected;
         for (auto &[value, key, parents] : all_selected) {
           if (value == result) {
             selected.emplace_back(key, parents);
           }
         }
+        return selected;
+      };
+
+      auto selected_ops = [&](Value result) {
+        auto sel = selected(result);
+        std::vector<std::string> ops;
+        for (auto &[_, parents] : sel) {
+          ops.push_back(parents.getReason());
+        }
+        std::reverse(ops.begin(), ops.end());
+        return ops;
+      };
+
+      auto dumpDOT = [&](Value result) {
+        auto vss = getVarianceStates(result);
+
+        std::vector<std::tuple<VarianceKey, VarianceParents>> selected;
 
         std::vector<Value> values;
         values.push_back(result);
@@ -126,23 +138,51 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
             values.push_back(operand);
           }
         }
-#if 1
+#if 0
         updateName(result);
         LLVM_DEBUG(llvm::dbgs()
                    << vss.toDOTNode(values, valueNameMap)
-                   << vss.toDOTEdge(values, valueNameMap, selected));
+                   << vss.toDOTEdge(values, valueNameMap, selected(result)));
 #endif
         return WalkResult::advance();
       };
 
-      for (Value &arg : body->getArguments()) {
-        // LLVM_DEBUG(llvm::dbgs() << "arg " << arg << "\n");
-        dumpDOT(arg);
+      auto dumpOps = [&](Value result) {
+        auto ops = selected_ops(result);
+        LLVM_DEBUG(llvm::dbgs() << result << ": ");
+        for (auto reason : ops) {
+          LLVM_DEBUG(llvm::dbgs() << reason << " ");
+        }
+        LLVM_DEBUG(llvm::dbgs() << "\n");
+      };
+
+      auto concatMgmtOps = [&](Value result) {
+        auto ops = selected_ops(result);
+        std::string ret = "";
+        bool isFirst = true;
+        for (size_t i = 1; i != ops.size(); ++i) {
+          if (!isFirst) {
+            ret += ",";
+          }
+          ret += ops[i];
+          isFirst = false;
+        }
+        return ret;
+      };
+
+      for (size_t i = 0; i != body->getNumArguments(); ++i) {
+        // dumpDOT(arg);
+        auto arg = body->getArgument(i);
+        // TODO: set it elsewhere
+        genericOp->setAttr("mgmt_arg" + std::to_string(i),
+                           builder.getStringAttr(concatMgmtOps(arg)));
       }
 
       body->walk([&](Operation *op) {
         for (OpResult result : op->getResults()) {
-          return dumpDOT(result);
+          // return dumpDOT(result);
+          dumpOps(result);
+          op->setAttr("mgmt", builder.getStringAttr(concatMgmtOps(result)));
 #if 0
           auto &vss = opRange->getValue();
           auto params = vss.reachable();
