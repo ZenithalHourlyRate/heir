@@ -86,17 +86,17 @@ struct AnnotateSecretManagement
                 mulDepthRhsValue = mulDepthRhs.getValue();
               }
 
-              op->setAttr("depth",
-                          builder.getIntegerAttr(builder.getIntegerType(64),
-                                                 mulDepthResultValue));
-              op->setAttr("lhs",
-                          builder.getIntegerAttr(builder.getIntegerType(64),
-                                                 mulDepthLhsValue));
-              op->setAttr("rhs",
-                          builder.getIntegerAttr(builder.getIntegerType(64),
-                                                 mulDepthRhsValue));
-              op->setAttr("relin", builder.getIntegerAttr(
-                                       builder.getIntegerType(64), 3));
+              // op->setAttr("depth",
+              //             builder.getIntegerAttr(builder.getIntegerType(64),
+              //                                    mulDepthResultValue));
+              // op->setAttr("lhs",
+              //             builder.getIntegerAttr(builder.getIntegerType(64),
+              //                                    mulDepthLhsValue));
+              // op->setAttr("rhs",
+              //             builder.getIntegerAttr(builder.getIntegerType(64),
+              //                                    mulDepthRhsValue));
+              // op->setAttr("relin", builder.getIntegerAttr(
+              //                          builder.getIntegerType(64), 3));
             });
       });
     });
