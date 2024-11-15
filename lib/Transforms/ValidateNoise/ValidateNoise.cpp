@@ -67,6 +67,8 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       }
       all_selected.emplace_back(resultValue, key, parents);
 
+      LLVM_DEBUG(llvm::dbgs() << "Selected Param: " << key.getParam() << "\n");
+
       // tarverse the parent tree
 
       auto getParentValue = [&](Value current, VarianceParent parent) {
@@ -176,7 +178,7 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       body->walk([&](Operation *op) {
         for (OpResult result : op->getResults()) {
           // return dumpDOT(result);
-          dumpOps(result);
+          // dumpOps(result);
           op->setAttr("mgmt", builder.getArrayAttr(
                                   ArrayRef<Attribute>(concatMgmtOps(result))));
 #if 0

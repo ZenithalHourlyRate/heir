@@ -57,12 +57,12 @@ def BGV_MyAddOp : BGV_Op<"my_add", [Pure, Commutative, SameOperandsAndResultType
   let summary = "Addition operation between ciphertexts.";
 
   let arguments = (ins
-    NewLWECiphertext:$lhs,
-    NewLWECiphertext:$rhs
+    RLWECiphertext:$lhs,
+    RLWECiphertext:$rhs
   );
 
   let results = (outs
-    NewLWECiphertext:$output
+    RLWECiphertext:$output
   );
 
   let assemblyFormat = "operands attr-dict `:` qualified(type($output))" ;
@@ -107,16 +107,16 @@ def BGV_MulOp : BGV_Op<"mul", [Pure, Commutative, SameOperandsAndResultRings, Sa
 }
 
 
-def BGV_MyMulOp : BGV_Op<"my_mul", [Pure, Commutative, SameOperandsAndResultRings, SameTypeOperands]> {
+def BGV_MyMulOp : BGV_Op<"my_mul", [Pure, Commutative, SameOperandsAndResultType, SameTypeOperands]> {
   let summary = "Multiplication operation between ciphertexts.";
 
   let arguments = (ins
-    NewLWECiphertext:$lhs,
-    NewLWECiphertext:$rhs
+    RLWECiphertext:$lhs,
+    RLWECiphertext:$rhs
   );
 
   let results = (outs
-    NewLWECiphertext:$output
+    RLWECiphertext:$output
   );
 
   //let hasVerifier = 1;
@@ -147,12 +147,12 @@ def BGV_MyRotateOp : BGV_Op<"my_rotate", [Pure, AllTypesMatch<["input", "output"
   let summary = "Rotate the coefficients of the ciphertext using a Galois automorphism.";
 
   let arguments = (ins
-    NewLWECiphertext:$input,
+    RLWECiphertext:$input,
     Builtin_IntegerAttr:$offset
   );
 
   let results = (outs
-    NewLWECiphertext:$output
+    LWECiphertext:$output
   );
 
   //let hasVerifier = 1;
@@ -228,18 +228,18 @@ def BGV_RelinearizeOp : BGV_Op<"relinearize", [SameOperandsAndResultRings, Infer
   let assemblyFormat = "operands attr-dict `:` qualified(type($input)) `->` qualified(type($output))" ;
 }
 
-def BGV_MyRelinearizeOp : BGV_Op<"my_relinearize", [SameOperandsAndResultRings]> {
+def BGV_MyRelinearizeOp : BGV_Op<"my_relinearize", [SameOperandsAndResultType]> {
   let summary = "Relinearize the ciphertext.";
 
   let description = [{
   }];
 
   let arguments = (ins
-    NewLWECiphertext:$input
+    RLWECiphertext:$input
   );
 
   let results = (outs
-    NewLWECiphertext:$output
+    RLWECiphertext:$output
   );
 
   //let hasVerifier = 1;

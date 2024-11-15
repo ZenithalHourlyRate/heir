@@ -887,7 +887,7 @@ class VarianceStates {
     VarianceStates vss;
 
     std::vector<const Param *> params;
-#if 1
+#if 0
     // params.push_back(ParamsFactory::getParam(2, 30, 0, t, 55, 2));
     // params.push_back(ParamsFactory::getParam(2, 2, 0, t, 55, 2));
     // params.push_back(ParamsFactory::getParam(2, 0, 2, t, 30, 2));
@@ -898,16 +898,15 @@ class VarianceStates {
     // params.push_back(ParamsFactory::getParam(3, 2, 0, t, 55, 2));
     // params.push_back(ParamsFactory::getParam(3, 0, 2, t, 55, 2));
 #endif
-#if 0
+#if 1
     for (auto depth : {l, l - 1}) {
-      for (auto relinDeg : {0, 2, 3}) {
-        for (auto qiSize : {0, 30, 40, 50, 60}) {
-          // for (auto digitSize : {0, 30, 2}) {
-          for (auto digitSize = 30; digitSize >= 2; digitSize--) {
+      for (auto relinDeg : {2}) {
+        for (auto qiSize : {30, 40, 45, 50, 55}) {
+          for (auto digitSize : {30}) {
             params.push_back(ParamsFactory::getParam(depth, digitSize, 0, t,
                                                      qiSize, relinDeg));
           }
-          for (auto dnum : {2, 3, depth + 1}) {
+          for (auto dnum : {2}) {
             params.push_back(
                 ParamsFactory::getParam(depth, 0, dnum, t, qiSize, relinDeg));
           }

@@ -192,8 +192,8 @@ class SecretGenericOpCipherPlainConversion
   }
 };
 
-template <typename M, typename T, typename Y, typename R = Y>
-class SecretGenericOpMulConversion : public SecretGenericOpConversion<M, T> {
+template <typename M, typename T, typename Y, typename R>
+class SecretGenericOpMyMulConversion : public SecretGenericOpConversion<M, T> {
  public:
   using SecretGenericOpConversion<M, T>::SecretGenericOpConversion;
 
@@ -211,33 +211,47 @@ class SecretGenericOpMulConversion : public SecretGenericOpConversion<M, T> {
     ArrayAttr mgmt_attr =
         llvm::dyn_cast<ArrayAttr>(op.getBody()->front().getAttr("mgmt"));
     LLVM_DEBUG(llvm::dbgs() << mgmt_attr << "\n");
+
+    ImplicitLocOpBuilder b(op->getLoc(), rewriter);
+    auto mul = b.create<T>(inputs);
+    Value currentResult = mul;
+
     if (mgmt_attr) {
-      ImplicitLocOpBuilder b(op->getLoc(), rewriter);
-      auto mul = b.create<T>(inputs);
-      Value currentResult = mul;
-
-      // polynomial::RingAttr ring =
-      // llvm::dyn_cast<lwe::RLWECiphertextType>(inputs[0].getType()).getRlweParams().getRing();
-
       ArrayRef<Attribute> mgmt_array = mgmt_attr.getValue();
       for (auto &attr : mgmt_array) {
         StringAttr stringAttr = llvm::dyn_cast<StringAttr>(attr);
         std::string mgmt = stringAttr.getValue().str();
         if (mgmt == "relin") {
-          currentResult = b.create<Y>(currentResult,
-                                      rewriter.getDenseI32ArrayAttr({0, 1, 2}),
-                                      rewriter.getDenseI32ArrayAttr({0, 1}));
+          currentResult = b.create<Y>(currentResult);
         } else {
           currentResult = b.create<R>(currentResult);
         }
       }
-      rewriter.replaceOp(op, currentResult);
-    } else {
-      rewriter.replaceOpWithNewOp<Y>(op,
-                                     rewriter.create<T>(op.getLoc(), inputs),
-                                     rewriter.getDenseI32ArrayAttr({0, 1, 2}),
-                                     rewriter.getDenseI32ArrayAttr({0, 1}));
     }
+    rewriter.replaceOp(op, currentResult);
+    return success();
+  }
+};
+
+template <typename M, typename T, typename Y>
+class SecretGenericOpMulConversion : public SecretGenericOpConversion<M, T> {
+ public:
+  using SecretGenericOpConversion<M, T>::SecretGenericOpConversion;
+
+  LogicalResult matchAndRewriteInner(
+      secret::GenericOp op, TypeRange outputTypes, ValueRange inputs,
+      ArrayRef<NamedAttribute> attributes,
+      ConversionPatternRewriter &rewriter) const override {
+    auto plaintextValues =
+        llvm::to_vector(llvm::make_filter_range(inputs, [&](Value input) {
+          return !isa<lwe::RLWECiphertextType>(input.getType());
+        }));
+    if (!plaintextValues.empty()) {
+      return failure();
+    }
+    rewriter.replaceOpWithNewOp<Y>(op, rewriter.create<T>(op.getLoc(), inputs),
+                                   rewriter.getDenseI32ArrayAttr({0, 1, 2}),
+                                   rewriter.getDenseI32ArrayAttr({0, 1}));
     return success();
   }
 };
