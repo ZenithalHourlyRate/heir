@@ -63,6 +63,27 @@ struct ConvertModulusSwitchOp : public OpConversionPattern<ModulusSwitchOp> {
   }
 };
 
+struct ConvertMyModulusSwitchOp
+    : public OpConversionPattern<MyModulusSwitchOp> {
+  ConvertMyModulusSwitchOp(mlir::MLIRContext *context)
+      : OpConversionPattern<MyModulusSwitchOp>(context) {}
+
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(
+      MyModulusSwitchOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    FailureOr<Value> result = getContextualCryptoContext(op.getOperation());
+    if (failed(result)) return result;
+
+    Value cryptoContext = result.value();
+    rewriter.replaceOp(op, rewriter.create<openfhe::ModReduceOp>(
+                               op.getLoc(), op.getOutput().getType(),
+                               cryptoContext, adaptor.getInput()));
+    return success();
+  }
+};
+
 struct BGVToOpenfhe : public impl::BGVToOpenfheBase<BGVToOpenfhe> {
   void runOnOperation() override {
     MLIRContext *context = &getContext();
@@ -91,9 +112,9 @@ struct BGVToOpenfhe : public impl::BGVToOpenfheBase<BGVToOpenfhe> {
     patterns
         .add<AddCryptoContextArg<bgv::BGVDialect>, ConvertAddOp, ConvertSubOp,
              ConvertMulOp, ConvertMulPlainOp, ConvertNegateOp, ConvertRotateOp,
-             ConvertRelinOp, ConvertModulusSwitchOp, ConvertExtractOp,
-             lwe::ConvertEncryptOp, lwe::ConvertDecryptOp>(typeConverter,
-                                                           context);
+             ConvertRelinOp, ConvertModulusSwitchOp, ConvertMyModulusSwitchOp,
+             ConvertExtractOp, lwe::ConvertEncryptOp, lwe::ConvertDecryptOp>(
+            typeConverter, context);
     patterns.add<lwe::ConvertEncodeOp>(typeConverter, context, /*ckks=*/false);
 
     if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
