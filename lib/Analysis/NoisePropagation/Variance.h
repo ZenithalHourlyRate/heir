@@ -327,11 +327,12 @@ struct VarianceParent {
   VarianceParent() = default;
 
   VarianceParent(VarianceParentType type, const VarianceKey *parentKey,
-                 CostModel::Cost cost)
-      : type(type), parentKey(parentKey), cost(cost) {}
+                 size_t index, CostModel::Cost cost)
+      : type(type), parentKey(parentKey), index(index), cost(cost) {}
 
   bool operator==(const VarianceParent &rhs) const {
-    return type == rhs.type && parentKey == rhs.parentKey && cost == rhs.cost;
+    return type == rhs.type && *parentKey == *rhs.parentKey &&
+           index == rhs.index && cost == rhs.cost;
   }
 
   VarianceParentType getType() const { return type; }
@@ -340,6 +341,7 @@ struct VarianceParent {
 
   VarianceParentType type;
   const VarianceKey *parentKey;
+  size_t index;
   CostModel::Cost cost;
 };
 
@@ -493,8 +495,13 @@ class VarianceValues {
     return getVariance(getMinimalByCost());
   }
 
-  const VarianceParents &getParents() const {
+  const VarianceParents &getParentsByMinCost() const {
     return getParents(getMinimalByCost());
+  }
+
+  const VarianceParents &getParentsBySuccessorParent(
+      const VarianceParent &successorParent) const {
+    return getParents(successorParent.index);
   }
 
   const CostModel::Cost getCost() const { return getCost(getMinimalByCost()); }
@@ -533,7 +540,7 @@ class VarianceValues {
       auto cost = lhs.getCost(i) + CostModel::getBGVModReduceCost(
                                        lhs.k->p->n, lhs.k->l, lhs.k->cv);
       auto parent =
-          VarianceParent(VarianceParentType::Self, lhs.k, lhs.getCost(i));
+          VarianceParent(VarianceParentType::Self, lhs.k, i, lhs.getCost(i));
       auto parents = VarianceParents({parent}, "modd", cost);
       ret.join(VarianceValues(k, k->bound(v), parents));
     }
@@ -553,15 +560,16 @@ class VarianceValues {
       for (size_t j = 0; j != rhs.v.size(); ++j) {
         Variance v = Variance::evalMultNoRelin(lhs.getVariance(i),
                                                rhs.getVariance(j), k->p->n);
-        // LLVM_DEBUG(llvm::dbgs() << "left: " << lhs.v.size() << " rhs: " <<
-        // rhs.v.size() << "\n");
         auto cost = lhs.getCost(i) + rhs.getCost(j) +
                     CostModel::getBGVMultCost(lhs.k->p->n, lhs.k->l, lhs.k->cv,
                                               rhs.k->cv);
-        auto parentL =
-            VarianceParent(VarianceParentType::Operand0, lhs.k, lhs.getCost(i));
-        auto parentR =
-            VarianceParent(VarianceParentType::Operand1, rhs.k, rhs.getCost(j));
+        auto parentL = VarianceParent(VarianceParentType::Operand0, lhs.k, i,
+                                      lhs.getCost(i));
+        auto parentR = VarianceParent(VarianceParentType::Operand1, rhs.k, j,
+                                      rhs.getCost(j));
+#if 0
+        LLVM_DEBUG(llvm::dbgs() << "n " << lhs.k->p->n << " l " << lhs.k->l << " left " << i << " cv " << lhs.k->cv << " right " << j << " cv " << rhs.k->cv << " lcost " << int(lhs.getCost(i)) << " rcost " << int(rhs.getCost(j)) << " cost " << int(cost) << "\n");
+#endif
         auto parents = VarianceParents({parentL, parentR}, "mult", cost);
         ret.join(VarianceValues(k, k->bound(v), parents));
       }
@@ -586,7 +594,7 @@ class VarianceValues {
                  << v.toBound(k.p->n) << k.p->logQlP(k.l, k.ghs) << "\n");
 #endif
       auto parent =
-          VarianceParent(VarianceParentType::Self, lhs.k, lhs.getCost(i));
+          VarianceParent(VarianceParentType::Self, lhs.k, i, lhs.getCost(i));
       auto parents = VarianceParents({parent}, "relin", cost);
       ret.join(VarianceValues(k, k->bound(v), parents));
     }
@@ -636,7 +644,7 @@ class VarianceValues {
                                        lhs.k->p->n, lhs.k->p->L, lhs.k->cv,
                                        lhs.k->l, lhs.k->p->dnum);
       auto parent =
-          VarianceParent(VarianceParentType::Self, lhs.k, lhs.getCost(i));
+          VarianceParent(VarianceParentType::Self, lhs.k, i, lhs.getCost(i));
       auto parents = VarianceParents({parent}, "relinG", cost);
       ret.join(VarianceValues(kModDown, kModDown->bound(vModDown), parents));
     }
@@ -848,7 +856,7 @@ class VarianceStates {
     return ret;
   }
 
-  VarianceKey getMinimalCostEntry() const {
+  VarianceKey getMinimalCostKey() const {
     VarianceKey key;
     CostModel::Cost cost = 1e20;
     for (auto &[p, kToVs] : states) {
@@ -864,9 +872,15 @@ class VarianceStates {
     return key;
   }
 
-  const VarianceParents &getParents(VarianceKey key) const {
+  const VarianceParents &getParentsByMinCost(VarianceKey key) const {
     auto &kToVs = states.find(key.getParam())->second;
-    return kToVs.find(key)->second.getParents();
+    return kToVs.find(key)->second.getParentsByMinCost();
+  }
+
+  const VarianceParents &getParentsBySuccessorParent(
+      VarianceKey key, const VarianceParent &successorParent) const {
+    auto &kToVs = states.find(key.getParam())->second;
+    return kToVs.find(key)->second.getParentsBySuccessorParent(successorParent);
   }
 
   static VarianceStates evalEncryptPk(int t, int l) {
