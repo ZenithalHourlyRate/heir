@@ -681,13 +681,24 @@ class VarianceStates {
 
   std::string toDOTNode(
       std::vector<Value> values,
-      const DenseMap<Value, std::string> &valueNameMap) const {
+      const DenseMap<Value, std::string> &valueNameMap,
+      const std::vector<std::tuple<VarianceKey, VarianceParents>> &selected)
+      const {
     std::string str;
     str +=
         std::string("subgraph cluster_") + valueNameMap.at(values[0]) + "{\n";
     for (auto &[p, kToVs] : states) {
       for (auto &[k, vs] : kToVs) {
         if (!k.isAbortFinal() && vs.reachable()) {
+          bool sel = false;
+          for (auto &[sk, _] : selected) {
+            if (sk == k) {
+              sel = true;
+            }
+          }
+          if (!sel) {
+            continue;
+          }
           str += vs.toDOTNode(valueNameMap.at(values[0]));
           str += "\n";
         }

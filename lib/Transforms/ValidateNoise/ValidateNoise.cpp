@@ -130,8 +130,6 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       auto dumpDOT = [&](Value result) {
         auto vss = getVarianceStates(result);
 
-        std::vector<std::tuple<VarianceKey, VarianceParents>> selected;
-
         std::vector<Value> values;
         values.push_back(result);
         auto definingOp = result.getDefiningOp();
@@ -140,12 +138,12 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
             values.push_back(operand);
           }
         }
-#if 0
+
         updateName(result);
+
         LLVM_DEBUG(llvm::dbgs()
-                   << vss.toDOTNode(values, valueNameMap)
+                   << vss.toDOTNode(values, valueNameMap, selected(result))
                    << vss.toDOTEdge(values, valueNameMap, selected(result)));
-#endif
         return WalkResult::advance();
       };
 
@@ -168,8 +166,8 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       };
 
       for (size_t i = 0; i != body->getNumArguments(); ++i) {
-        // dumpDOT(arg);
         auto arg = body->getArgument(i);
+        dumpDOT(arg);
         // TODO: set it elsewhere
         // genericOp->setAttr("mgmt_arg" + std::to_string(i),
         //                   builder.getStringAttr(concatMgmtOps(arg)));
@@ -177,8 +175,7 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
 
       body->walk([&](Operation *op) {
         for (OpResult result : op->getResults()) {
-          // return dumpDOT(result);
-          // dumpOps(result);
+          dumpDOT(result);
           op->setAttr("mgmt", builder.getArrayAttr(
                                   ArrayRef<Attribute>(concatMgmtOps(result))));
 #if 0
