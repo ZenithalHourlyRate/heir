@@ -1,5 +1,5 @@
 TMPDIR=/run/user/2015/T/bazel
-bazel --output_user_root=$TMPDIR run //tools:heir-opt -- --secretize="entry-function=func" --wrap-generic --operation-balancer --mlir-to-openfhe-bgv='entry-function=func ciphertext-degree=8' $PWD/func.mlir > func_output.mlir
+bazel --output_user_root=$TMPDIR run //tools:heir-opt -- --mlir-to-secret-arith="entry-function=func" --operation-balancer --annotate-secret-management --validate-noise --debug-only="ValidateNoise" --mlir-to-openfhe-bgv='entry-function=func ciphertext-degree=8' $PWD/func.mlir > func_output.mlir
 bazel --output_user_root=$TMPDIR run //tools:heir-translate -- --emit-openfhe-pke-header $PWD/func_output.mlir > func.h
 bazel --output_user_root=$TMPDIR run //tools:heir-translate -- --emit-openfhe-pke $PWD/func_output.mlir > func.cpp
 sed -i 's/(CryptoContextT/(PrivateKeyT secretKey, CryptoContextT/g' func.h func.cpp

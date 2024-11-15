@@ -34,6 +34,7 @@ using ConvertNegateOp = ConvertRlweUnaryOp<NegateOp, openfhe::NegateOp>;
 using ConvertAddOp = ConvertRlweBinOp<AddOp, openfhe::AddOp>;
 using ConvertSubOp = ConvertRlweBinOp<SubOp, openfhe::SubOp>;
 using ConvertMulOp = ConvertRlweBinOp<MulOp, openfhe::MulNoRelinOp>;
+using ConvertMyMulOp = ConvertRlweBinOp<MyMulOp, openfhe::MulNoRelinOp>;
 using ConvertAddPlainOp =
     ConvertRlweCiphertextPlaintextOp<AddPlainOp, openfhe::AddPlainOp>;
 using ConvertMulPlainOp =
@@ -57,6 +58,26 @@ struct ConvertModulusSwitchOp : public OpConversionPattern<ModulusSwitchOp> {
 
     Value cryptoContext = result.value();
     rewriter.replaceOp(op, rewriter.create<openfhe::ModReduceOp>(
+                               op.getLoc(), op.getOutput().getType(),
+                               cryptoContext, adaptor.getInput()));
+    return success();
+  }
+};
+
+struct ConvertMyRelinOp : public OpConversionPattern<MyRelinearizeOp> {
+  ConvertMyRelinOp(mlir::MLIRContext *context)
+      : OpConversionPattern<MyRelinearizeOp>(context) {}
+
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(
+      MyRelinearizeOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    FailureOr<Value> result = getContextualCryptoContext(op.getOperation());
+    if (failed(result)) return result;
+
+    Value cryptoContext = result.value();
+    rewriter.replaceOp(op, rewriter.create<openfhe::RelinOp>(
                                op.getLoc(), op.getOutput().getType(),
                                cryptoContext, adaptor.getInput()));
     return success();
@@ -112,9 +133,10 @@ struct BGVToOpenfhe : public impl::BGVToOpenfheBase<BGVToOpenfhe> {
     patterns
         .add<AddCryptoContextArg<bgv::BGVDialect>, ConvertAddOp, ConvertSubOp,
              ConvertMulOp, ConvertMulPlainOp, ConvertNegateOp, ConvertRotateOp,
-             ConvertRelinOp, ConvertModulusSwitchOp, ConvertMyModulusSwitchOp,
-             ConvertExtractOp, lwe::ConvertEncryptOp, lwe::ConvertDecryptOp>(
-            typeConverter, context);
+             ConvertRelinOp, ConvertModulusSwitchOp, ConvertMyMulOp,
+             ConvertMyRelinOp, ConvertMyModulusSwitchOp, ConvertExtractOp,
+             lwe::ConvertEncryptOp, lwe::ConvertDecryptOp>(typeConverter,
+                                                           context);
     patterns.add<lwe::ConvertEncodeOp>(typeConverter, context, /*ckks=*/false);
 
     if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
