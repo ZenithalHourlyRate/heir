@@ -31,7 +31,7 @@ func.func @func(
     %3 = arith.muli %2, %arg3 : i16
     %4 = arith.muli %3, %arg4 : i16
     %5 = arith.muli %4, %arg5 : i16
-    %6 = arith.muli %5, %arg6 : i16
-    %7 = arith.muli %6, %arg7 : i16
-  return %7 : i16
+    // %6 = arith.muli %5, %arg6 : i16
+    // %7 = arith.muli %6, %arg7 : i16
+  return %5 : i16
 }

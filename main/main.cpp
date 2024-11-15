@@ -10,7 +10,7 @@ void EvalNoiseBGV(CryptoContext<DCRTPoly> cryptoContext,
   Plaintext ptxt;
   cryptoContext->Decrypt(privateKey, ciphertext, &ptxt);
   ptxt->SetLength(8);
-  std::cout << '\n' << tag << '\t' << "decrypted: " << ptxt << std::endl;
+  // std::cout << '\n' << tag << '\t' << "decrypted: " << ptxt << std::endl;
   // const auto ptm =
   // cryptoContext->GetCryptoParameters()->GetPlaintextModulus();
 
@@ -137,7 +137,7 @@ int main(int argc, char* argv[]) {
                                        outputEncrypted, keyPair.secretKey);
 
   // std::cout << "Expected: " << expected << "\n";
-  std::cout << "Actual: " << actual << "\n";
+  // std::cout << "Actual: " << actual << "\n";
 
   return 0;
 }
