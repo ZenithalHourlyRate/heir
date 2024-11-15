@@ -246,18 +246,18 @@ def BGV_MyRelinearizeOp : BGV_Op<"my_relinearize", [SameOperandsAndResultRings]>
   let assemblyFormat = "operands attr-dict `:` qualified(type($input)) `->` qualified(type($output))" ;
 }
 
-def BGV_MyModulusSwitchOp : BGV_Op<"my_modulus_switch"> {
+def BGV_MyModulusSwitchOp : BGV_Op<"my_modulus_switch", [SameOperandsAndResultType]> {
   let summary = "";
 
   let description = [{
   }];
 
   let arguments = (ins
-    NewLWECiphertext:$input
+    RLWECiphertext:$input
   );
 
   let results = (outs
-    NewLWECiphertext:$output
+    RLWECiphertext:$output
   );
 
   //let hasVerifier = 1;

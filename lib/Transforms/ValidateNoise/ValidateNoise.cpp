@@ -158,31 +158,27 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
 
       auto concatMgmtOps = [&](Value result) {
         auto ops = selected_ops(result);
-        std::string ret = "";
-        bool isFirst = true;
+        std::vector<Attribute> mgmt_arr;
         for (size_t i = 1; i != ops.size(); ++i) {
-          if (!isFirst) {
-            ret += ",";
-          }
-          ret += ops[i];
-          isFirst = false;
+          mgmt_arr.push_back(builder.getStringAttr(ops[i]));
         }
-        return ret;
+        return mgmt_arr;
       };
 
       for (size_t i = 0; i != body->getNumArguments(); ++i) {
         // dumpDOT(arg);
         auto arg = body->getArgument(i);
         // TODO: set it elsewhere
-        genericOp->setAttr("mgmt_arg" + std::to_string(i),
-                           builder.getStringAttr(concatMgmtOps(arg)));
+        // genericOp->setAttr("mgmt_arg" + std::to_string(i),
+        //                   builder.getStringAttr(concatMgmtOps(arg)));
       }
 
       body->walk([&](Operation *op) {
         for (OpResult result : op->getResults()) {
           // return dumpDOT(result);
           dumpOps(result);
-          op->setAttr("mgmt", builder.getStringAttr(concatMgmtOps(result)));
+          op->setAttr("mgmt", builder.getArrayAttr(
+                                  ArrayRef<Attribute>(concatMgmtOps(result))));
 #if 0
           auto &vss = opRange->getValue();
           auto params = vss.reachable();

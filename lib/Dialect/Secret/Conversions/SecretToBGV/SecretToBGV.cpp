@@ -143,7 +143,8 @@ struct SecretToBGV : public impl::SecretToBGVBase<SecretToBGV> {
         SecretGenericOpConversion<tensor::ExtractOp, bgv::ExtractOp>,
         SecretGenericOpRotateConversion<bgv::RotateOp>,
         SecretGenericOpMulConversion<arith::MulIOp, bgv::MulOp,
-                                     bgv::RelinearizeOp>,
+                                     bgv::RelinearizeOp,
+                                     bgv::MyModulusSwitchOp>,
         SecretGenericOpCipherPlainConversion<arith::AddIOp, bgv::AddPlainOp>,
         SecretGenericOpCipherPlainConversion<arith::SubIOp, bgv::SubPlainOp>,
         SecretGenericOpCipherPlainConversion<arith::MulIOp, bgv::MulPlainOp>>(
