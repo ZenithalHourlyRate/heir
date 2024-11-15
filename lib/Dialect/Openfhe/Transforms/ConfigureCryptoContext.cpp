@@ -71,11 +71,32 @@ LogicalResult generateGenFunc(func::FuncOp op, const std::string &genFuncName,
   auto genFuncOp = builder.create<func::FuncOp>(genFuncName, genFuncType);
   builder.setInsertionPointToEnd(genFuncOp.addEntryBlock());
 
+  if (auto depthAttr = op->getAttr("multiplicativeDepth")) {
+    auto intAttr = llvm::cast<IntegerAttr>(depthAttr);
+    mulDepth = intAttr.getValue().getLimitedValue();
+  }
   // TODO(#661) : Calculate the appropriate values by analyzing the function
   int64_t plainMod = 4295294977;
+  if (auto plainModAttr = op->getAttr("plaintextModulus")) {
+    auto intAttr = llvm::cast<IntegerAttr>(plainModAttr);
+    plainMod = intAttr.getValue().getLimitedValue();
+  }
   Type openfheParamsType = openfhe::CCParamsType::get(builder.getContext());
   Value ccParams = builder.create<openfhe::GenParamsOp>(openfheParamsType,
                                                         mulDepth, plainMod);
+
+  auto setAttr = [&](std::string name) {
+    if (auto attr = op->getAttr(name)) {
+      ccParams.getDefiningOp()->setAttr(name, attr);
+    }
+  };
+  setAttr("ringDim");
+  setAttr("maxRelinSkDeg");
+  setAttr("scalingModSize");
+  setAttr("keySwitchTechnique");
+  setAttr("digitSize");
+  setAttr("numLargeDigits");
+
   Value cryptoContext =
       builder.create<openfhe::GenContextOp>(openfheContextType, ccParams);
 

@@ -258,11 +258,14 @@ class VarianceKey {
   // }
 
   Variance bound(const Variance &v) const {
-    if (v.logAlphaBound(p->n) >= p->logQlP(l, ghs) - 1) {
+    // FIXME: either better estimation or tigher bound
+    if (v.logAlphaBound(p->n) >= p->logQlP(l, ghs) - 1 - 5) {
       return Variance::unbounded();
     }
     return v;
   }
+
+  std::string toBound(const Variance &v) const { return v.toBound(p->n); }
 
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
                                        const VarianceKey &key);
@@ -488,11 +491,26 @@ class VarianceValues {
     return index;
   }
 
+  const size_t getIndexByParents(const VarianceParents &currentParent) const {
+    for (size_t i = 0; i != v.size(); ++i) {
+      if (currentParent == getParents(i)) {
+        return i;
+      }
+    }
+    assert(false);
+    return -1;
+  }
+
   const Variance &getVarianceByMinVariance() const {
     return getVariance(getMinimalByVariance());
   }
   const Variance &getVarianceByMinCost() const {
     return getVariance(getMinimalByCost());
+  }
+
+  const Variance &getVarianceByParents(
+      const VarianceParents &currentParent) const {
+    return getVariance(getIndexByParents(currentParent));
   }
 
   const VarianceParents &getParentsByMinCost() const {
@@ -894,6 +912,12 @@ class VarianceStates {
     return kToVs.find(key)->second.getParentsBySuccessorParent(successorParent);
   }
 
+  Variance getVarianceByCurrentParents(
+      VarianceKey key, const VarianceParents &currentParents) const {
+    auto &kToVs = states.find(key.getParam())->second;
+    return kToVs.find(key)->second.getVarianceByParents(currentParents);
+  }
+
   static VarianceStates evalEncryptPk(int t, int l) {
     VarianceStates vss;
 
@@ -912,7 +936,7 @@ class VarianceStates {
 #if 1
     for (auto depth : {l, l - 1}) {
       for (auto relinDeg : {2}) {
-        for (auto qiSize : {30, 40, 45, 50, 55}) {
+        for (auto qiSize : {30, 35, 40, 45, 50, 55}) {
           for (auto digitSize : {30}) {
             params.push_back(ParamsFactory::getParam(depth, digitSize, 0, t,
                                                      qiSize, relinDeg));

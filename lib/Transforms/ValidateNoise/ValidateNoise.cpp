@@ -61,13 +61,31 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       // init the tree
       auto vss = getVarianceStates(resultValue);
       auto key = vss.getMinimalCostKey();
+      auto param = key.getParam();
       auto parents = vss.getParentsByMinCost(key);
       for (auto &parent : parents.getParents()) {
         tree.emplace_back(resultValue, key, parent);
       }
       all_selected.emplace_back(resultValue, key, parents);
 
-      LLVM_DEBUG(llvm::dbgs() << "Selected Param: " << key.getParam() << "\n");
+      LLVM_DEBUG(llvm::dbgs() << "Selected Param: " << param << "\n");
+      // FIXME: better way!!!
+      auto funcOp = genericOp->getParentOp();
+      auto getIntegerAttr = [&](int64_t n) {
+        return builder.getIntegerAttr(builder.getIntegerType(64), n);
+      };
+      auto getStringAttr = [&](std::string str) {
+        return builder.getStringAttr(str);
+      };
+      funcOp->setAttr("ringDim", getIntegerAttr(param.n));
+      funcOp->setAttr("multiplicativeDepth", getIntegerAttr(param.L));
+      funcOp->setAttr("plaintextModulus", getIntegerAttr(param.t));
+      funcOp->setAttr("maxRelinSkDeg", getIntegerAttr(param.maxRelinSkDeg));
+      funcOp->setAttr("scalingModSize", getIntegerAttr(param.qi[0]));
+      funcOp->setAttr("keySwitchTechnique",
+                      getStringAttr(param.dnum != 0 ? "HYBRID" : "BV"));
+      funcOp->setAttr("digitSize", getIntegerAttr(param.digitSize));
+      funcOp->setAttr("numLargeDigits", getIntegerAttr(param.dnum));
 
       // tarverse the parent tree
 
@@ -101,12 +119,6 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
         index++;
       }
 
-      // for (auto &[value, key, parent] : tree) {
-      //   LLVM_DEBUG(llvm::dbgs()
-      //              << "value " << value << " key " << key << " parnetKey "
-      //              << *parent.getParentKey() << "\n");
-      // }
-
       auto selected = [&](Value result) {
         std::vector<std::tuple<VarianceKey, VarianceParents>> selected;
         for (auto &[value, key, parents] : all_selected) {
@@ -117,14 +129,27 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
         return selected;
       };
 
-      auto selected_ops = [&](Value result) {
+      auto selected_reasons = [&](Value result) {
         auto sel = selected(result);
-        std::vector<std::string> ops;
+        std::vector<std::string> reasons;
         for (auto &[_, parents] : sel) {
-          ops.push_back(parents.getReason());
+          reasons.push_back(parents.getReason());
         }
-        std::reverse(ops.begin(), ops.end());
-        return ops;
+        std::reverse(reasons.begin(), reasons.end());
+        return reasons;
+      };
+
+      auto selected_bounds = [&](Value result) {
+        auto vss = getVarianceStates(result);
+        auto sel = selected(result);
+        std::vector<std::pair<std::string, std::string>> bounds;
+        for (auto &[key, parents] : sel) {
+          bounds.emplace_back(
+              parents.getReason(),
+              key.toBound(vss.getVarianceByCurrentParents(key, parents)));
+        }
+        std::reverse(bounds.begin(), bounds.end());
+        return bounds;
       };
 
       auto dumpDOT = [&](Value result) {
@@ -147,27 +172,36 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
         return WalkResult::advance();
       };
 
-      auto dumpOps = [&](Value result) {
-        auto ops = selected_ops(result);
+      auto dumpReason = [&](Value result) {
+        auto reasons = selected_reasons(result);
         LLVM_DEBUG(llvm::dbgs() << result << ": ");
-        for (auto reason : ops) {
+        for (auto reason : reasons) {
           LLVM_DEBUG(llvm::dbgs() << reason << " ");
         }
         LLVM_DEBUG(llvm::dbgs() << "\n");
       };
 
+      auto dumpBound = [&](Value result) {
+        auto bounds = selected_bounds(result);
+        for (auto &[reason, bound] : bounds) {
+          LLVM_DEBUG(llvm::dbgs()
+                     << result << ": " << reason << " bound " << bound << "\n");
+        }
+      };
+
       auto concatMgmtOps = [&](Value result) {
-        auto ops = selected_ops(result);
+        auto reasons = selected_reasons(result);
         std::vector<Attribute> mgmt_arr;
-        for (size_t i = 1; i != ops.size(); ++i) {
-          mgmt_arr.push_back(builder.getStringAttr(ops[i]));
+        for (size_t i = 1; i != reasons.size(); ++i) {
+          mgmt_arr.push_back(builder.getStringAttr(reasons[i]));
         }
         return mgmt_arr;
       };
 
       for (size_t i = 0; i != body->getNumArguments(); ++i) {
         auto arg = body->getArgument(i);
-        dumpDOT(arg);
+        dumpBound(arg);
+        // dumpDOT(arg);
         // TODO: set it elsewhere
         // genericOp->setAttr("mgmt_arg" + std::to_string(i),
         //                   builder.getStringAttr(concatMgmtOps(arg)));
@@ -175,7 +209,8 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
 
       body->walk([&](Operation *op) {
         for (OpResult result : op->getResults()) {
-          dumpDOT(result);
+          // dumpDOT(result);
+          dumpBound(result);
           op->setAttr("mgmt", builder.getArrayAttr(
                                   ArrayRef<Attribute>(concatMgmtOps(result))));
 #if 0

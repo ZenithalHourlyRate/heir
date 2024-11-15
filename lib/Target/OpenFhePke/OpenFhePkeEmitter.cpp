@@ -624,15 +624,37 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
   int64_t mulDepth = op.getMulDepthAttr().getValue().getSExtValue();
   int64_t plainMod = op.getPlainModAttr().getValue().getSExtValue();
 
+  auto getIntOrDefault = [&](std::string name, int64_t def) {
+    if (auto attr = op->getAttr(name)) {
+      def = llvm::dyn_cast<IntegerAttr>(attr).getValue().getSExtValue();
+    }
+    return std::to_string(def);
+  };
+
+  auto getStringOrDefault = [&](std::string name, std::string def) {
+    if (auto attr = op->getAttr(name)) {
+      def = llvm::dyn_cast<StringAttr>(attr).getValue().str();
+    }
+    return def;
+  };
+
   os << "CCParamsT " << paramsName << ";\n";
   os << paramsName << ".SetMultiplicativeDepth(" << mulDepth << ");\n";
-  os << paramsName << ".SetPlaintextModulus(" << 65537 << ");\n";
-  // os << paramsName << ".SetPlaintextModulus(" << plainMod << ");\n";
+  os << paramsName << ".SetPlaintextModulus(" << plainMod << ");\n";
 
-  os << paramsName << ".SetKeySwitchTechnique(BV);\n";
+  os << paramsName << ".SetSecurityLevel(HEStd_NotSet);\n";
+  os << paramsName << ".SetRingDim(" << getIntOrDefault("ringDim", 0) << ");\n";
+  os << paramsName << ".SetMaxRelinSkDeg("
+     << getIntOrDefault("maxRelinSkDeg", 0) << ");\n";
   os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
-  os << paramsName << ".SetScalingModSize(55);\n";
-  os << paramsName << ".SetDigitSize(30);\n";
+  os << paramsName << ".SetScalingModSize("
+     << getIntOrDefault("scalingModSize", 0) << ");\n";
+  os << paramsName << ".SetKeySwitchTechnique("
+     << getStringOrDefault("keySwitchTechnique", "HYRBID") << ");\n";
+  os << paramsName << ".SetDigitSize(" << getIntOrDefault("digitSize", 0)
+     << ");\n";
+  os << paramsName << ".SetNumLargeDigits("
+     << getIntOrDefault("numLargeDigits", 0) << ");\n";
   return success();
 }
 
