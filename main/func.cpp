@@ -17,7 +17,7 @@ CiphertextT func(PrivateKeyT secretKey, CryptoContextT v0, CiphertextT v1,
                  CiphertextT v2, CiphertextT v3, CiphertextT v4, CiphertextT v5,
                  CiphertextT v6, CiphertextT v7, CiphertextT v8) {
   const auto& v9 = v0->EvalMultNoRelin(v1, v2);
-  EvalNoiseBGV(v0, secretKey, v9, "57.67 M(s 2)", "v9=EvalMultNoRelin v1, v2");
+  EvalNoiseBGV(v0, secretKey, v9, "58.17 M(s 2)", "v9=EvalMultNoRelin v1, v2");
   const auto& v10 = v0->ModReduce(v9);
   EvalNoiseBGV(v0, secretKey, v10, "29.53 M(s 2)", "v10=ModReduce v9");
   const auto& v11 = v0->Relinearize(v10);
@@ -25,7 +25,7 @@ CiphertextT func(PrivateKeyT secretKey, CryptoContextT v0, CiphertextT v1,
   const auto& v12 = v0->ModReduce(v11);
   EvalNoiseBGV(v0, secretKey, v12, "22.82 M(s 1)", "v12=ModReduce v11");
   const auto& v13 = v0->EvalMultNoRelin(v3, v4);
-  EvalNoiseBGV(v0, secretKey, v13, "57.67 M(s 2)",
+  EvalNoiseBGV(v0, secretKey, v13, "58.17 M(s 2)",
                "v13=EvalMultNoRelin v3, v4");
   const auto& v14 = v0->ModReduce(v13);
   EvalNoiseBGV(v0, secretKey, v14, "29.53 M(s 2)", "v14=ModReduce v13");
@@ -39,17 +39,17 @@ CiphertextT func(PrivateKeyT secretKey, CryptoContextT v0, CiphertextT v1,
   const auto& v18 = v0->Relinearize(v17);
   EvalNoiseBGV(v0, secretKey, v18, "55.79 M(s 2)", "v18=Relinearize v17");
   const auto& v19 = v0->EvalMultNoRelin(v5, v6);
-  EvalNoiseBGV(v0, secretKey, v19, "57.67 M(s 2)",
+  EvalNoiseBGV(v0, secretKey, v19, "58.17 M(s 2)",
                "v19=EvalMultNoRelin v5, v6");
   const auto& v20 = v0->ModReduce(v19);
   EvalNoiseBGV(v0, secretKey, v20, "29.53 M(s 2)", "v20=ModReduce v19");
   const auto& v21 = v0->Relinearize(v20);
   EvalNoiseBGV(v0, secretKey, v21, "56.08 M(s 2)", "v21=Relinearize v20");
   const auto& v22 = v0->EvalMultNoRelin(v7, v8);
-  EvalNoiseBGV(v0, secretKey, v22, "57.67 M(s 2)",
+  EvalNoiseBGV(v0, secretKey, v22, "58.17 M(s 2)",
                "v22=EvalMultNoRelin v7, v8");
   const auto& v23 = v0->Relinearize(v22);
-  EvalNoiseBGV(v0, secretKey, v23, "57.77 M(s 2)", "v23=Relinearize v22");
+  EvalNoiseBGV(v0, secretKey, v23, "58.23 M(s 2)", "v23=Relinearize v22");
   const auto& v24 = v0->ModReduce(v23);
   EvalNoiseBGV(v0, secretKey, v24, "22.82 M(s 1)", "v24=ModReduce v23");
   const auto& v25 = v0->EvalMultNoRelin(v21, v24);

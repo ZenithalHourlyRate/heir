@@ -119,7 +119,7 @@ Variance Variance::evalEncryptPk(double n, double t, double std0) {
   // assumed UNIFORM_TENARY
   double encrypt = variance0 * t * t * (4.0 * n / 3 + 1);
   // major error independent (public key e is not dominant)
-  return Variance::of(encrypt, "pk_e", 0);
+  return Variance::of(encrypt, "s", 1);
 }
 
 Variance Variance::evalAdd(const Variance &lhs, const Variance &rhs) {
