@@ -308,8 +308,7 @@ class VarianceKey {
   // }
 
   Variance bound(const Variance &v) const {
-    // FIXME: either better estimation or tigher bound
-    if (v.logAlphaBound(p->n) >= p->logQlP(l, ghs) - 1 - 5) {
+    if (v.logAlphaBound(p->n) >= p->logQlP(l, ghs) - 1) {
       return Variance::unbounded();
     }
     return v;
