@@ -130,11 +130,11 @@ class Variance {
   // l: number of digit
   // beta: base
   static Variance evalModUp(const Variance &input, double modulus, double n,
-                            double t);
+                            double t, int cv);
   static Variance evalRelinearizeBV(const Variance &input, double n, double t,
                                     double std0, double numDigit, double beta);
   static Variance evalModReduce(const Variance &input, double modulus, double n,
-                                double t);
+                                double t, int cv);
   // static Variance evalRotate(const Variance &input, double n, double t,
   // double std0, double numDigit, double beta);
 
@@ -557,7 +557,7 @@ class VarianceValues {
     VarianceValues ret(k);
     for (size_t i = 0; i != lhs.v.size(); ++i) {
       Variance v = Variance::evalModReduce(
-          lhs.getVariance(i), 1L << k->p->qi[k->l], k->p->n, k->p->t);
+          lhs.getVariance(i), 1L << k->p->qi[k->l], k->p->n, k->p->t, k->cv);
 
       auto cost = lhs.getCost(i) + CostModel::getBGVModReduceCost(
                                        lhs.k->p->n, lhs.k->l, lhs.k->cv);
@@ -636,8 +636,9 @@ class VarianceValues {
 
     VarianceValues ret(kModDown);
     for (size_t i = 0; i != lhs.v.size(); ++i) {
-      Variance vModUp = Variance::evalModUp(lhs.getVariance(i), kModUp->p->P(),
-                                            kModUp->p->n, kModUp->p->t);
+      Variance vModUp =
+          Variance::evalModUp(lhs.getVariance(i), kModUp->p->P(), kModUp->p->n,
+                              kModUp->p->t, kModUp->cv);
       if (!kModUp->bound(vModUp).isBounded()) {
         continue;
       }
@@ -650,8 +651,9 @@ class VarianceValues {
         continue;
       }
 
-      Variance vModDown = Variance::evalModReduce(
-          vRelin, kModDown->p->P(), kModDown->p->n, kModDown->p->t);
+      Variance vModDown =
+          Variance::evalModReduce(vRelin, kModDown->p->P(), kModDown->p->n,
+                                  kModDown->p->t, kModDown->cv);
 #if 0
       LLVM_DEBUG(llvm::dbgs()
                  << "original " << lhs.getVariance().toBound(kModUp->p.n)
@@ -940,7 +942,7 @@ class VarianceStates {
 #if 1
     for (auto depth : {l, l - 1}) {
       for (auto relinDeg : {2}) {
-        for (auto qiSize : {45, 50, 55}) {
+        for (auto qiSize : {45, 50, 53}) {
           for (auto digitSize : {30}) {
             params.push_back(ParamsFactory::getParam(depth, digitSize, 0, t,
                                                      qiSize, relinDeg));

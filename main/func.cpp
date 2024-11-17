@@ -19,25 +19,25 @@ CiphertextT func(PrivateKeyT secretKey, CryptoContextT v0, CiphertextT v1,
   const auto& v9 = v0->EvalMultNoRelin(v1, v2);
   EvalNoiseBGV(v0, secretKey, v9, "57.67", "v9=EvalMultNoRelin v1, v2");
   const auto& v10 = v0->ModReduce(v9);
-  EvalNoiseBGV(v0, secretKey, v10, "22.82", "v10=ModReduce v9");
+  EvalNoiseBGV(v0, secretKey, v10, "29.03", "v10=ModReduce v9");
   const auto& v11 = v0->Relinearize(v10);
   EvalNoiseBGV(v0, secretKey, v11, "56.08", "v11=Relinearize v10");
   const auto& v12 = v0->EvalMultNoRelin(v3, v4);
   EvalNoiseBGV(v0, secretKey, v12, "57.67", "v12=EvalMultNoRelin v3, v4");
   const auto& v13 = v0->ModReduce(v12);
-  EvalNoiseBGV(v0, secretKey, v13, "22.82", "v13=ModReduce v12");
+  EvalNoiseBGV(v0, secretKey, v13, "29.03", "v13=ModReduce v12");
   const auto& v14 = v0->Relinearize(v13);
   EvalNoiseBGV(v0, secretKey, v14, "56.08", "v14=Relinearize v13");
   const auto& v15 = v0->EvalMultNoRelin(v11, v14);
   EvalNoiseBGV(v0, secretKey, v15, "116.26", "v15=EvalMultNoRelin v11, v14");
   const auto& v16 = v0->ModReduce(v15);
-  EvalNoiseBGV(v0, secretKey, v16, "61.26", "v16=ModReduce v15");
+  EvalNoiseBGV(v0, secretKey, v16, "63.26", "v16=ModReduce v15");
   const auto& v17 = v0->Relinearize(v16);
-  EvalNoiseBGV(v0, secretKey, v17, "61.26", "v17=Relinearize v16");
+  EvalNoiseBGV(v0, secretKey, v17, "63.26", "v17=Relinearize v16");
   const auto& v18 = v0->EvalMultNoRelin(v5, v6);
   EvalNoiseBGV(v0, secretKey, v18, "57.67", "v18=EvalMultNoRelin v5, v6");
   const auto& v19 = v0->ModReduce(v18);
-  EvalNoiseBGV(v0, secretKey, v19, "22.82", "v19=ModReduce v18");
+  EvalNoiseBGV(v0, secretKey, v19, "29.03", "v19=ModReduce v18");
   const auto& v20 = v0->Relinearize(v19);
   EvalNoiseBGV(v0, secretKey, v20, "56.08", "v20=Relinearize v19");
   const auto& v21 = v0->EvalMultNoRelin(v7, v8);
@@ -51,13 +51,13 @@ CiphertextT func(PrivateKeyT secretKey, CryptoContextT v0, CiphertextT v1,
   const auto& v25 = v0->Relinearize(v24);
   EvalNoiseBGV(v0, secretKey, v25, "83.00", "v25=Relinearize v24");
   const auto& v26 = v0->ModReduce(v25);
-  EvalNoiseBGV(v0, secretKey, v26, "28.00", "v26=ModReduce v25");
+  EvalNoiseBGV(v0, secretKey, v26, "30.00", "v26=ModReduce v25");
   const auto& v27 = v0->EvalMultNoRelin(v17, v26);
-  EvalNoiseBGV(v0, secretKey, v27, "93.35", "v27=EvalMultNoRelin v17, v26");
+  EvalNoiseBGV(v0, secretKey, v27, "97.35", "v27=EvalMultNoRelin v17, v26");
   const auto& v28 = v0->Relinearize(v27);
-  EvalNoiseBGV(v0, secretKey, v28, "93.35", "v28=Relinearize v27");
+  EvalNoiseBGV(v0, secretKey, v28, "97.35", "v28=Relinearize v27");
   const auto& v29 = v0->ModReduce(v28);
-  EvalNoiseBGV(v0, secretKey, v29, "38.35", "v29=ModReduce v28");
+  EvalNoiseBGV(v0, secretKey, v29, "44.35", "v29=ModReduce v28");
   return v29;
 }
 CiphertextT func__encrypt__arg0(PrivateKeyT secretKey, CryptoContextT v30,
@@ -147,7 +147,7 @@ CryptoContextT func__generate_crypto_context() {
   v91.SetRingDim(8192);
   v91.SetMaxRelinSkDeg(2);
   v91.SetScalingTechnique(FIXEDMANUAL);
-  v91.SetScalingModSize(55);
+  v91.SetScalingModSize(53);
   v91.SetKeySwitchTechnique(BV);
   v91.SetDigitSize(30);
   v91.SetNumLargeDigits(0);

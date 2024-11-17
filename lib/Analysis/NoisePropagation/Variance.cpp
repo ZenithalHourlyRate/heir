@@ -101,16 +101,32 @@ Variance Variance::evalMultNoRelin(const Variance &lhs, const Variance &rhs,
 }
 
 Variance Variance::evalModUp(const Variance &input, double modulus, double n,
-                             double t) {
+                             double t, int cv) {
   // assumed UNIFORM_TENARY
-  double added = 1.0 / 12 * t * t * (2.0 * n / 3 + 1);
+  double sVariance = 1.0;         // this term
+  double sVariances = sVariance;  // total
+  // NOTE: underestimate for s^2!!!, as Var(s^2) != N Var(s)^2 as they are not
+  // independent
+  for (int cv_index = 1; cv_index != cv; ++cv_index) {
+    sVariance *= 2.0 * n / 3;
+    sVariances += sVariance;
+  }
+  double added = 1.0 / 12 * t * t * sVariances;
   return Variance::of(input.getValue() * (modulus * modulus) + added);
 }
 
 Variance Variance::evalModReduce(const Variance &input, double modulus,
-                                 double n, double t) {
+                                 double n, double t, int cv) {
   // assumed UNIFORM_TENARY
-  double added = 1.0 / 12 * t * t * (2.0 * n / 3 + 1);
+  double sVariance = 1.0;         // this term
+  double sVariances = sVariance;  // total
+  // NOTE: underestimate for s^2!!!, as Var(s^2) != N Var(s)^2 as they are not
+  // independent
+  for (int cv_index = 1; cv_index != cv; ++cv_index) {
+    sVariance *= 2.0 * n / 3;
+    sVariances += sVariance;
+  }
+  double added = 1.0 / 12 * t * t * sVariances;
   return Variance::of(input.getValue() / (modulus * modulus) + added);
 }
 
