@@ -206,6 +206,8 @@ LogicalResult OpenFhePkeEmitter::printEvalMethod(
   os << variableNames->getNameForValue(cryptoContext);
   os << ", secretKey, ";
   os << variableNames->getNameForValue(result);
+  os << ", ";
+  os << result.getDefiningOp()->getAttr("bound");
   os << ", \"";
   os << variableNames->getNameForValue(result);
   os << "=";

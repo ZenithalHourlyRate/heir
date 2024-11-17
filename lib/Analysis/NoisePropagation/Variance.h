@@ -481,6 +481,7 @@ class VarianceValues {
   }
 
   const size_t getMinimalByCost() const {
+#ifndef IGNORE_MODEL
     auto index = 0;
     for (size_t i = 0; i != v.size(); ++i) {
       CostModel::Cost res = std::min(getCost(index), getCost(i));
@@ -489,6 +490,9 @@ class VarianceValues {
       }
     }
     return index;
+#else
+    return getMinimalByVariance();
+#endif
   }
 
   const size_t getIndexByParents(const VarianceParents &currentParent) const {
@@ -934,9 +938,11 @@ class VarianceStates {
     // params.push_back(ParamsFactory::getParam(3, 0, 2, t, 55, 2));
 #endif
 #if 1
-    for (auto depth : {l, l - 1}) {
+    // for (auto depth : {l, l - 1}) {
+    for (auto depth : {3}) {
       for (auto relinDeg : {2}) {
-        for (auto qiSize : {30, 35, 40, 45, 50, 55}) {
+        // for (auto qiSize : {45, 50, 55}) {
+        for (auto qiSize : {45}) {
           for (auto digitSize : {30}) {
             params.push_back(ParamsFactory::getParam(depth, digitSize, 0, t,
                                                      qiSize, relinDeg));

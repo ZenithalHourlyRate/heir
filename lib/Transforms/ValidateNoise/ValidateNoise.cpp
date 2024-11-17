@@ -190,10 +190,17 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       };
 
       auto concatMgmtOps = [&](Value result) {
-        auto reasons = selected_reasons(result);
+        // auto reasons = selected_reasons(result);
+        auto bounds = selected_bounds(result);
         std::vector<Attribute> mgmt_arr;
-        for (size_t i = 1; i != reasons.size(); ++i) {
-          mgmt_arr.push_back(builder.getStringAttr(reasons[i]));
+        // for (size_t i = 1; i != reasons.size(); ++i) {
+        for (auto &[reason, bound] : bounds) {
+          auto reasonAttr = builder.getStringAttr(reason);
+          auto boundAttr = builder.getStringAttr(bound);
+          std::vector<Attribute> pair;
+          pair.push_back(reasonAttr);
+          pair.push_back(boundAttr);
+          mgmt_arr.push_back(builder.getArrayAttr(ArrayRef<Attribute>(pair)));
         }
         return mgmt_arr;
       };

@@ -208,24 +208,28 @@ class SecretGenericOpMyMulConversion : public SecretGenericOpConversion<M, T> {
     if (!plaintextValues.empty()) {
       return failure();
     }
-    ArrayAttr mgmt_attr =
+    ArrayAttr mgmtAttr =
         llvm::dyn_cast<ArrayAttr>(op.getBody()->front().getAttr("mgmt"));
-    LLVM_DEBUG(llvm::dbgs() << mgmt_attr << "\n");
+    LLVM_DEBUG(llvm::dbgs() << mgmtAttr << "\n");
 
     ImplicitLocOpBuilder b(op->getLoc(), rewriter);
     auto mul = b.create<T>(inputs);
     Value currentResult = mul;
 
-    if (mgmt_attr) {
-      ArrayRef<Attribute> mgmt_array = mgmt_attr.getValue();
-      for (auto &attr : mgmt_array) {
-        StringAttr stringAttr = llvm::dyn_cast<StringAttr>(attr);
-        std::string mgmt = stringAttr.getValue().str();
-        if (mgmt == "relin") {
+    if (mgmtAttr) {
+      ArrayRef<Attribute> mgmtArray = mgmtAttr.getValue();
+      for (auto &attr : mgmtArray) {
+        ArrayAttr pairAttr = llvm::dyn_cast<ArrayAttr>(attr);
+        ArrayRef<Attribute> pairArray = pairAttr.getValue();
+        StringAttr reasonAttr = llvm::dyn_cast<StringAttr>(pairArray[0]);
+        std::string reason = reasonAttr.getValue().str();
+        if (reason == "relin") {
           currentResult = b.create<Y>(currentResult);
-        } else {
+        } else if (reason == "modd") {
           currentResult = b.create<R>(currentResult);
         }
+        StringAttr boundAttr = llvm::dyn_cast<StringAttr>(pairArray[1]);
+        currentResult.getDefiningOp()->setAttr("bound", boundAttr);
       }
     }
     rewriter.replaceOp(op, currentResult);

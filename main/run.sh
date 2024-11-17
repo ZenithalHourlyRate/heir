@@ -3,5 +3,6 @@ bazel --output_user_root=$TMPDIR run //tools:heir-opt -- --mlir-to-secret-arith=
 bazel --output_user_root=$TMPDIR run //tools:heir-translate -- --emit-openfhe-pke-header $PWD/func_output.mlir > func.h
 bazel --output_user_root=$TMPDIR run //tools:heir-translate -- --emit-openfhe-pke $PWD/func_output.mlir > func.cpp
 sed -i 's/(CryptoContextT/(PrivateKeyT secretKey, CryptoContextT/g' func.h func.cpp
-sed -i '12s/^/void EvalNoiseBGV(CryptoContext<DCRTPoly> &cryptoContext, PrivateKey<DCRTPoly> privateKey, ConstCiphertext<DCRTPoly> ciphertext, std::string tag);/g' func.cpp
+sed -i 's/<<NULL ATTRIBUTE>>/"26.5"/g' func.cpp
+sed -i '12s/^/void EvalNoiseBGV(CryptoContext<DCRTPoly> &cryptoContext, PrivateKey<DCRTPoly> privateKey, ConstCiphertext<DCRTPoly> ciphertext, std::string bound, std::string tag);/g' func.cpp
 bazel --output_user_root=$TMPDIR run //main:main

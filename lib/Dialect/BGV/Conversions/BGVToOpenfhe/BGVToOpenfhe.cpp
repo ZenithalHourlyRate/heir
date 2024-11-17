@@ -34,7 +34,6 @@ using ConvertNegateOp = ConvertRlweUnaryOp<NegateOp, openfhe::NegateOp>;
 using ConvertAddOp = ConvertRlweBinOp<AddOp, openfhe::AddOp>;
 using ConvertSubOp = ConvertRlweBinOp<SubOp, openfhe::SubOp>;
 using ConvertMulOp = ConvertRlweBinOp<MulOp, openfhe::MulNoRelinOp>;
-using ConvertMyMulOp = ConvertRlweBinOp<MyMulOp, openfhe::MulNoRelinOp>;
 using ConvertAddPlainOp =
     ConvertRlweCiphertextPlaintextOp<AddPlainOp, openfhe::AddPlainOp>;
 using ConvertMulPlainOp =
@@ -64,6 +63,29 @@ struct ConvertModulusSwitchOp : public OpConversionPattern<ModulusSwitchOp> {
   }
 };
 
+struct ConvertMyMulOp : public OpConversionPattern<MyMulOp> {
+  ConvertMyMulOp(mlir::MLIRContext *context)
+      : OpConversionPattern<MyMulOp>(context) {}
+
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(
+      MyMulOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    FailureOr<Value> result = getContextualCryptoContext(op.getOperation());
+    if (failed(result)) return result;
+
+    Value cryptoContext = result.value();
+    auto boundAttr = op->getAttr("bound");
+    auto mul = rewriter.create<openfhe::MulNoRelinOp>(
+        op.getLoc(), op.getOutput().getType(), cryptoContext, adaptor.getLhs(),
+        adaptor.getRhs());
+    mul->setAttr("bound", boundAttr);
+    rewriter.replaceOp(op, mul);
+    return success();
+  }
+};
+
 struct ConvertMyRelinOp : public OpConversionPattern<MyRelinearizeOp> {
   ConvertMyRelinOp(mlir::MLIRContext *context)
       : OpConversionPattern<MyRelinearizeOp>(context) {}
@@ -77,9 +99,12 @@ struct ConvertMyRelinOp : public OpConversionPattern<MyRelinearizeOp> {
     if (failed(result)) return result;
 
     Value cryptoContext = result.value();
-    rewriter.replaceOp(op, rewriter.create<openfhe::RelinOp>(
-                               op.getLoc(), op.getOutput().getType(),
-                               cryptoContext, adaptor.getInput()));
+    auto boundAttr = op->getAttr("bound");
+    auto relin =
+        rewriter.create<openfhe::RelinOp>(op.getLoc(), op.getOutput().getType(),
+                                          cryptoContext, adaptor.getInput());
+    relin->setAttr("bound", boundAttr);
+    rewriter.replaceOp(op, relin);
     return success();
   }
 };
@@ -98,9 +123,12 @@ struct ConvertMyModulusSwitchOp
     if (failed(result)) return result;
 
     Value cryptoContext = result.value();
-    rewriter.replaceOp(op, rewriter.create<openfhe::ModReduceOp>(
-                               op.getLoc(), op.getOutput().getType(),
-                               cryptoContext, adaptor.getInput()));
+    auto boundAttr = op->getAttr("bound");
+    auto modswitch = rewriter.create<openfhe::ModReduceOp>(
+        op.getLoc(), op.getOutput().getType(), cryptoContext,
+        adaptor.getInput());
+    modswitch->setAttr("bound", boundAttr);
+    rewriter.replaceOp(op, modswitch);
     return success();
   }
 };

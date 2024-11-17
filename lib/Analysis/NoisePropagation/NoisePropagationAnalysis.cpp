@@ -44,9 +44,7 @@ LogicalResult NoiseStatesAnalysis::visitOperation(
         }
       })
       .Case<arith::MulIOp>([&](auto mulOp) {
-        // LLVM_DEBUG(llvm::dbgs() << "mult operand " << " size " <<
-        // operands[0]->getValue().size() << " " <<
-        // operands[0]->getValue().getResult() << "\n");
+        LLVM_DEBUG(llvm::dbgs() << "Visiting mult op " << mulOp << "\n");
         auto vss = VarianceStates::evalMultNoRelin(operands[0]->getValue(),
                                                    operands[1]->getValue());
         propagate(op->getResult(0), vss);
