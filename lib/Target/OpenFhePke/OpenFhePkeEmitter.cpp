@@ -194,6 +194,13 @@ LogicalResult OpenFhePkeEmitter::emitTypedAssignPrefix(Value result) {
 LogicalResult OpenFhePkeEmitter::printEvalMethod(
     ::mlir::Value result, ::mlir::Value cryptoContext,
     ::mlir::ValueRange nonEvalOperands, std::string_view op) {
+  // if (op == "EvalRelinearize") {
+  //   os << variableNames->getNameForValue(cryptoContext) <<
+  //   "->ClearEvalMultKeys();\n"; os <<
+  //   variableNames->getNameForValue(cryptoContext) <<
+  //   "->EvalMultKeyGen(secretKey);\n";
+  // }
+
   emitAutoAssignPrefix(result);
 
   os << variableNames->getNameForValue(cryptoContext) << "->" << op << "(";

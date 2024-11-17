@@ -100,16 +100,42 @@ Variance Variance::evalMultNoRelin(const Variance &lhs, const Variance &rhs,
   return Variance::of(lhs.getValue() * rhs.getValue() * n);
 }
 
+// though for normal distro
+// used for s for now...
+// https://math.stackexchange.com/questions/1917647/proving-ex4-3%CF%834
+// E[Xi^2n] = (2n - 1)!! Var(Xi)^n
+// Var[Xi^2] = 2 Var[Xi]^2
+// Var[Xi^3] = 15 Var(Xi)^3
+// Var[Xi^4] = 96 Var(Xi)^4
+static int VariancePower(int cv) {
+  // Var(Xi^n) = E[Xi^2n] - E[Xi^n]^2
+  auto doubleFactorial = [](int n) {
+    int ret = 1;
+    for (n = n - 1; n > 0; n -= 2) {
+      ret *= n;
+    }
+    return ret;
+  };
+  int termLeft = doubleFactorial(cv * 2);
+  int termRight = 0;
+  if (cv % 2 == 0) {
+    int E = doubleFactorial(cv);
+    termRight = E * E;
+  }
+  // E[Xi^odd] = 0
+  return termLeft - termRight;
+}
+
 Variance Variance::evalModUp(const Variance &input, double modulus, double n,
                              double t, int cv) {
+  double sVarianceTerm = 1.0;         // s^0
+  double sVariances = sVarianceTerm;  // total
   // assumed UNIFORM_TENARY
-  double sVariance = 1.0;         // this term
-  double sVariances = sVariance;  // total
-  // NOTE: underestimate for s^2!!!, as Var(s^2) != N Var(s)^2 as they are not
-  // independent
+  double sVariance = 2.0 / 3;
   for (int cv_index = 1; cv_index != cv; ++cv_index) {
-    sVariance *= 2.0 * n / 3;
-    sVariances += sVariance;
+    // check corollary 1 of [MP24]
+    sVarianceTerm *= sVariance * n * VariancePower(cv_index);
+    sVariances += sVarianceTerm;
   }
   double added = 1.0 / 12 * t * t * sVariances;
   return Variance::of(input.getValue() * (modulus * modulus) + added);
@@ -117,14 +143,16 @@ Variance Variance::evalModUp(const Variance &input, double modulus, double n,
 
 Variance Variance::evalModReduce(const Variance &input, double modulus,
                                  double n, double t, int cv) {
+  double sVarianceTerm = 1.0;         // s^0
+  double sVariances = sVarianceTerm;  // total
   // assumed UNIFORM_TENARY
-  double sVariance = 1.0;         // this term
-  double sVariances = sVariance;  // total
-  // NOTE: underestimate for s^2!!!, as Var(s^2) != N Var(s)^2 as they are not
-  // independent
+  double sVariance = 2.0 / 3;
   for (int cv_index = 1; cv_index != cv; ++cv_index) {
-    sVariance *= 2.0 * n / 3;
-    sVariances += sVariance;
+    // check corollary 1 of [MP24]
+    // LLVM_DEBUG(llvm::dbgs() << "cv " << cv_index << " power " <<
+    // VariancePower(cv_index) << "\n");
+    sVarianceTerm *= sVariance * n * VariancePower(cv_index);
+    sVariances += sVarianceTerm;
   }
   double added = 1.0 / 12 * t * t * sVariances;
   return Variance::of(input.getValue() / (modulus * modulus) + added);
