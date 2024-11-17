@@ -29,6 +29,43 @@ enum VarianceType {
   UNBOUNDED
 };
 
+int VariancePower(int cv);
+
+struct VarianceMajorFactor {
+  VarianceMajorFactor() = default;
+  VarianceMajorFactor(std::string reason, int order)
+      : reason(reason), order(order) {}
+
+  bool correlate(const VarianceMajorFactor &rhs) const {
+    return reason == rhs.reason && order != 0 && rhs.order != 0;
+  }
+
+  int mergeOrder(const VarianceMajorFactor &rhs) const {
+    return order + rhs.order;
+  }
+
+  VarianceMajorFactor merge(const VarianceMajorFactor &rhs) const {
+    assert(correlate(rhs));
+    return VarianceMajorFactor(reason, mergeOrder(rhs));
+  }
+
+  double getPower(const VarianceMajorFactor &rhs) const {
+    assert(correlate(rhs));
+    // LLVM_DEBUG(llvm::dbgs() << "reason " << reason << " getPower: " <<
+    // VariancePower(mergeOrder(rhs)) << " " << VariancePower(order) << " " <<
+    // VariancePower(rhs.order) << "\n");
+    return double(VariancePower(mergeOrder(rhs))) /
+           (VariancePower(order) * VariancePower(rhs.order));
+  }
+
+  std::string toString() const {
+    return "M(" + reason + " " + std::to_string(order) + ")";
+  }
+
+  std::string reason;
+  int order;
+};
+
 /// A class representing an optional variance of a noise distribution.
 class Variance {
  public:
@@ -41,13 +78,21 @@ class Variance {
   static Variance of(double value) {
     return Variance(VarianceType::SET, value);
   }
+  static Variance of(double value, std::string reason, int order) {
+    return Variance(VarianceType::SET, value,
+                    VarianceMajorFactor(reason, order));
+  }
+  static Variance of(double value, VarianceMajorFactor factor) {
+    return Variance(VarianceType::SET, value, factor);
+  }
 
   /// Create an integer value range lattice value.
   /// The default constructor must be equivalent to the "entry state" of the
   /// lattice, i.e., an uninitialized noise variance.
   Variance(VarianceType varianceType = VarianceType::UNINITIALIZED,
-           std::optional<double> value = std::nullopt)
-      : varianceType(varianceType), value(value) {}
+           std::optional<double> value = std::nullopt,
+           VarianceMajorFactor factor = VarianceMajorFactor())
+      : varianceType(varianceType), value(value), factor(factor) {}
 
   bool isKnown() const { return varianceType == VarianceType::SET; }
 
@@ -61,6 +106,10 @@ class Variance {
     assert(isKnown());
     return *value;
   }
+
+  const VarianceMajorFactor getFactor() const { return factor; }
+
+  void setFactor(VarianceMajorFactor factor0) { factor = factor0; }
 
   bool operator==(const Variance &rhs) const {
     return varianceType == rhs.varianceType && value == rhs.value;
@@ -126,7 +175,7 @@ class Variance {
   static Variance evalEncryptPk(double n, double t, double std0);
   static Variance evalAdd(const Variance &lhs, const Variance &rhs);
   static Variance evalMultNoRelin(const Variance &lhs, const Variance &rhs,
-                                  double n);
+                                  double n, double t);
   // l: number of digit
   // beta: base
   static Variance evalModUp(const Variance &input, double modulus, double n,
@@ -152,7 +201,7 @@ class Variance {
     }
     std::stringstream stream;
     stream << std::fixed << std::setprecision(2) << logAlphaBound(n);
-    return stream.str();
+    return stream.str() + " " + factor.toString();
   }
 
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
@@ -164,6 +213,7 @@ class Variance {
  private:
   VarianceType varianceType;
   std::optional<double> value;
+  VarianceMajorFactor factor;
 };
 
 class VarianceKey {
@@ -580,8 +630,8 @@ class VarianceValues {
     VarianceValues ret(k);
     for (size_t i = 0; i != lhs.v.size(); ++i) {
       for (size_t j = 0; j != rhs.v.size(); ++j) {
-        Variance v = Variance::evalMultNoRelin(lhs.getVariance(i),
-                                               rhs.getVariance(j), k->p->n);
+        Variance v = Variance::evalMultNoRelin(
+            lhs.getVariance(i), rhs.getVariance(j), k->p->n, k->p->t);
         auto cost = lhs.getCost(i) + rhs.getCost(j) +
                     CostModel::getBGVMultCost(lhs.k->p->n, lhs.k->l, lhs.k->cv,
                                               rhs.k->cv);

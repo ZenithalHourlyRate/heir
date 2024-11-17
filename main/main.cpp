@@ -80,7 +80,7 @@ void EvalNoiseBGV(CryptoContext<DCRTPoly> cryptoContext,
             << sizeQl
             // << " logQ: " << logQ << " logqi: " << logqi_v
             << " budget " << logQ - noise - 1 << " noise: " << noise
-            << " bound " << bound << " gap " << stod(bound) - noise
+            << " bound " << bound << " gap " << stod(bound.substr(0, 4)) - noise
             << std::endl;
 }
 

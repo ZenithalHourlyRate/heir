@@ -13,25 +13,25 @@ using PublicKeyT = PublicKey<DCRTPoly>;
 CiphertextT func(PrivateKeyT secretKey, CryptoContextT v0, CiphertextT v1,
                  CiphertextT v2, CiphertextT v3, CiphertextT v4, CiphertextT v5,
                  CiphertextT v6, CiphertextT v7, CiphertextT v8);
-CiphertextT func__encrypt__arg0(PrivateKeyT secretKey, CryptoContextT v30,
-                                int16_t v31, PublicKeyT v32);
-CiphertextT func__encrypt__arg1(PrivateKeyT secretKey, CryptoContextT v37,
-                                int16_t v38, PublicKeyT v39);
-CiphertextT func__encrypt__arg2(PrivateKeyT secretKey, CryptoContextT v44,
-                                int16_t v45, PublicKeyT v46);
-CiphertextT func__encrypt__arg3(PrivateKeyT secretKey, CryptoContextT v51,
-                                int16_t v52, PublicKeyT v53);
-CiphertextT func__encrypt__arg4(PrivateKeyT secretKey, CryptoContextT v58,
-                                int16_t v59, PublicKeyT v60);
-CiphertextT func__encrypt__arg5(PrivateKeyT secretKey, CryptoContextT v65,
-                                int16_t v66, PublicKeyT v67);
-CiphertextT func__encrypt__arg6(PrivateKeyT secretKey, CryptoContextT v72,
-                                int16_t v73, PublicKeyT v74);
-CiphertextT func__encrypt__arg7(PrivateKeyT secretKey, CryptoContextT v79,
-                                int16_t v80, PublicKeyT v81);
-int16_t func__decrypt__result0(PrivateKeyT secretKey, CryptoContextT v86,
-                               CiphertextT v87, PrivateKeyT v88);
+CiphertextT func__encrypt__arg0(PrivateKeyT secretKey, CryptoContextT v31,
+                                int16_t v32, PublicKeyT v33);
+CiphertextT func__encrypt__arg1(PrivateKeyT secretKey, CryptoContextT v38,
+                                int16_t v39, PublicKeyT v40);
+CiphertextT func__encrypt__arg2(PrivateKeyT secretKey, CryptoContextT v45,
+                                int16_t v46, PublicKeyT v47);
+CiphertextT func__encrypt__arg3(PrivateKeyT secretKey, CryptoContextT v52,
+                                int16_t v53, PublicKeyT v54);
+CiphertextT func__encrypt__arg4(PrivateKeyT secretKey, CryptoContextT v59,
+                                int16_t v60, PublicKeyT v61);
+CiphertextT func__encrypt__arg5(PrivateKeyT secretKey, CryptoContextT v66,
+                                int16_t v67, PublicKeyT v68);
+CiphertextT func__encrypt__arg6(PrivateKeyT secretKey, CryptoContextT v73,
+                                int16_t v74, PublicKeyT v75);
+CiphertextT func__encrypt__arg7(PrivateKeyT secretKey, CryptoContextT v80,
+                                int16_t v81, PublicKeyT v82);
+int16_t func__decrypt__result0(PrivateKeyT secretKey, CryptoContextT v87,
+                               CiphertextT v88, PrivateKeyT v89);
 CryptoContextT func__generate_crypto_context();
 CryptoContextT func__configure_crypto_context(PrivateKeyT secretKey,
-                                              CryptoContextT v93,
-                                              PrivateKeyT v94);
+                                              CryptoContextT v94,
+                                              PrivateKeyT v95);
