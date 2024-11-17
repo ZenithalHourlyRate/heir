@@ -132,15 +132,11 @@ int main(int argc, char* argv[]) {
                                            keyPair.publicKey);
   auto arg7Encrypted = func__encrypt__arg7(keyPair.secretKey, cryptoContext, 1,
                                            keyPair.publicKey);
-  auto arg8Encrypted = func__encrypt__arg8(keyPair.secretKey, cryptoContext, 0,
-                                           keyPair.publicKey);
-  auto arg9Encrypted = func__encrypt__arg9(keyPair.secretKey, cryptoContext, 1,
-                                           keyPair.publicKey);
 
   auto outputEncrypted =
       func(keyPair.secretKey, cryptoContext, arg0Encrypted, arg1Encrypted,
            arg2Encrypted, arg3Encrypted, arg4Encrypted, arg5Encrypted,
-           arg6Encrypted, arg7Encrypted, arg8Encrypted, arg9Encrypted);
+           arg6Encrypted, arg7Encrypted);
   auto actual = func__decrypt__result0(keyPair.secretKey, cryptoContext,
                                        outputEncrypted, keyPair.secretKey);
 

@@ -938,11 +938,9 @@ class VarianceStates {
     // params.push_back(ParamsFactory::getParam(3, 0, 2, t, 55, 2));
 #endif
 #if 1
-    // for (auto depth : {l, l - 1}) {
-    for (auto depth : {3}) {
+    for (auto depth : {l, l - 1}) {
       for (auto relinDeg : {2}) {
-        // for (auto qiSize : {45, 50, 55}) {
-        for (auto qiSize : {45}) {
+        for (auto qiSize : {45, 50, 55}) {
           for (auto digitSize : {30}) {
             params.push_back(ParamsFactory::getParam(depth, digitSize, 0, t,
                                                      qiSize, relinDeg));

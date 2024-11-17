@@ -307,7 +307,7 @@ struct BGVRelinHYBRIDCostEntry : public BGVCostEntry {
   int dnum;
 };
 
-#define IGNORE_MODEL
+// #define IGNORE_MODEL
 
 struct CostModel {
   using Cost = double;

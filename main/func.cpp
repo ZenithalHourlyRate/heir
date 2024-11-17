@@ -15,178 +15,151 @@ void EvalNoiseBGV(CryptoContext<DCRTPoly> cryptoContext,
                   std::string tag);
 CiphertextT func(PrivateKeyT secretKey, CryptoContextT v0, CiphertextT v1,
                  CiphertextT v2, CiphertextT v3, CiphertextT v4, CiphertextT v5,
-                 CiphertextT v6, CiphertextT v7, CiphertextT v8, CiphertextT v9,
-                 CiphertextT v10) {
-  const auto& v11 = v0->EvalMultNoRelin(v1, v2);
-  EvalNoiseBGV(v0, secretKey, v11, "57.67", "v11=EvalMultNoRelin v1, v2");
-  const auto& v12 = v0->Relinearize(v11);
-  EvalNoiseBGV(v0, secretKey, v12, "57.77", "v12=Relinearize v11");
+                 CiphertextT v6, CiphertextT v7, CiphertextT v8) {
+  const auto& v9 = v0->EvalMultNoRelin(v1, v2);
+  EvalNoiseBGV(v0, secretKey, v9, "57.67", "v9=EvalMultNoRelin v1, v2");
+  const auto& v10 = v0->ModReduce(v9);
+  EvalNoiseBGV(v0, secretKey, v10, "22.82", "v10=ModReduce v9");
+  const auto& v11 = v0->Relinearize(v10);
+  EvalNoiseBGV(v0, secretKey, v11, "56.08", "v11=Relinearize v10");
+  const auto& v12 = v0->EvalMultNoRelin(v3, v4);
+  EvalNoiseBGV(v0, secretKey, v12, "57.67", "v12=EvalMultNoRelin v3, v4");
   const auto& v13 = v0->ModReduce(v12);
   EvalNoiseBGV(v0, secretKey, v13, "22.82", "v13=ModReduce v12");
-  const auto& v14 = v0->EvalMultNoRelin(v3, v4);
-  EvalNoiseBGV(v0, secretKey, v14, "57.67", "v14=EvalMultNoRelin v3, v4");
-  const auto& v15 = v0->Relinearize(v14);
-  EvalNoiseBGV(v0, secretKey, v15, "57.77", "v15=Relinearize v14");
-  const auto& v16 = v0->EvalMultNoRelin(v15, v5);
-  EvalNoiseBGV(v0, secretKey, v16, "88.66", "v16=EvalMultNoRelin v15, v5");
+  const auto& v14 = v0->Relinearize(v13);
+  EvalNoiseBGV(v0, secretKey, v14, "56.08", "v14=Relinearize v13");
+  const auto& v15 = v0->EvalMultNoRelin(v11, v14);
+  EvalNoiseBGV(v0, secretKey, v15, "116.26", "v15=EvalMultNoRelin v11, v14");
+  const auto& v16 = v0->ModReduce(v15);
+  EvalNoiseBGV(v0, secretKey, v16, "61.26", "v16=ModReduce v15");
   const auto& v17 = v0->Relinearize(v16);
-  EvalNoiseBGV(v0, secretKey, v17, "88.66", "v17=Relinearize v16");
-  const auto& v18 = v0->ModReduce(v17);
-  EvalNoiseBGV(v0, secretKey, v18, "43.66", "v18=ModReduce v17");
-  const auto& v19 = v0->EvalMultNoRelin(v13, v18);
-  EvalNoiseBGV(v0, secretKey, v19, "70.57", "v19=EvalMultNoRelin v13, v18");
+  EvalNoiseBGV(v0, secretKey, v17, "61.26", "v17=Relinearize v16");
+  const auto& v18 = v0->EvalMultNoRelin(v5, v6);
+  EvalNoiseBGV(v0, secretKey, v18, "57.67", "v18=EvalMultNoRelin v5, v6");
+  const auto& v19 = v0->ModReduce(v18);
+  EvalNoiseBGV(v0, secretKey, v19, "22.82", "v19=ModReduce v18");
   const auto& v20 = v0->Relinearize(v19);
-  EvalNoiseBGV(v0, secretKey, v20, "70.57", "v20=Relinearize v19");
-  const auto& v21 = v0->ModReduce(v20);
-  EvalNoiseBGV(v0, secretKey, v21, "25.59", "v21=ModReduce v20");
-  const auto& v22 = v0->EvalMultNoRelin(v6, v7);
-  EvalNoiseBGV(v0, secretKey, v22, "57.67", "v22=EvalMultNoRelin v6, v7");
-  const auto& v23 = v0->Relinearize(v22);
-  EvalNoiseBGV(v0, secretKey, v23, "57.77", "v23=Relinearize v22");
-  const auto& v24 = v0->ModReduce(v23);
-  EvalNoiseBGV(v0, secretKey, v24, "22.82", "v24=ModReduce v23");
-  const auto& v25 = v0->EvalMultNoRelin(v8, v9);
-  EvalNoiseBGV(v0, secretKey, v25, "57.67", "v25=EvalMultNoRelin v8, v9");
-  const auto& v26 = v0->Relinearize(v25);
-  EvalNoiseBGV(v0, secretKey, v26, "57.77", "v26=Relinearize v25");
-  const auto& v27 = v0->EvalMultNoRelin(v26, v10);
-  EvalNoiseBGV(v0, secretKey, v27, "88.66", "v27=EvalMultNoRelin v26, v10");
+  EvalNoiseBGV(v0, secretKey, v20, "56.08", "v20=Relinearize v19");
+  const auto& v21 = v0->EvalMultNoRelin(v7, v8);
+  EvalNoiseBGV(v0, secretKey, v21, "57.67", "v21=EvalMultNoRelin v7, v8");
+  const auto& v22 = v0->Relinearize(v21);
+  EvalNoiseBGV(v0, secretKey, v22, "57.77", "v22=Relinearize v21");
+  const auto& v23 = v0->ModReduce(v22);
+  EvalNoiseBGV(v0, secretKey, v23, "22.82", "v23=ModReduce v22");
+  const auto& v24 = v0->EvalMultNoRelin(v20, v23);
+  EvalNoiseBGV(v0, secretKey, v24, "83.00", "v24=EvalMultNoRelin v20, v23");
+  const auto& v25 = v0->Relinearize(v24);
+  EvalNoiseBGV(v0, secretKey, v25, "83.00", "v25=Relinearize v24");
+  const auto& v26 = v0->ModReduce(v25);
+  EvalNoiseBGV(v0, secretKey, v26, "28.00", "v26=ModReduce v25");
+  const auto& v27 = v0->EvalMultNoRelin(v17, v26);
+  EvalNoiseBGV(v0, secretKey, v27, "93.35", "v27=EvalMultNoRelin v17, v26");
   const auto& v28 = v0->Relinearize(v27);
-  EvalNoiseBGV(v0, secretKey, v28, "88.66", "v28=Relinearize v27");
+  EvalNoiseBGV(v0, secretKey, v28, "93.35", "v28=Relinearize v27");
   const auto& v29 = v0->ModReduce(v28);
-  EvalNoiseBGV(v0, secretKey, v29, "43.66", "v29=ModReduce v28");
-  const auto& v30 = v0->EvalMultNoRelin(v24, v29);
-  EvalNoiseBGV(v0, secretKey, v30, "70.57", "v30=EvalMultNoRelin v24, v29");
-  const auto& v31 = v0->Relinearize(v30);
-  EvalNoiseBGV(v0, secretKey, v31, "70.57", "v31=Relinearize v30");
-  const auto& v32 = v0->ModReduce(v31);
-  EvalNoiseBGV(v0, secretKey, v32, "25.59", "v32=ModReduce v31");
-  const auto& v33 = v0->EvalMultNoRelin(v21, v32);
-  EvalNoiseBGV(v0, secretKey, v33, "55.28", "v33=EvalMultNoRelin v21, v32");
-  const auto& v34 = v0->Relinearize(v33);
-  EvalNoiseBGV(v0, secretKey, v34, "56.08", "v34=Relinearize v33");
-  const auto& v35 = v0->ModReduce(v34);
-  EvalNoiseBGV(v0, secretKey, v35, "22.82", "v35=ModReduce v34");
-  return v35;
+  EvalNoiseBGV(v0, secretKey, v29, "38.35", "v29=ModReduce v28");
+  return v29;
 }
-CiphertextT func__encrypt__arg0(PrivateKeyT secretKey, CryptoContextT v36,
-                                int16_t v37, PublicKeyT v38) {
-  std::vector<int16_t> v39(8, v37);
-  std::vector<int64_t> v40(std::begin(v39), std::end(v39));
-  const auto& v41 = v36->MakePackedPlaintext(v40);
-  const auto& v42 = v36->Encrypt(v38, v41);
-  EvalNoiseBGV(v36, secretKey, v42, "26.5", "v42=Encrypt v38, v41");
-  return v42;
+CiphertextT func__encrypt__arg0(PrivateKeyT secretKey, CryptoContextT v30,
+                                int16_t v31, PublicKeyT v32) {
+  std::vector<int16_t> v33(8, v31);
+  std::vector<int64_t> v34(std::begin(v33), std::end(v33));
+  const auto& v35 = v30->MakePackedPlaintext(v34);
+  const auto& v36 = v30->Encrypt(v32, v35);
+  EvalNoiseBGV(v30, secretKey, v36, "26.5", "v36=Encrypt v32, v35");
+  return v36;
 }
-CiphertextT func__encrypt__arg1(PrivateKeyT secretKey, CryptoContextT v43,
-                                int16_t v44, PublicKeyT v45) {
-  std::vector<int16_t> v46(8, v44);
-  std::vector<int64_t> v47(std::begin(v46), std::end(v46));
-  const auto& v48 = v43->MakePackedPlaintext(v47);
-  const auto& v49 = v43->Encrypt(v45, v48);
-  EvalNoiseBGV(v43, secretKey, v49, "26.5", "v49=Encrypt v45, v48");
-  return v49;
+CiphertextT func__encrypt__arg1(PrivateKeyT secretKey, CryptoContextT v37,
+                                int16_t v38, PublicKeyT v39) {
+  std::vector<int16_t> v40(8, v38);
+  std::vector<int64_t> v41(std::begin(v40), std::end(v40));
+  const auto& v42 = v37->MakePackedPlaintext(v41);
+  const auto& v43 = v37->Encrypt(v39, v42);
+  EvalNoiseBGV(v37, secretKey, v43, "26.5", "v43=Encrypt v39, v42");
+  return v43;
 }
-CiphertextT func__encrypt__arg2(PrivateKeyT secretKey, CryptoContextT v50,
-                                int16_t v51, PublicKeyT v52) {
-  std::vector<int16_t> v53(8, v51);
-  std::vector<int64_t> v54(std::begin(v53), std::end(v53));
-  const auto& v55 = v50->MakePackedPlaintext(v54);
-  const auto& v56 = v50->Encrypt(v52, v55);
-  EvalNoiseBGV(v50, secretKey, v56, "26.5", "v56=Encrypt v52, v55");
-  return v56;
+CiphertextT func__encrypt__arg2(PrivateKeyT secretKey, CryptoContextT v44,
+                                int16_t v45, PublicKeyT v46) {
+  std::vector<int16_t> v47(8, v45);
+  std::vector<int64_t> v48(std::begin(v47), std::end(v47));
+  const auto& v49 = v44->MakePackedPlaintext(v48);
+  const auto& v50 = v44->Encrypt(v46, v49);
+  EvalNoiseBGV(v44, secretKey, v50, "26.5", "v50=Encrypt v46, v49");
+  return v50;
 }
-CiphertextT func__encrypt__arg3(PrivateKeyT secretKey, CryptoContextT v57,
-                                int16_t v58, PublicKeyT v59) {
-  std::vector<int16_t> v60(8, v58);
-  std::vector<int64_t> v61(std::begin(v60), std::end(v60));
-  const auto& v62 = v57->MakePackedPlaintext(v61);
-  const auto& v63 = v57->Encrypt(v59, v62);
-  EvalNoiseBGV(v57, secretKey, v63, "26.5", "v63=Encrypt v59, v62");
-  return v63;
+CiphertextT func__encrypt__arg3(PrivateKeyT secretKey, CryptoContextT v51,
+                                int16_t v52, PublicKeyT v53) {
+  std::vector<int16_t> v54(8, v52);
+  std::vector<int64_t> v55(std::begin(v54), std::end(v54));
+  const auto& v56 = v51->MakePackedPlaintext(v55);
+  const auto& v57 = v51->Encrypt(v53, v56);
+  EvalNoiseBGV(v51, secretKey, v57, "26.5", "v57=Encrypt v53, v56");
+  return v57;
 }
-CiphertextT func__encrypt__arg4(PrivateKeyT secretKey, CryptoContextT v64,
-                                int16_t v65, PublicKeyT v66) {
-  std::vector<int16_t> v67(8, v65);
-  std::vector<int64_t> v68(std::begin(v67), std::end(v67));
-  const auto& v69 = v64->MakePackedPlaintext(v68);
-  const auto& v70 = v64->Encrypt(v66, v69);
-  EvalNoiseBGV(v64, secretKey, v70, "26.5", "v70=Encrypt v66, v69");
-  return v70;
+CiphertextT func__encrypt__arg4(PrivateKeyT secretKey, CryptoContextT v58,
+                                int16_t v59, PublicKeyT v60) {
+  std::vector<int16_t> v61(8, v59);
+  std::vector<int64_t> v62(std::begin(v61), std::end(v61));
+  const auto& v63 = v58->MakePackedPlaintext(v62);
+  const auto& v64 = v58->Encrypt(v60, v63);
+  EvalNoiseBGV(v58, secretKey, v64, "26.5", "v64=Encrypt v60, v63");
+  return v64;
 }
-CiphertextT func__encrypt__arg5(PrivateKeyT secretKey, CryptoContextT v71,
-                                int16_t v72, PublicKeyT v73) {
-  std::vector<int16_t> v74(8, v72);
-  std::vector<int64_t> v75(std::begin(v74), std::end(v74));
-  const auto& v76 = v71->MakePackedPlaintext(v75);
-  const auto& v77 = v71->Encrypt(v73, v76);
-  EvalNoiseBGV(v71, secretKey, v77, "26.5", "v77=Encrypt v73, v76");
-  return v77;
+CiphertextT func__encrypt__arg5(PrivateKeyT secretKey, CryptoContextT v65,
+                                int16_t v66, PublicKeyT v67) {
+  std::vector<int16_t> v68(8, v66);
+  std::vector<int64_t> v69(std::begin(v68), std::end(v68));
+  const auto& v70 = v65->MakePackedPlaintext(v69);
+  const auto& v71 = v65->Encrypt(v67, v70);
+  EvalNoiseBGV(v65, secretKey, v71, "26.5", "v71=Encrypt v67, v70");
+  return v71;
 }
-CiphertextT func__encrypt__arg6(PrivateKeyT secretKey, CryptoContextT v78,
-                                int16_t v79, PublicKeyT v80) {
-  std::vector<int16_t> v81(8, v79);
-  std::vector<int64_t> v82(std::begin(v81), std::end(v81));
-  const auto& v83 = v78->MakePackedPlaintext(v82);
-  const auto& v84 = v78->Encrypt(v80, v83);
-  EvalNoiseBGV(v78, secretKey, v84, "26.5", "v84=Encrypt v80, v83");
-  return v84;
+CiphertextT func__encrypt__arg6(PrivateKeyT secretKey, CryptoContextT v72,
+                                int16_t v73, PublicKeyT v74) {
+  std::vector<int16_t> v75(8, v73);
+  std::vector<int64_t> v76(std::begin(v75), std::end(v75));
+  const auto& v77 = v72->MakePackedPlaintext(v76);
+  const auto& v78 = v72->Encrypt(v74, v77);
+  EvalNoiseBGV(v72, secretKey, v78, "26.5", "v78=Encrypt v74, v77");
+  return v78;
 }
-CiphertextT func__encrypt__arg7(PrivateKeyT secretKey, CryptoContextT v85,
-                                int16_t v86, PublicKeyT v87) {
-  std::vector<int16_t> v88(8, v86);
-  std::vector<int64_t> v89(std::begin(v88), std::end(v88));
-  const auto& v90 = v85->MakePackedPlaintext(v89);
-  const auto& v91 = v85->Encrypt(v87, v90);
-  EvalNoiseBGV(v85, secretKey, v91, "26.5", "v91=Encrypt v87, v90");
-  return v91;
+CiphertextT func__encrypt__arg7(PrivateKeyT secretKey, CryptoContextT v79,
+                                int16_t v80, PublicKeyT v81) {
+  std::vector<int16_t> v82(8, v80);
+  std::vector<int64_t> v83(std::begin(v82), std::end(v82));
+  const auto& v84 = v79->MakePackedPlaintext(v83);
+  const auto& v85 = v79->Encrypt(v81, v84);
+  EvalNoiseBGV(v79, secretKey, v85, "26.5", "v85=Encrypt v81, v84");
+  return v85;
 }
-CiphertextT func__encrypt__arg8(PrivateKeyT secretKey, CryptoContextT v92,
-                                int16_t v93, PublicKeyT v94) {
-  std::vector<int16_t> v95(8, v93);
-  std::vector<int64_t> v96(std::begin(v95), std::end(v95));
-  const auto& v97 = v92->MakePackedPlaintext(v96);
-  const auto& v98 = v92->Encrypt(v94, v97);
-  EvalNoiseBGV(v92, secretKey, v98, "26.5", "v98=Encrypt v94, v97");
-  return v98;
-}
-CiphertextT func__encrypt__arg9(PrivateKeyT secretKey, CryptoContextT v99,
-                                int16_t v100, PublicKeyT v101) {
-  std::vector<int16_t> v102(8, v100);
-  std::vector<int64_t> v103(std::begin(v102), std::end(v102));
-  const auto& v104 = v99->MakePackedPlaintext(v103);
-  const auto& v105 = v99->Encrypt(v101, v104);
-  EvalNoiseBGV(v99, secretKey, v105, "26.5", "v105=Encrypt v101, v104");
-  return v105;
-}
-int16_t func__decrypt__result0(PrivateKeyT secretKey, CryptoContextT v106,
-                               CiphertextT v107, PrivateKeyT v108) {
-  PlaintextT v109;
-  v106->Decrypt(v108, v107, &v109);
-  int16_t v110 = v109->GetPackedValue()[0];
-  return v110;
+int16_t func__decrypt__result0(PrivateKeyT secretKey, CryptoContextT v86,
+                               CiphertextT v87, PrivateKeyT v88) {
+  PlaintextT v89;
+  v86->Decrypt(v88, v87, &v89);
+  int16_t v90 = v89->GetPackedValue()[0];
+  return v90;
 }
 CryptoContextT func__generate_crypto_context() {
-  CCParamsT v111;
-  v111.SetMultiplicativeDepth(3);
-  v111.SetPlaintextModulus(65537);
-  v111.SetSecurityLevel(HEStd_NotSet);
-  v111.SetRingDim(8192);
-  v111.SetMaxRelinSkDeg(2);
-  v111.SetScalingTechnique(FIXEDMANUAL);
-  v111.SetScalingModSize(45);
-  v111.SetKeySwitchTechnique(BV);
-  v111.SetDigitSize(30);
-  v111.SetNumLargeDigits(0);
-  CryptoContextT v112 = GenCryptoContext(v111);
-  v112->Enable(PKE);
-  v112->Enable(KEYSWITCH);
-  v112->Enable(LEVELEDSHE);
-  return v112;
+  CCParamsT v91;
+  v91.SetMultiplicativeDepth(3);
+  v91.SetPlaintextModulus(65537);
+  v91.SetSecurityLevel(HEStd_NotSet);
+  v91.SetRingDim(8192);
+  v91.SetMaxRelinSkDeg(2);
+  v91.SetScalingTechnique(FIXEDMANUAL);
+  v91.SetScalingModSize(55);
+  v91.SetKeySwitchTechnique(BV);
+  v91.SetDigitSize(30);
+  v91.SetNumLargeDigits(0);
+  CryptoContextT v92 = GenCryptoContext(v91);
+  v92->Enable(PKE);
+  v92->Enable(KEYSWITCH);
+  v92->Enable(LEVELEDSHE);
+  return v92;
 }
 CryptoContextT func__configure_crypto_context(PrivateKeyT secretKey,
-                                              CryptoContextT v113,
-                                              PrivateKeyT v114) {
-  v113->EvalMultKeyGen(v114);
-  return v113;
+                                              CryptoContextT v93,
+                                              PrivateKeyT v94) {
+  v93->EvalMultKeyGen(v94);
+  return v93;
 }
