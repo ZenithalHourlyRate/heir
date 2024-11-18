@@ -146,7 +146,7 @@ def ModArith_MacOp : ModArith_Op<"mac", [SameOperandsAndResultType, Pure, Elemen
 }
 
 // TODO(#1084): migrate barrett/subifge to mod arith type
-def ModArith_BarrettReduceOp : ModArith_Op<"barrett_reduce", [SameOperandsAndResultType]> {
+def ModArith_BarrettReduceOp : ModArith_Op<"barrett_reduce"> {
   let summary = "Compute the first step of the Barrett reduction.";
   let description = [{
     Let $q$ denote a statically known modulus and $b = 4^{w}$, where $w$ is the
@@ -157,13 +157,12 @@ def ModArith_BarrettReduceOp : ModArith_Op<"barrett_reduce", [SameOperandsAndRes
   }];
 
   let arguments = (ins
-    SignlessIntegerLike:$input,
-    APIntAttr:$modulus
+    ModArithLike:$input
   );
-  let results = (outs SignlessIntegerLike:$output);
-  let assemblyFormat = "operands attr-dict `:` qualified(type($input))";
+  let results = (outs ModArithLike:$output);
+  let assemblyFormat = "operands attr-dict `:` type($input) `->` type($output)";
 
-  let hasVerifier = 1;
+  // let hasVerifier = 1;
 }
 
 def ModArith_SubIfGEOp : ModArith_Op<"subifge", [SameOperandsAndResultType]> {

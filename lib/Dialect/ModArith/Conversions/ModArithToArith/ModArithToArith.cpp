@@ -43,7 +43,8 @@ class ModArithToArithTypeConverter : public TypeConverter {
 // needed to represent the result of modarith op as an integer
 // before applying a remainder operation
 template <typename Op>
-TypedAttr modulusAttr(Op op, bool mul = false) {
+TypedAttr modulusAttr(Op op, bool mul = false,
+                      std::optional<APInt> constant = std::nullopt) {
   auto type = op.getResult().getType();
   auto modArithType = getResultModArithType(op);
   APInt modulus = modArithType.getModulus().getValue();
@@ -54,7 +55,8 @@ TypedAttr modulusAttr(Op op, bool mul = false) {
   }
 
   auto intType = IntegerType::get(op.getContext(), width);
-  auto truncmod = modulus.zextOrTrunc(width);
+  APInt intValue = constant == std::nullopt ? modulus : *constant;
+  auto truncmod = intValue.zextOrTrunc(width);
 
   if (auto st = mlir::dyn_cast<ShapedType>(type)) {
     auto containerType = st.cloneWith(st.getShape(), intType);
@@ -233,47 +235,37 @@ struct ConvertBarrettReduce : public OpConversionPattern<BarrettReduceOp> {
       ConversionPatternRewriter &rewriter) const override {
     ImplicitLocOpBuilder b(op.getLoc(), rewriter);
 
-    // Compute B = 4^{bitWidth} and ratio = floordiv(B / modulus)
-    auto input = adaptor.getInput();
-    auto mod = op.getModulus();
-    auto bitWidth = (mod - 1).getActiveBits();
-    mod = mod.trunc(3 * bitWidth);
-    auto B = APInt(3 * bitWidth, 1).shl(2 * bitWidth);
-    auto barrettRatio = B.udiv(mod);
-
-    Type intermediateType = IntegerType::get(b.getContext(), 3 * bitWidth);
+    // Compute B = 2^{width} and ratio = floordiv(B / modulus)
+    auto inputModArithType = getOperandModArithType(op);
+    auto resultModArithType = getResultModArithType(op);
+    APInt inputModulus = inputModArithType.getModulus().getValue();
+    APInt resultModulus = resultModArithType.getModulus().getValue();
+    auto mulWidth = inputModulus.getBitWidth();
+    auto width = resultModulus.getBitWidth();
+    assert(2 * width == mulWidth);
+    assert(resultModulus.zextOrTrunc(mulWidth) == inputModulus);
+    auto B = APInt(mulWidth, 1).shl(width);
+    auto barrettRatio = B.udiv(inputModulus);
 
     // Create our pre-computed constants
-    TypedAttr ratioAttr, shiftAttr, modAttr;
-    if (auto tensorType = dyn_cast<RankedTensorType>(input.getType())) {
-      tensorType = tensorType.clone(tensorType.getShape(), intermediateType);
-      ratioAttr = DenseElementsAttr::get(tensorType, barrettRatio);
-      shiftAttr =
-          DenseElementsAttr::get(tensorType, APInt(3 * bitWidth, 2 * bitWidth));
-      modAttr = DenseElementsAttr::get(tensorType, mod);
-      intermediateType = tensorType;
-    } else if (auto integerType = dyn_cast<IntegerType>(input.getType())) {
-      ratioAttr = IntegerAttr::get(intermediateType, barrettRatio);
-      shiftAttr =
-          IntegerAttr::get(intermediateType, APInt(3 * bitWidth, 2 * bitWidth));
-      modAttr = IntegerAttr::get(intermediateType, mod);
-    }
+    // mul = true as we are operating on mulWidth
+    TypedAttr ratioAttr = modulusAttr(op, true, barrettRatio);
+    TypedAttr shiftAttr = modulusAttr(op, true, APInt(mulWidth, width));
+    TypedAttr modAttr = modulusAttr(op, true);
 
-    auto ratioValue = b.create<arith::ConstantOp>(intermediateType, ratioAttr);
-    auto shiftValue = b.create<arith::ConstantOp>(intermediateType, shiftAttr);
-    auto modValue = b.create<arith::ConstantOp>(intermediateType, modAttr);
+    auto mulType = modulusType(op, true);
 
-    // Intermediate value will be in the range [0,p^3) so we need to extend to
-    // 3*bitWidth
-    auto extendOp = b.create<arith::ExtUIOp>(intermediateType, input);
+    auto ratioValue = b.create<arith::ConstantOp>(mulType, ratioAttr);
+    auto shiftValue = b.create<arith::ConstantOp>(mulType, shiftAttr);
+    auto modValue = b.create<arith::ConstantOp>(mulType, modAttr);
 
     // Compute x - floordiv(x * ratio, B) * mod
-    auto mulRatioOp = b.create<arith::MulIOp>(extendOp, ratioValue);
+    auto mulRatioOp = b.create<arith::MulIOp>(adaptor.getInput(), ratioValue);
     auto shrOp = b.create<arith::ShRUIOp>(mulRatioOp, shiftValue);
     auto mulModOp = b.create<arith::MulIOp>(shrOp, modValue);
-    auto subOp = b.create<arith::SubIOp>(extendOp, mulModOp);
+    auto subOp = b.create<arith::SubIOp>(adaptor.getInput(), mulModOp);
 
-    auto truncOp = b.create<arith::TruncIOp>(input.getType(), subOp);
+    auto truncOp = b.create<arith::TruncIOp>(modulusType(op, false), subOp);
 
     rewriter.replaceOp(op, truncOp);
 
