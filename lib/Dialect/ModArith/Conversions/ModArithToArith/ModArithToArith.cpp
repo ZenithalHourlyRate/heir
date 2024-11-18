@@ -219,11 +219,6 @@ struct ConvertMac : public OpConversionPattern<MacOp> {
   }
 };
 
-namespace rewrites {
-// In an inner namespace to avoid conflicts with canonicalization patterns
-#include "lib/Dialect/ModArith/Conversions/ModArithToArith/ModArithToArith.cpp.inc"
-}  // namespace rewrites
-
 struct ConvertBarrettReduce : public OpConversionPattern<BarrettReduceOp> {
   ConvertBarrettReduce(mlir::MLIRContext *context)
       : OpConversionPattern<BarrettReduceOp>(context) {}
@@ -273,6 +268,28 @@ struct ConvertBarrettReduce : public OpConversionPattern<BarrettReduceOp> {
   }
 };
 
+struct ConvertSubIfGE : public OpConversionPattern<SubIfGEOp> {
+  ConvertSubIfGE(mlir::MLIRContext *context)
+      : OpConversionPattern<SubIfGEOp>(context) {}
+
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(
+      SubIfGEOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    ImplicitLocOpBuilder b(op.getLoc(), rewriter);
+
+    auto input = adaptor.getInput();
+    auto cmod = b.create<arith::ConstantOp>(modulusAttr(op));
+    auto sub = b.create<arith::SubIOp>(input, cmod);
+    auto cmp = b.create<arith::CmpIOp>(arith::CmpIPredicate::uge, input, cmod);
+    auto select = b.create<arith::SelectOp>(cmp, sub, input);
+
+    rewriter.replaceOp(op, select);
+    return success();
+  }
+};
+
 struct ModArithToArith : impl::ModArithToArithBase<ModArithToArith> {
   using ModArithToArithBase::ModArithToArithBase;
 
@@ -289,10 +306,9 @@ void ModArithToArith::runOnOperation() {
   target.addLegalDialect<arith::ArithDialect>();
 
   RewritePatternSet patterns(context);
-  rewrites::populateWithGenerated(patterns);
   patterns.add<ConvertEncapsulate, ConvertExtract, ConvertReduce, ConvertAdd,
-               ConvertSub, ConvertMul, ConvertMac, ConvertBarrettReduce>(
-      typeConverter, context);
+               ConvertSub, ConvertMul, ConvertMac, ConvertBarrettReduce,
+               ConvertSubIfGE>(typeConverter, context);
 
   addStructuralConversionPatterns(typeConverter, patterns, target);
 
