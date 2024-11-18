@@ -177,16 +177,18 @@ struct ConvertMul : public OpConversionPattern<MulOp> {
       ConversionPatternRewriter &rewriter) const override {
     ImplicitLocOpBuilder b(op.getLoc(), rewriter);
 
-    auto cmod = b.create<arith::ConstantOp>(modulusAttr(op, true));
     auto lhs =
         b.create<arith::ExtUIOp>(modulusType(op, true), adaptor.getLhs());
     auto rhs =
         b.create<arith::ExtUIOp>(modulusType(op, true), adaptor.getRhs());
     auto mul = b.create<arith::MulIOp>(lhs, rhs);
-    auto remu = b.create<arith::RemUIOp>(mul, cmod);
-    auto trunc = b.create<arith::TruncIOp>(modulusType(op), remu);
 
-    rewriter.replaceOp(op, trunc);
+    auto modArithType = getResultModArithType(op);
+    // here mul in [0, q^2], internal constraint
+    auto bar = b.create<mod_arith::BarrettReduceOp>(modArithType, mul);
+    auto subifge = b.create<mod_arith::SubIfGEOp>(modArithType, bar);
+
+    rewriter.replaceOp(op, subifge);
     return success();
   }
 };
@@ -231,16 +233,13 @@ struct ConvertBarrettReduce : public OpConversionPattern<BarrettReduceOp> {
     ImplicitLocOpBuilder b(op.getLoc(), rewriter);
 
     // Compute B = 2^{width} and ratio = floordiv(B / modulus)
-    auto inputModArithType = getOperandModArithType(op);
     auto resultModArithType = getResultModArithType(op);
-    APInt inputModulus = inputModArithType.getModulus().getValue();
-    APInt resultModulus = resultModArithType.getModulus().getValue();
-    auto mulWidth = inputModulus.getBitWidth();
-    auto width = resultModulus.getBitWidth();
+    APInt modulus = resultModArithType.getModulus().getValue();
+    auto mulWidth = op.getInput().getType().getIntOrFloatBitWidth();
+    auto width = modulus.getBitWidth();
     assert(2 * width == mulWidth);
-    assert(resultModulus.zextOrTrunc(mulWidth) == inputModulus);
     auto B = APInt(mulWidth, 1).shl(width);
-    auto barrettRatio = B.udiv(inputModulus);
+    auto barrettRatio = B.udiv(modulus.zextOrTrunc(mulWidth));
 
     // Create our pre-computed constants
     // mul = true as we are operating on mulWidth

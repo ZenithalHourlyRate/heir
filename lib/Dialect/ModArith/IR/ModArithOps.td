@@ -150,8 +150,7 @@ def ModArith_BarrettReduceOp : ModArith_Op<"barrett_reduce"> {
   let description = [{
     Used internally in mod-arith-to-mod-arith.
 
-    It requires the storage type of the input mod arith type twice the bitwidth
-    as that of the result mod arith type.
+    It requires the input type twice the bitwidth as that of the result mod arith type.
 
     Let $q$ denote a statically known modulus and $b = 2^{w}$, where $w$ is the
     mod arith type storage type bit-width. The Barrett reduce operation computes
@@ -161,7 +160,7 @@ def ModArith_BarrettReduceOp : ModArith_Op<"barrett_reduce"> {
   }];
 
   let arguments = (ins
-    ModArithLike:$input
+    SignlessIntegerLike:$input
   );
   let results = (outs ModArithLike:$output);
   let assemblyFormat = "operands attr-dict `:` type($input) `->` type($output)";
@@ -169,20 +168,22 @@ def ModArith_BarrettReduceOp : ModArith_Op<"barrett_reduce"> {
   // let hasVerifier = 1;
 }
 
-def ModArith_SubIfGEOp : ModArith_Op<"subifge", [SameOperandsAndResultType]> {
+def ModArith_SubIfGEOp : ModArith_Op<"subifge"> {
   let summary = "Compute (x >= q) ? x - q : x.";
 
   let description = [{
     Used internally in mod-arith-to-mod-arith.
 
+    It requires the bitwidth of input type the same as the result mod arith type.
+
     It assumes the input is in `[0, 2 * q)` and guarantees the result is in `[0, q)`
   }];
 
   let arguments = (ins
-    ModArithLike:$input
+    SignlessIntegerLike:$input
   );
   let results = (outs ModArithLike:$output);
-  let assemblyFormat = "operands attr-dict `:` type($output)";
+  let assemblyFormat = "operands attr-dict `:` type($input) `->` type($output)";
 
   // let hasVerifier = 1;
 }
