@@ -9,6 +9,7 @@ cc_library(
     hdrs = ["NoisePropagationAnalysis.h"],
     deps = [
         ":Params",
+        ":Symbolic",
         ":Variance",
         "@heir//lib/Dialect/Secret/IR:Dialect",
         "@llvm-project//llvm:Support",
@@ -23,6 +24,7 @@ cc_library(
     srcs = ["Variance.cpp"],
     hdrs = [
         "Params.h",
+        "Symbolic.h",
         "Variance.h",
     ],
     deps = [
@@ -36,6 +38,18 @@ cc_library(
     srcs = ["Params.cpp"],
     hdrs = [
         "Params.h",
+    ],
+    deps = [
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+    ],
+)
+
+cc_library(
+    name = "Symbolic",
+    srcs = ["Symbolic.cpp"],
+    hdrs = [
+        "Symbolic.h",
     ],
     deps = [
         "@llvm-project//llvm:Support",

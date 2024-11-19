@@ -147,6 +147,8 @@ Variance Variance::evalMultNoRelin(const Variance &lhs, const Variance &rhs,
     factor = VarianceMajorFactor("s", 2);
   }
 
+  power = 1.0;
+
   // component m_i uniform mod t, giving |m| \approx n*(t^2-1)/12
   return Variance::of(power * lhs.getValue() * rhs.getValue() * n +
                           lhs.getValue() * n * (t * t - 1) / 12 +

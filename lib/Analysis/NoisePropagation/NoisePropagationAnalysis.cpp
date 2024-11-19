@@ -36,8 +36,10 @@ LogicalResult NoiseStatesAnalysis::visitOperation(
                 llvm::dyn_cast<IntegerAttr>(genericOp->getAttr("depth"))) {
           maxMulDepth = depthAttr.getValue().getLimitedValue();
         }
+        int index = 0;
         for (Value &arg : body->getArguments()) {
-          auto vss = VarianceStates::evalEncryptPk(65537, maxMulDepth);
+          auto vss = VarianceStates::evalEncryptPk(
+              65537, maxMulDepth, "enc" + std::to_string(index++));
           // LLVM_DEBUG(llvm::dbgs() << "enc value " << arg << " contained " <<
           // vss.getResult() << " vss " << &vss << "\n");
           propagate(arg, vss);

@@ -58,6 +58,8 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       std::vector<std::tuple<Value, VarianceKey, VarianceParent>> tree;
       std::vector<std::tuple<Value, VarianceKey, VarianceParents>> all_selected;
 
+      return;
+
       // init the tree
       auto vss = getVarianceStates(resultValue);
       auto key = vss.getMinimalCostKey();

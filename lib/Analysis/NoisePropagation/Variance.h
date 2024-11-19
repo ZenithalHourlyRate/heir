@@ -9,6 +9,7 @@
 #include <optional>
 
 #include "lib/Analysis/NoisePropagation/Params.h"
+#include "lib/Analysis/NoisePropagation/Symbolic.h"
 #include "llvm/include/llvm/Support/Debug.h"        // from @llvm-project
 #include "llvm/include/llvm/Support/raw_ostream.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Diagnostics.h"       // from @llvm-project
@@ -627,6 +628,7 @@ class VarianceValues {
     assert(lhs.k->sameLevel(*rhs.k));
     const VarianceKey *k = VarianceKeyFactory::evalMultNoRelin(*lhs.k, *rhs.k);
     VarianceValues ret(k);
+    ret.setExpr(lhs.getExpr().multiply(rhs.getExpr()));
     for (size_t i = 0; i != lhs.v.size(); ++i) {
       for (size_t j = 0; j != rhs.v.size(); ++j) {
         Variance v = Variance::evalMultNoRelin(
@@ -638,8 +640,23 @@ class VarianceValues {
                                       lhs.getCost(i));
         auto parentR = VarianceParent(VarianceParentType::Operand1, rhs.k, j,
                                       rhs.getCost(j));
-#if 0
-        LLVM_DEBUG(llvm::dbgs() << "n " << lhs.k->p->n << " l " << lhs.k->l << " left " << i << " cv " << lhs.k->cv << " right " << j << " cv " << rhs.k->cv << " lcost " << int(lhs.getCost(i)) << " rcost " << int(rhs.getCost(j)) << " cost " << int(cost) << "\n");
+#if 1
+        LLVM_DEBUG(llvm::dbgs()
+                   << "n " << lhs.k->p->n << " l " << lhs.k->l << " left " << i
+                   << " cv " << lhs.k->cv << " right " << j << " cv "
+                   << rhs.k->cv << " lcost "
+                   << lhs.getVariance(i).toBound(k->p->n) << " rcost "
+                   << rhs.getVariance(j).toBound(k->p->n) << " cost "
+                   << v.toBound(k->p->n) << " lsym "
+                   << Variance::of(lhs.getExpr().toVariance(k->p->n, k->p->t))
+                          .toBound(k->p->n)
+                   << " rsym "
+                   << Variance::of(rhs.getExpr().toVariance(k->p->n, k->p->t))
+                          .toBound(k->p->n)
+                   << " sym "
+                   << Variance::of(ret.getExpr().toVariance(k->p->n, k->p->t))
+                          .toBound(k->p->n)
+                   << "\n");
 #endif
         auto parents = VarianceParents({parentL, parentR}, "mult", cost);
         ret.join(VarianceValues(k, k->bound(v), parents));
@@ -742,10 +759,15 @@ class VarianceValues {
   // friend Diagnostic &operator<<(Diagnostic &diagnostic,
   //                               const VarianceValues &values);
 
+  void setExpr(const Expression &expr0) { expr = expr0; }
+  Expression getExpr() const { return expr; }
+
  private:
   const VarianceKey *k;
   // variance, its parent(s) and reason
   std::vector<std::tuple<Variance, VarianceParents>> v;
+
+  Expression expr = Expression();
 };
 
 class VarianceStates {
@@ -973,11 +995,11 @@ class VarianceStates {
     return kToVs.find(key)->second.getVarianceByParents(currentParents);
   }
 
-  static VarianceStates evalEncryptPk(int t, int l) {
+  static VarianceStates evalEncryptPk(int t, int l, std::string name) {
     VarianceStates vss;
 
     std::vector<const Param *> params;
-#if 0
+#if 1
     // params.push_back(ParamsFactory::getParam(2, 30, 0, t, 55, 2));
     // params.push_back(ParamsFactory::getParam(2, 2, 0, t, 55, 2));
     // params.push_back(ParamsFactory::getParam(2, 0, 2, t, 30, 2));
@@ -988,7 +1010,7 @@ class VarianceStates {
     // params.push_back(ParamsFactory::getParam(3, 2, 0, t, 55, 2));
     // params.push_back(ParamsFactory::getParam(3, 0, 2, t, 55, 2));
 #endif
-#if 1
+#if 0
     for (auto depth : {l, l - 1}) {
       for (auto relinDeg : {2}) {
         for (auto qiSize : {45, 50, 53}) {
@@ -1010,9 +1032,10 @@ class VarianceStates {
       LLVM_DEBUG(llvm::dbgs() << p << "\n");
 #endif
       auto vs = VarianceValues::evalEncryptPk(p);
+      vs.setExpr(Expression(Symbol(name, SymbolType::EncryptPk)));
       vss.insert(std::move(vs));
     }
-    vss.expand();
+    // vss.expand();
     return vss;
   }
 
@@ -1032,7 +1055,7 @@ class VarianceStates {
         }
       }
     }
-    vss.expand();
+    // vss.expand();
     return vss;
   }
 
