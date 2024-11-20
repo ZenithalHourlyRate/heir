@@ -605,6 +605,14 @@ class VarianceValues {
   static VarianceValues evalModReduce(const VarianceValues &lhs) {
     const VarianceKey *k = VarianceKeyFactory::evalModReduce(*lhs.k);
     VarianceValues ret(k);
+    Expression addedNoise(Symbol(lhs.getExpr().nameModReduceAdded(),
+                                 SymbolType::ModReduce, k->cv - 1));
+    // ret.setExpr(lhs.getExpr().add(rhs.getExpr()));
+    LLVM_DEBUG(llvm::dbgs()
+               << addedNoise.toString() << " modd added noise: "
+               << Variance::of(addedNoise.toVariance(k->p, k->l, k->ghs))
+                      .toBound(k->p->n)
+               << "\n");
     for (size_t i = 0; i != lhs.v.size(); ++i) {
       Variance v = Variance::evalModReduce(
           lhs.getVariance(i), 1L << k->p->qi[k->l], k->p->n, k->p->t, k->cv);
@@ -669,6 +677,13 @@ class VarianceValues {
     assert(lhs.k->canRelinearize());
     auto *k = VarianceKeyFactory::evalRelinearizeBV(*lhs.k);
     VarianceValues ret(k);
+    Expression addedNoise(Symbol(lhs.getExpr().nameRelinearizeBVAdded(),
+                                 SymbolType::RelinearizeBV));
+    LLVM_DEBUG(llvm::dbgs()
+               << addedNoise.toString() << " relin added noise: "
+               << Variance::of(addedNoise.toVariance(k->p, k->l, k->ghs))
+                      .toBound(k->p->n)
+               << "\n");
     for (size_t i = 0; i != lhs.v.size(); ++i) {
       Variance v = Variance::evalRelinearizeBV(
           lhs.getVariance(i), k->p->n, k->p->t, 3.2,
@@ -939,9 +954,9 @@ class VarianceStates {
             insert(vs.evalRelinearize());
           }
 
-          if (k.canModReduce() && vs.reachable()) {
-            insert(vs.evalModReduce());
-          }
+          // if (k.canModReduce() && vs.reachable()) {
+          //   insert(vs.evalModReduce());
+          // }
         }
       }
     }
@@ -1055,7 +1070,7 @@ class VarianceStates {
         }
       }
     }
-    // vss.expand();
+    vss.expand();
     return vss;
   }
 
