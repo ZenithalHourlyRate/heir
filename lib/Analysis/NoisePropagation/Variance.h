@@ -169,6 +169,7 @@ class Variance {
 
 class VarianceKey {
  public:
+  friend class Expression;
   friend class VarianceKeyFactory;
   friend class VarianceValues;
   friend class VarianceStates;
@@ -469,7 +470,7 @@ class VarianceValues {
   }
 
   const Variance getExpressionVariance(size_t index) const {
-    return Variance::of(getExpression(index).toVariance(k->p, k->l, k->ghs));
+    return Variance::of(getExpression(index).toVariance());
   }
 
   const std::string getReason(size_t index) const {
@@ -590,7 +591,7 @@ class VarianceValues {
     auto v = Variance::evalEncryptPk(k->p->n, k->p->t, std0);
     // TODO: encrypt cost?
     auto parents = VarianceParents({}, "enc", 0);
-    auto expr = Expression(Symbol(name, SymbolType::EncryptPk));
+    auto expr = Expression(Symbol(name, SymbolType::EncryptPk), k);
     return VarianceValues(k, k->bound(v), parents, expr);
   }
 
@@ -611,8 +612,8 @@ class VarianceValues {
       auto addedNoiseExpr =
           Expression(Symbol(lhs.getExpression(i).nameModReduceAdded(),
                             SymbolType::ModReduce, k->cv - 1),
-                     lhs.getExpression(i).getAllSymbols());
-      auto expr = scaledNoiseExpr.add(addedNoiseExpr, k->p, k->l, k->ghs);
+                     k, lhs.getExpression(i).getAllSymbols());
+      auto expr = scaledNoiseExpr.add(addedNoiseExpr);
       ret.join(VarianceValues(k, k->bound(v), parents, expr));
     }
     return ret;
@@ -638,7 +639,7 @@ class VarianceValues {
                                       lhs.getCost(i));
         auto parentR = VarianceParent(VarianceParentType::Operand1, rhs.k, j,
                                       rhs.getCost(j));
-        auto expr = lhs.getExpression(i).multiply(rhs.getExpression(j));
+        auto expr = lhs.getExpression(i).multiply(rhs.getExpression(j), k);
 #if 0
         LLVM_DEBUG(llvm::dbgs()
                    << "n " << lhs.k->p->n << " l " << lhs.k->l << " left " << i
@@ -687,8 +688,8 @@ class VarianceValues {
       auto addedNoiseExpr =
           Expression(Symbol(lhs.getExpression(i).nameRelinearizeBVAdded(),
                             SymbolType::RelinearizeBV),
-                     lhs.getExpression(i).getAllSymbols());
-      auto expr = lhs.getExpression(i).add(addedNoiseExpr, k->p, k->l, k->ghs);
+                     k, lhs.getExpression(i).getAllSymbols());
+      auto expr = lhs.getExpression(i).add(addedNoiseExpr);
       ret.join(VarianceValues(k, k->bound(v), parents, expr));
     }
     return ret;

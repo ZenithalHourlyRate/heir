@@ -51,6 +51,7 @@ cc_library(
     hdrs = [
         "Params.h",
         "Symbolic.h",
+        "Variance.h",
     ],
     deps = [
         "@llvm-project//llvm:Support",
