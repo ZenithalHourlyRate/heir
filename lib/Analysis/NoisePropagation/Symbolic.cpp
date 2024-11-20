@@ -151,7 +151,7 @@ Expression::computeFactor(Expression::SymbolsType symbols) {
   // additional term for s in sk
   result *= factorial(skPkSum + skModRSum + 1) / (skModRSum + 1);
   // additional term for eksk in sk
-  result *= factorial(eRelinSum);
+  result *= factorial(eRelinSum + 1);
   std::vector<ExponentType> exponents = {
       orderSum, skPkSum, ePkSum, skModRSum, tModRSum, DRelinSum, eRelinSum,
   };
