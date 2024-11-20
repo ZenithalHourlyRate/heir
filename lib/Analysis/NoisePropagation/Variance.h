@@ -30,43 +30,6 @@ enum VarianceType {
   UNBOUNDED
 };
 
-int VariancePower(int cv);
-
-struct VarianceMajorFactor {
-  VarianceMajorFactor() = default;
-  VarianceMajorFactor(std::string reason, int order)
-      : reason(reason), order(order) {}
-
-  bool correlate(const VarianceMajorFactor &rhs) const {
-    return reason == rhs.reason && order != 0 && rhs.order != 0;
-  }
-
-  int mergeOrder(const VarianceMajorFactor &rhs) const {
-    return order + rhs.order;
-  }
-
-  VarianceMajorFactor merge(const VarianceMajorFactor &rhs) const {
-    assert(correlate(rhs));
-    return VarianceMajorFactor(reason, mergeOrder(rhs));
-  }
-
-  double getPower(const VarianceMajorFactor &rhs) const {
-    assert(correlate(rhs));
-    // LLVM_DEBUG(llvm::dbgs() << "reason " << reason << " getPower: " <<
-    // VariancePower(mergeOrder(rhs)) << " " << VariancePower(order) << " " <<
-    // VariancePower(rhs.order) << "\n");
-    return double(VariancePower(mergeOrder(rhs))) /
-           (VariancePower(order) * VariancePower(rhs.order));
-  }
-
-  std::string toString() const {
-    return "M(" + reason + " " + std::to_string(order) + ")";
-  }
-
-  std::string reason;
-  int order;
-};
-
 /// A class representing an optional variance of a noise distribution.
 class Variance {
  public:
@@ -79,21 +42,13 @@ class Variance {
   static Variance of(double value) {
     return Variance(VarianceType::SET, value);
   }
-  static Variance of(double value, std::string reason, int order) {
-    return Variance(VarianceType::SET, value,
-                    VarianceMajorFactor(reason, order));
-  }
-  static Variance of(double value, VarianceMajorFactor factor) {
-    return Variance(VarianceType::SET, value, factor);
-  }
 
   /// Create an integer value range lattice value.
   /// The default constructor must be equivalent to the "entry state" of the
   /// lattice, i.e., an uninitialized noise variance.
   Variance(VarianceType varianceType = VarianceType::UNINITIALIZED,
-           std::optional<double> value = std::nullopt,
-           VarianceMajorFactor factor = VarianceMajorFactor())
-      : varianceType(varianceType), value(value), factor(factor) {}
+           std::optional<double> value = std::nullopt)
+      : varianceType(varianceType), value(value) {}
 
   bool isKnown() const { return varianceType == VarianceType::SET; }
 
@@ -107,10 +62,6 @@ class Variance {
     assert(isKnown());
     return *value;
   }
-
-  const VarianceMajorFactor getFactor() const { return factor; }
-
-  void setFactor(VarianceMajorFactor factor0) { factor = factor0; }
 
   bool operator==(const Variance &rhs) const {
     return varianceType == rhs.varianceType && value == rhs.value;
@@ -202,7 +153,7 @@ class Variance {
     }
     std::stringstream stream;
     stream << std::fixed << std::setprecision(2) << logAlphaBound(n);
-    return stream.str() + " " + factor.toString();
+    return stream.str();
   }
 
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
@@ -214,7 +165,6 @@ class Variance {
  private:
   VarianceType varianceType;
   std::optional<double> value;
-  VarianceMajorFactor factor;
 };
 
 class VarianceKey {
@@ -424,13 +374,16 @@ class VarianceValues {
  public:
   friend class VarianceStates;
 
+  using VarianceTupleType = std::tuple<Variance, VarianceParents, Expression>;
+
   VarianceValues() = default;
 
   VarianceValues(const VarianceKey *k) : k(k) {}
 
-  VarianceValues(const VarianceKey *k, Variance var, VarianceParents parents)
+  VarianceValues(const VarianceKey *k, Variance var, VarianceParents parents,
+                 Expression expr)
       : k(k) {
-    insert(std::make_tuple(var, parents));
+    insert(std::make_tuple(var, parents, expr));
   }
 
   std::string toDOTNode(const std::string &valueName) const {
@@ -475,14 +428,14 @@ class VarianceValues {
 
   bool operator!=(const VarianceValues &rhs) const { return !(*this == rhs); }
 
-  void insert(const std::tuple<Variance, VarianceParents> &tuple) {
+  void insert(const VarianceTupleType &tuple) {
     if (!std::get<0>(tuple).isBounded()) {
       return;
     }
     v.push_back(tuple);
   }
 
-  void insert(std::tuple<Variance, VarianceParents> &&tuple) {
+  void insert(VarianceTupleType &&tuple) {
     if (!std::get<0>(tuple).isBounded()) {
       return;
     }
@@ -511,6 +464,14 @@ class VarianceValues {
     return std::get<1>(v[index]);
   }
 
+  const Expression &getExpression(size_t index) const {
+    return std::get<2>(v[index]);
+  }
+
+  const Variance getExpressionVariance(size_t index) const {
+    return Variance::of(getExpression(index).toVariance(k->p, k->l, k->ghs));
+  }
+
   const std::string getReason(size_t index) const {
     return getParents(index).getReason();
   }
@@ -519,11 +480,23 @@ class VarianceValues {
     return getParents(index).getCost();
   }
 
-  const size_t getMinimalByVariance() const {
+  // const size_t getMinimalByVariance() const {
+  //   auto index = 0;
+  //   for (size_t i = 0; i != v.size(); ++i) {
+  //     Variance res = Variance::min(getVariance(index), getVariance(i));
+  //     if (res == getVariance(i)) {
+  //       index = i;
+  //     }
+  //   }
+  //   return index;
+  // }
+
+  const size_t getMinimalByExpressionVariance() const {
     auto index = 0;
     for (size_t i = 0; i != v.size(); ++i) {
-      Variance res = Variance::min(getVariance(index), getVariance(i));
-      if (res == getVariance(i)) {
+      Variance res =
+          Variance::min(getExpressionVariance(index), getExpressionVariance(i));
+      if (res == getExpressionVariance(i)) {
         index = i;
       }
     }
@@ -541,7 +514,8 @@ class VarianceValues {
     }
     return index;
 #else
-    return getMinimalByVariance();
+    // return getMinimalByVariance();
+    return getMinimalByExpressionVariance();
 #endif
   }
 
@@ -555,16 +529,33 @@ class VarianceValues {
     return -1;
   }
 
-  const Variance &getVarianceByMinVariance() const {
-    return getVariance(getMinimalByVariance());
+  // const Variance &getVarianceByMinVariance() const {
+  //   return getVariance(getMinimalByVariance());
+  // }
+  // const Variance &getVarianceByMinCost() const {
+  //   return getVariance(getMinimalByCost());
+  // }
+
+  // const Variance &getVarianceByParents(
+  //     const VarianceParents &currentParent) const {
+  //   return getVariance(getIndexByParents(currentParent));
+  // }
+
+  const Variance getExpressionVarianceByMinExpressionVariance() const {
+    return getExpressionVariance(getMinimalByExpressionVariance());
   }
-  const Variance &getVarianceByMinCost() const {
-    return getVariance(getMinimalByCost());
+  const Variance getExpressionVarianceByMinCost() const {
+    return getExpressionVariance(getMinimalByCost());
   }
 
-  const Variance &getVarianceByParents(
-      const VarianceParents &currentParent) const {
-    return getVariance(getIndexByParents(currentParent));
+  const Variance getExpressionVarianceByParents(
+      const VarianceParents &currentParents) const {
+    return getExpressionVariance(getIndexByParents(currentParents));
+  }
+
+  const Expression getExpressionByParents(
+      const VarianceParents &currentParents) const {
+    return getExpression(getIndexByParents(currentParents));
   }
 
   const VarianceParents &getParentsByMinCost() const {
@@ -590,29 +581,22 @@ class VarianceValues {
     if (v.size() == 0) {
       return false;
     }
-    return getVarianceByMinVariance().isBounded();
+    return getExpressionVarianceByMinExpressionVariance().isBounded();
   }
 
-  static VarianceValues evalEncryptPk(const Param *p) {
+  static VarianceValues evalEncryptPk(const Param *p, std::string name) {
     double std0 = 3.2;
     auto *k = VarianceKeyFactory::evalEncryptPk(p);
     auto v = Variance::evalEncryptPk(k->p->n, k->p->t, std0);
     // TODO: encrypt cost?
     auto parents = VarianceParents({}, "enc", 0);
-    return VarianceValues(k, k->bound(v), parents);
+    auto expr = Expression(Symbol(name, SymbolType::EncryptPk));
+    return VarianceValues(k, k->bound(v), parents, expr);
   }
 
   static VarianceValues evalModReduce(const VarianceValues &lhs) {
     const VarianceKey *k = VarianceKeyFactory::evalModReduce(*lhs.k);
     VarianceValues ret(k);
-    Expression addedNoise(Symbol(lhs.getExpr().nameModReduceAdded(),
-                                 SymbolType::ModReduce, k->cv - 1));
-    // ret.setExpr(lhs.getExpr().add(rhs.getExpr()));
-    LLVM_DEBUG(llvm::dbgs()
-               << addedNoise.toString() << " modd added noise: "
-               << Variance::of(addedNoise.toVariance(k->p, k->l, k->ghs))
-                      .toBound(k->p->n)
-               << "\n");
     for (size_t i = 0; i != lhs.v.size(); ++i) {
       Variance v = Variance::evalModReduce(
           lhs.getVariance(i), 1L << k->p->qi[k->l], k->p->n, k->p->t, k->cv);
@@ -622,7 +606,13 @@ class VarianceValues {
       auto parent =
           VarianceParent(VarianceParentType::Self, lhs.k, i, lhs.getCost(i));
       auto parents = VarianceParents({parent}, "modd", cost);
-      ret.join(VarianceValues(k, k->bound(v), parents));
+      auto scaledNoiseExpr =
+          lhs.getExpression(i).modReduceScale(1L << k->p->qi[k->l]);
+      auto addedNoiseExpr =
+          Expression(Symbol(lhs.getExpression(i).nameModReduceAdded(),
+                            SymbolType::ModReduce, k->cv - 1));
+      auto expr = scaledNoiseExpr.add(addedNoiseExpr, k->p, k->l, k->ghs);
+      ret.join(VarianceValues(k, k->bound(v), parents, expr));
     }
     return ret;
   }
@@ -636,7 +626,6 @@ class VarianceValues {
     assert(lhs.k->sameLevel(*rhs.k));
     const VarianceKey *k = VarianceKeyFactory::evalMultNoRelin(*lhs.k, *rhs.k);
     VarianceValues ret(k);
-    ret.setExpr(lhs.getExpr().multiply(rhs.getExpr()));
     for (size_t i = 0; i != lhs.v.size(); ++i) {
       for (size_t j = 0; j != rhs.v.size(); ++j) {
         Variance v = Variance::evalMultNoRelin(
@@ -648,7 +637,8 @@ class VarianceValues {
                                       lhs.getCost(i));
         auto parentR = VarianceParent(VarianceParentType::Operand1, rhs.k, j,
                                       rhs.getCost(j));
-#if 1
+        auto expr = lhs.getExpression(i).multiply(rhs.getExpression(j));
+#if 0
         LLVM_DEBUG(llvm::dbgs()
                    << "n " << lhs.k->p->n << " l " << lhs.k->l << " left " << i
                    << " cv " << lhs.k->cv << " right " << j << " cv "
@@ -656,18 +646,18 @@ class VarianceValues {
                    << lhs.getVariance(i).toBound(k->p->n) << " rcost "
                    << rhs.getVariance(j).toBound(k->p->n) << " cost "
                    << v.toBound(k->p->n) << " lsym "
-                   << Variance::of(lhs.getExpr().toVariance(k->p, k->l, k->ghs))
+                   << Variance::of(lhs.getExpression(i).toVariance(k->p, k->l, k->ghs))
                           .toBound(k->p->n)
                    << " rsym "
-                   << Variance::of(rhs.getExpr().toVariance(k->p, k->l, k->ghs))
+                   << Variance::of(rhs.getExpression(j).toVariance(k->p, k->l, k->ghs))
                           .toBound(k->p->n)
                    << " sym "
-                   << Variance::of(ret.getExpr().toVariance(k->p, k->l, k->ghs))
+                   << Variance::of(expr.toVariance(k->p, k->l, k->ghs))
                           .toBound(k->p->n)
                    << "\n");
 #endif
         auto parents = VarianceParents({parentL, parentR}, "mult", cost);
-        ret.join(VarianceValues(k, k->bound(v), parents));
+        ret.join(VarianceValues(k, k->bound(v), parents, expr));
       }
     }
     return ret;
@@ -677,13 +667,6 @@ class VarianceValues {
     assert(lhs.k->canRelinearize());
     auto *k = VarianceKeyFactory::evalRelinearizeBV(*lhs.k);
     VarianceValues ret(k);
-    Expression addedNoise(Symbol(lhs.getExpr().nameRelinearizeBVAdded(),
-                                 SymbolType::RelinearizeBV));
-    LLVM_DEBUG(llvm::dbgs()
-               << addedNoise.toString() << " relin added noise: "
-               << Variance::of(addedNoise.toVariance(k->p, k->l, k->ghs))
-                      .toBound(k->p->n)
-               << "\n");
     for (size_t i = 0; i != lhs.v.size(); ++i) {
       Variance v = Variance::evalRelinearizeBV(
           lhs.getVariance(i), k->p->n, k->p->t, 3.2,
@@ -699,7 +682,12 @@ class VarianceValues {
       auto parent =
           VarianceParent(VarianceParentType::Self, lhs.k, i, lhs.getCost(i));
       auto parents = VarianceParents({parent}, "relin", cost);
-      ret.join(VarianceValues(k, k->bound(v), parents));
+
+      auto addedNoiseExpr =
+          Expression(Symbol(lhs.getExpression(i).nameRelinearizeBVAdded(),
+                            SymbolType::RelinearizeBV));
+      auto expr = lhs.getExpression(i).add(addedNoiseExpr, k->p, k->l, k->ghs);
+      ret.join(VarianceValues(k, k->bound(v), parents, expr));
     }
     return ret;
   }
@@ -751,7 +739,9 @@ class VarianceValues {
       auto parent =
           VarianceParent(VarianceParentType::Self, lhs.k, i, lhs.getCost(i));
       auto parents = VarianceParents({parent}, "relinG", cost);
-      ret.join(VarianceValues(kModDown, kModDown->bound(vModDown), parents));
+      // FIXME: correct expression
+      ret.join(VarianceValues(kModDown, kModDown->bound(vModDown), parents,
+                              Expression()));
     }
     return ret;
   }
@@ -773,16 +763,10 @@ class VarianceValues {
 
   // friend Diagnostic &operator<<(Diagnostic &diagnostic,
   //                               const VarianceValues &values);
-
-  void setExpr(const Expression &expr0) { expr = expr0; }
-  Expression getExpr() const { return expr; }
-
  private:
   const VarianceKey *k;
-  // variance, its parent(s) and reason
-  std::vector<std::tuple<Variance, VarianceParents>> v;
-
-  Expression expr = Expression();
+  // variance, expression, its parent(s) and reason
+  std::vector<VarianceTupleType> v;
 };
 
 class VarianceStates {
@@ -954,9 +938,9 @@ class VarianceStates {
             insert(vs.evalRelinearize());
           }
 
-          // if (k.canModReduce() && vs.reachable()) {
-          //   insert(vs.evalModReduce());
-          // }
+          if (k.canModReduce() && vs.reachable()) {
+            insert(vs.evalModReduce());
+          }
         }
       }
     }
@@ -1004,10 +988,23 @@ class VarianceStates {
     return kToVs.find(key)->second.getParentsBySuccessorParent(successorParent);
   }
 
-  Variance getVarianceByCurrentParents(
+  // Variance getVarianceByCurrentParents(
+  //     VarianceKey key, const VarianceParents &currentParents) const {
+  //   auto &kToVs = states.find(key.getParam())->second;
+  //   return kToVs.find(key)->second.getVarianceByParents(currentParents);
+  // }
+
+  Variance getExpressionVarianceByCurrentParents(
       VarianceKey key, const VarianceParents &currentParents) const {
     auto &kToVs = states.find(key.getParam())->second;
-    return kToVs.find(key)->second.getVarianceByParents(currentParents);
+    return kToVs.find(key)->second.getExpressionVarianceByParents(
+        currentParents);
+  }
+
+  Expression getExpressionByCurrentParents(
+      VarianceKey key, const VarianceParents &currentParents) const {
+    auto &kToVs = states.find(key.getParam())->second;
+    return kToVs.find(key)->second.getExpressionByParents(currentParents);
   }
 
   static VarianceStates evalEncryptPk(int t, int l, std::string name) {
@@ -1046,11 +1043,10 @@ class VarianceStates {
 #if 0
       LLVM_DEBUG(llvm::dbgs() << p << "\n");
 #endif
-      auto vs = VarianceValues::evalEncryptPk(p);
-      vs.setExpr(Expression(Symbol(name, SymbolType::EncryptPk)));
+      auto vs = VarianceValues::evalEncryptPk(p, name);
       vss.insert(std::move(vs));
     }
-    // vss.expand();
+    vss.expand();
     return vss;
   }
 

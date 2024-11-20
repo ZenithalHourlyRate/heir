@@ -58,8 +58,6 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       std::vector<std::tuple<Value, VarianceKey, VarianceParent>> tree;
       std::vector<std::tuple<Value, VarianceKey, VarianceParents>> all_selected;
 
-      return;
-
       // init the tree
       auto vss = getVarianceStates(resultValue);
       auto key = vss.getMinimalCostKey();
@@ -144,11 +142,13 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       auto selected_bounds = [&](Value result) {
         auto vss = getVarianceStates(result);
         auto sel = selected(result);
-        std::vector<std::pair<std::string, std::string>> bounds;
+        std::vector<std::tuple<std::string, std::string, std::string>> bounds;
         for (auto &[key, parents] : sel) {
           bounds.emplace_back(
               parents.getReason(),
-              key.toBound(vss.getVarianceByCurrentParents(key, parents)));
+              key.toBound(
+                  vss.getExpressionVarianceByCurrentParents(key, parents)),
+              vss.getExpressionByCurrentParents(key, parents).toString());
         }
         std::reverse(bounds.begin(), bounds.end());
         return bounds;
@@ -185,9 +185,9 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
 
       auto dumpBound = [&](Value result) {
         auto bounds = selected_bounds(result);
-        for (auto &[reason, bound] : bounds) {
-          LLVM_DEBUG(llvm::dbgs()
-                     << result << ": " << reason << " bound " << bound << "\n");
+        for (auto &[reason, bound, symbol] : bounds) {
+          LLVM_DEBUG(llvm::dbgs() << result << ": " << reason << " bound "
+                                  << bound << " symbol " << symbol << "\n");
         }
       };
 
@@ -196,12 +196,14 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
         auto bounds = selected_bounds(result);
         std::vector<Attribute> mgmt_arr;
         // for (size_t i = 1; i != reasons.size(); ++i) {
-        for (auto &[reason, bound] : bounds) {
+        for (auto &[reason, bound, symbol] : bounds) {
           auto reasonAttr = builder.getStringAttr(reason);
           auto boundAttr = builder.getStringAttr(bound);
+          auto symbolAttr = builder.getStringAttr(symbol);
           std::vector<Attribute> pair;
           pair.push_back(reasonAttr);
           pair.push_back(boundAttr);
+          pair.push_back(symbolAttr);
           mgmt_arr.push_back(builder.getArrayAttr(ArrayRef<Attribute>(pair)));
         }
         return mgmt_arr;

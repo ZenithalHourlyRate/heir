@@ -119,7 +119,7 @@ Variance Variance::evalEncryptPk(double n, double t, double std0) {
   // assumed UNIFORM_TENARY
   double encrypt = variance0 * t * t * (4.0 * n / 3 + 1);
   // major error independent (public key e is not dominant)
-  return Variance::of(encrypt, "s", 1);
+  return Variance::of(encrypt);
 }
 
 Variance Variance::evalAdd(const Variance &lhs, const Variance &rhs) {
@@ -127,33 +127,10 @@ Variance Variance::evalAdd(const Variance &lhs, const Variance &rhs) {
 }
 Variance Variance::evalMultNoRelin(const Variance &lhs, const Variance &rhs,
                                    double n, double t) {
-  double power = 1.0;
-  VarianceMajorFactor factor;
-  auto lhsFactor = lhs.getFactor();
-  auto rhsFactor = rhs.getFactor();
-  if (lhsFactor.correlate(rhsFactor)) {
-    // in factor we need strict covariance analysis
-    power = lhsFactor.getPower(rhsFactor);
-    // always track s
-    if (lhsFactor.reason == "s") {
-      factor = lhsFactor.merge(rhsFactor);
-    } else {
-      factor = VarianceMajorFactor("s", 2);
-    }
-    // discard other small variable
-  } else {
-    // always reset to s^2
-    // TODO: replace 2 with result.cv - 1
-    factor = VarianceMajorFactor("s", 2);
-  }
-
-  power = 1.0;
-
   // component m_i uniform mod t, giving |m| \approx n*(t^2-1)/12
-  return Variance::of(power * lhs.getValue() * rhs.getValue() * n +
-                          lhs.getValue() * n * (t * t - 1) / 12 +
-                          rhs.getValue() * n * (t * t - 1) / 12,
-                      factor);
+  return Variance::of(lhs.getValue() * rhs.getValue() * n +
+                      lhs.getValue() * n * (t * t - 1) / 12 +
+                      rhs.getValue() * n * (t * t - 1) / 12);
 }
 
 Variance Variance::evalModUp(const Variance &input, double modulus, double n,
@@ -168,8 +145,7 @@ Variance Variance::evalModUp(const Variance &input, double modulus, double n,
     sVariances += sVarianceTerm;
   }
   double added = 1.0 / 12 * t * t * sVariances;
-  return Variance::of(input.getValue() * (modulus * modulus) + added,
-                      input.getFactor());
+  return Variance::of(input.getValue() * (modulus * modulus) + added);
 }
 
 Variance Variance::evalModReduce(const Variance &input, double modulus,
@@ -185,15 +161,9 @@ Variance Variance::evalModReduce(const Variance &input, double modulus,
     sVarianceTerm *= sVariance * n * VariancePower(cv_index);
     sVariances += sVarianceTerm;
   }
-  double added = 1.0 / 12 * t * t * sVariances;
   double scaled = input.getValue() / (modulus * modulus);
-  VarianceMajorFactor factor;
-  if (scaled > added) {
-    factor = input.getFactor();
-  } else {
-    factor = VarianceMajorFactor("s", cv - 1);
-  }
-  return Variance::of(scaled + added, factor);
+  double added = 1.0 / 12 * t * t * sVariances;
+  return Variance::of(scaled + added);
 }
 
 Variance Variance::evalRelinearizeBV(const Variance &input, double n, double t,
@@ -204,14 +174,7 @@ Variance Variance::evalRelinearizeBV(const Variance &input, double n, double t,
   double term2 = numDigit * beta * beta;
   double inherent = input.getValue();
   double added = term1 * term2;
-  VarianceMajorFactor factor;
-  if (inherent > added) {
-    factor = input.getFactor();
-  } else {
-    // relinearize major
-    factor = VarianceMajorFactor("s", 2);
-  }
-  return Variance::of(inherent + added, factor);
+  return Variance::of(inherent + added);
 }
 
 // Variance Variance::evalRotate(const Variance &input, double n, double t,
