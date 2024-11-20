@@ -610,7 +610,8 @@ class VarianceValues {
           lhs.getExpression(i).modReduceScale(1L << k->p->qi[k->l]);
       auto addedNoiseExpr =
           Expression(Symbol(lhs.getExpression(i).nameModReduceAdded(),
-                            SymbolType::ModReduce, k->cv - 1));
+                            SymbolType::ModReduce, k->cv - 1),
+                     lhs.getExpression(i).getAllSymbols());
       auto expr = scaledNoiseExpr.add(addedNoiseExpr, k->p, k->l, k->ghs);
       ret.join(VarianceValues(k, k->bound(v), parents, expr));
     }
@@ -685,7 +686,8 @@ class VarianceValues {
 
       auto addedNoiseExpr =
           Expression(Symbol(lhs.getExpression(i).nameRelinearizeBVAdded(),
-                            SymbolType::RelinearizeBV));
+                            SymbolType::RelinearizeBV),
+                     lhs.getExpression(i).getAllSymbols());
       auto expr = lhs.getExpression(i).add(addedNoiseExpr, k->p, k->l, k->ghs);
       ret.join(VarianceValues(k, k->bound(v), parents, expr));
     }
