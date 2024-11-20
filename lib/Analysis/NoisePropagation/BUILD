@@ -49,6 +49,7 @@ cc_library(
     name = "Symbolic",
     srcs = ["Symbolic.cpp"],
     hdrs = [
+        "Params.h",
         "Symbolic.h",
     ],
     deps = [

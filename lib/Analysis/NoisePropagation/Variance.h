@@ -648,13 +648,13 @@ class VarianceValues {
                    << lhs.getVariance(i).toBound(k->p->n) << " rcost "
                    << rhs.getVariance(j).toBound(k->p->n) << " cost "
                    << v.toBound(k->p->n) << " lsym "
-                   << Variance::of(lhs.getExpr().toVariance(k->p->n, k->p->t))
+                   << Variance::of(lhs.getExpr().toVariance(k->p, k->l, k->ghs))
                           .toBound(k->p->n)
                    << " rsym "
-                   << Variance::of(rhs.getExpr().toVariance(k->p->n, k->p->t))
+                   << Variance::of(rhs.getExpr().toVariance(k->p, k->l, k->ghs))
                           .toBound(k->p->n)
                    << " sym "
-                   << Variance::of(ret.getExpr().toVariance(k->p->n, k->p->t))
+                   << Variance::of(ret.getExpr().toVariance(k->p, k->l, k->ghs))
                           .toBound(k->p->n)
                    << "\n");
 #endif
