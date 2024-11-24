@@ -194,6 +194,13 @@ LogicalResult OpenFhePkeEmitter::emitTypedAssignPrefix(Value result) {
 LogicalResult OpenFhePkeEmitter::printEvalMethod(
     ::mlir::Value result, ::mlir::Value cryptoContext,
     ::mlir::ValueRange nonEvalOperands, std::string_view op) {
+  // if (op == "EvalRelinearize") {
+  //   os << variableNames->getNameForValue(cryptoContext) <<
+  //   "->ClearEvalMultKeys();\n"; os <<
+  //   variableNames->getNameForValue(cryptoContext) <<
+  //   "->EvalMultKeyGen(secretKey);\n";
+  // }
+
   emitAutoAssignPrefix(result);
 
   os << variableNames->getNameForValue(cryptoContext) << "->" << op << "(";
@@ -201,6 +208,22 @@ LogicalResult OpenFhePkeEmitter::printEvalMethod(
     return variableNames->getNameForValue(value);
   });
   os << ");\n";
+
+  os << "EvalNoiseCKKS(";
+  os << variableNames->getNameForValue(cryptoContext);
+  os << ", secretKey, ";
+  os << variableNames->getNameForValue(result);
+  os << ", ";
+  os << result.getDefiningOp()->getAttr("bound");
+  os << ", \"";
+  os << variableNames->getNameForValue(result);
+  os << "=";
+  os << op;
+  os << " ";
+  os << commaSeparatedValues(nonEvalOperands, [&](Value value) {
+    return variableNames->getNameForValue(value);
+  });
+  os << "\");\n";
   return success();
 }
 
@@ -277,6 +300,21 @@ LogicalResult OpenFhePkeEmitter::printOperation(RotOp op) {
      << "EvalRotate" << "("
      << variableNames->getNameForValue(op.getCiphertext()) << ", "
      << op.getIndex().getValue() << ");\n";
+
+  os << "EvalNoiseCKKS(";
+  os << variableNames->getNameForValue(op.getCryptoContext());
+  os << ", secretKey, ";
+  os << variableNames->getNameForValue(op.getResult());
+  os << ", ";
+  os << op->getAttr("bound");
+  os << ", \"";
+  os << variableNames->getNameForValue(op.getResult());
+  os << "=EvalRotate";
+  os << " ";
+  os << variableNames->getNameForValue(op.getCiphertext());
+  os << ", ";
+  os << op.getIndex().getValue();
+  os << "\");\n";
   return success();
 }
 
@@ -598,9 +636,39 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
   int64_t mulDepth = op.getMulDepthAttr().getValue().getSExtValue();
   int64_t plainMod = op.getPlainModAttr().getValue().getSExtValue();
 
+  auto getIntOrDefault = [&](std::string name, int64_t def) {
+    if (auto attr = op->getAttr(name)) {
+      def = llvm::dyn_cast<IntegerAttr>(attr).getValue().getSExtValue();
+    }
+    return std::to_string(def);
+  };
+
+  auto getStringOrDefault = [&](std::string name, std::string def) {
+    if (auto attr = op->getAttr(name)) {
+      def = llvm::dyn_cast<StringAttr>(attr).getValue().str();
+    }
+    return def;
+  };
+
   os << "CCParamsT " << paramsName << ";\n";
   os << paramsName << ".SetMultiplicativeDepth(" << mulDepth << ");\n";
   os << paramsName << ".SetPlaintextModulus(" << plainMod << ");\n";
+
+  os << paramsName << ".SetExecutionMode(" << "EXEC_NOISE_ESTIMATION" << ");\n";
+
+  // os << paramsName << ".SetSecurityLevel(HEStd_NotSet);\n";
+  // os << paramsName << ".SetRingDim(" << getIntOrDefault("ringDim", 0) <<
+  // ");\n"; os << paramsName << ".SetMaxRelinSkDeg("
+  //    << getIntOrDefault("maxRelinSkDeg", 0) << ");\n";
+  // os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
+  // os << paramsName << ".SetScalingModSize("
+  //    << getIntOrDefault("scalingModSize", 0) << ");\n";
+  // os << paramsName << ".SetKeySwitchTechnique("
+  //    << getStringOrDefault("keySwitchTechnique", "HYRBID") << ");\n";
+  // os << paramsName << ".SetDigitSize(" << getIntOrDefault("digitSize", 0)
+  //    << ");\n";
+  // os << paramsName << ".SetNumLargeDigits("
+  //    << getIntOrDefault("numLargeDigits", 0) << ");\n";
   return success();
 }
 
