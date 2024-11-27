@@ -192,8 +192,8 @@ class SecretGenericOpCipherPlainConversion
   }
 };
 
-template <typename M, typename T, typename Y, typename R>
-class SecretGenericOpMyMulConversion : public SecretGenericOpConversion<M, T> {
+template <typename M, typename T>
+class SecretGenericOpMyConversion : public SecretGenericOpConversion<M, T> {
  public:
   using SecretGenericOpConversion<M, T>::SecretGenericOpConversion;
 
@@ -208,31 +208,14 @@ class SecretGenericOpMyMulConversion : public SecretGenericOpConversion<M, T> {
     if (!plaintextValues.empty()) {
       return failure();
     }
-    ArrayAttr mgmtAttr =
-        llvm::dyn_cast<ArrayAttr>(op.getBody()->front().getAttr("mgmt"));
-    LLVM_DEBUG(llvm::dbgs() << mgmtAttr << "\n");
+    auto boundAttr = op.getBody()->front().getAttr("bound");
 
     ImplicitLocOpBuilder b(op->getLoc(), rewriter);
-    auto mul = b.create<T>(inputs);
-    Value currentResult = mul;
+    auto res = b.create<T>(inputs);
 
-    if (mgmtAttr) {
-      ArrayRef<Attribute> mgmtArray = mgmtAttr.getValue();
-      for (auto &attr : mgmtArray) {
-        ArrayAttr pairAttr = llvm::dyn_cast<ArrayAttr>(attr);
-        ArrayRef<Attribute> pairArray = pairAttr.getValue();
-        StringAttr reasonAttr = llvm::dyn_cast<StringAttr>(pairArray[0]);
-        std::string reason = reasonAttr.getValue().str();
-        if (reason == "relin") {
-          currentResult = b.create<Y>(currentResult);
-        } else if (reason == "modd") {
-          currentResult = b.create<R>(currentResult);
-        }
-        StringAttr boundAttr = llvm::dyn_cast<StringAttr>(pairArray[1]);
-        currentResult.getDefiningOp()->setAttr("bound", boundAttr);
-      }
-    }
-    rewriter.replaceOp(op, currentResult);
+    res->setAttr("bound", boundAttr);
+
+    rewriter.replaceOp(op, res);
     return success();
   }
 };

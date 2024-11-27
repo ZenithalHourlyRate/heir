@@ -11,6 +11,7 @@
 #include "lib/Dialect/LWE/IR/LWEOps.h"
 #include "lib/Dialect/LWE/IR/LWETypes.h"
 #include "lib/Dialect/ModArith/IR/ModArithTypes.h"
+#include "lib/Dialect/Mgmt/IR/MgmtOps.h"
 #include "lib/Dialect/Polynomial/IR/Polynomial.h"
 #include "lib/Dialect/Polynomial/IR/PolynomialAttributes.h"
 #include "lib/Dialect/Secret/IR/SecretDialect.h"
@@ -144,9 +145,9 @@ struct SecretToBGV : public impl::SecretToBGVBase<SecretToBGV> {
         SecretGenericOpCipherConversion<arith::SubIOp, bgv::SubOp>,
         SecretGenericOpConversion<tensor::ExtractOp, bgv::ExtractOp>,
         SecretGenericOpRotateConversion<bgv::RotateOp>,
-        SecretGenericOpMyMulConversion<arith::MulIOp, bgv::MyMulOp,
-                                       bgv::MyRelinearizeOp,
-                                       bgv::MyModulusSwitchOp>,
+        SecretGenericOpMyConversion<arith::MulIOp, bgv::MyMulOp>,
+        SecretGenericOpMyConversion<mgmt::RelinearizeOp, bgv::MyRelinearizeOp>,
+        SecretGenericOpMyConversion<mgmt::ModReduceOp, bgv::MyModulusSwitchOp>,
         SecretGenericOpCipherPlainConversion<arith::AddIOp, bgv::AddPlainOp>,
         SecretGenericOpCipherPlainConversion<arith::SubIOp, bgv::SubPlainOp>,
         SecretGenericOpCipherPlainConversion<arith::MulIOp, bgv::MulPlainOp>>(
