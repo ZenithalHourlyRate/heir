@@ -31,9 +31,9 @@ std::string Expression::toString() const {
     }
   };
   dumpSymbols(symbols);
-  ret += " inherited ";
-  dumpSymbols(inheritedSymbols);
-  ret += " factor " + std::to_string(log(factor) / log(2));
+  // ret += " inherited ";
+  // dumpSymbols(inheritedSymbols);
+  // ret += " factor " + std::to_string(log(factor) / log(2));
   return ret;
 }
 
@@ -165,7 +165,7 @@ double Expression::toVariance() const {
   double beta = key->p->digit();
   double result = 1.0;
 
-  auto [_, exponents] = computeFactor(symbols);
+  auto [factor, exponents] = computeFactor(symbols);
   auto orderSum = exponents[0];
   auto skPkSum = exponents[1];
   auto ePkSum = exponents[2];
