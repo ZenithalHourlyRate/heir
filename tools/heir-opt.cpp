@@ -19,6 +19,7 @@
 #include "lib/Dialect/LWE/IR/LWEDialect.h"
 #include "lib/Dialect/LWE/Transforms/Passes.h"
 #include "lib/Dialect/LinAlg/Conversions/LinalgToTensorExt/LinalgToTensorExt.h"
+#include "lib/Dialect/Mgmt/IR/MgmtDialect.h"
 #include "lib/Dialect/ModArith/Conversions/ModArithToArith/ModArithToArith.h"
 #include "lib/Dialect/ModArith/IR/ModArithDialect.h"
 #include "lib/Dialect/Openfhe/IR/OpenfheDialect.h"
@@ -114,6 +115,7 @@ int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
 
   registry.insert<mod_arith::ModArithDialect>();
+  registry.insert<mgmt::MgmtDialect>();
   registry.insert<bgv::BGVDialect>();
   registry.insert<ckks::CKKSDialect>();
   registry.insert<cggi::CGGIDialect>();
