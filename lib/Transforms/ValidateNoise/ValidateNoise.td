@@ -12,6 +12,10 @@ def ValidateNoise : Pass<"validate-noise"> {
 
   Requires the ops in the IR to implement `NoisePropagationInterface`.
   }];
+
+  let dependentDialects = [
+    "mlir::heir::mgmt::MgmtDialect",
+  ];
 }
 
 #endif  // INCLUDE_TRANSFORMS_VALIDATENOISE_VALIDATENOISE_TD_

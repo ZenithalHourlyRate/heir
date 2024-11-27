@@ -2,8 +2,10 @@
 
 #include "lib/Analysis/NoisePropagation/NoisePropagationAnalysis.h"
 #include "lib/Analysis/NoisePropagation/Variance.h"
+#include "lib/Dialect/Mgmt/IR/MgmtOps.h"
 #include "lib/Dialect/Secret/IR/SecretOps.h"
-#include "llvm/include/llvm/Support/Debug.h"  // from @llvm-project
+#include "llvm/include/llvm/ADT/TypeSwitch.h"  // from @llvm-project
+#include "llvm/include/llvm/Support/Debug.h"   // from @llvm-project
 #include "mlir/include/mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"  // from @llvm-project
 #include "mlir/include/mlir/Analysis/DataFlow/DeadCodeAnalysis.h"  // from @llvm-project
 #include "mlir/include/mlir/Analysis/DataFlow/IntegerRangeAnalysis.h"  // from @llvm-projectject
@@ -55,18 +57,19 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       // TODO: multiple operands
       auto resultValue = yieldOp->getOperand(0);
 
-      std::vector<std::tuple<Value, VarianceKey, VarianceParent>> tree;
-      std::vector<std::tuple<Value, VarianceKey, VarianceParents>> all_selected;
+      // currentValue, currentKey, currentParents, currentParent, previousValue
+      std::vector<std::tuple<Value, VarianceKey, VarianceParents,
+                             VarianceParent, Value>>
+          dag;
 
-      // init the tree
+      // init the dag
       auto vss = getVarianceStates(resultValue);
       auto key = vss.getMinimalCostKey();
       auto param = key.getParam();
       auto parents = vss.getParentsByMinCost(key);
       for (auto &parent : parents.getParents()) {
-        tree.emplace_back(resultValue, key, parent);
+        dag.emplace_back(resultValue, key, parents, parent, resultValue);
       }
-      all_selected.emplace_back(resultValue, key, parents);
 
       LLVM_DEBUG(llvm::dbgs() << "Selected Param: " << param << "\n");
       // FIXME: better way!!!
@@ -87,7 +90,7 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       funcOp->setAttr("digitSize", getIntegerAttr(param.digitSize));
       funcOp->setAttr("numLargeDigits", getIntegerAttr(param.dnum));
 
-      // tarverse the parent tree
+      // tarverse the parent dag
 
       auto getParentValue = [&](Value current, VarianceParent parent) {
         auto type = parent.getType();
@@ -101,158 +104,148 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
         return current;
       };
 
+      // to value, from value, middle value key, middle value parents (edge
+      // reason)
+      std::vector<std::tuple<Value, Value, VarianceKey, VarianceParents>> route;
+      auto updateRoute = [&](Value to, Value from, VarianceKey middleKey,
+                             VarianceParents middleParents) {
+        route.emplace_back(to, from, middleKey, middleParents);
+      };
+
       size_t index = 0;
-      while (index != tree.size()) {
-        auto [currentValue, currentKey, currentParent] = tree[index];
+      while (index != dag.size()) {
+        auto [currentValue, currentKey, currentParents, currentParent,
+              previousValue] = dag[index];
 
         auto parentValue = getParentValue(currentValue, currentParent);
         auto *parentKey = currentParent.getParentKey();
+
+        Value previous = previousValue;
+        if (parentValue != currentValue) {
+          previous = currentValue;
+        }
+
+        updateRoute(previous, parentValue, currentKey, currentParents);
 
         auto parentParents =
             getVarianceStates(parentValue)
                 .getParentsBySuccessorParent(*parentKey, currentParent);
         for (auto &parentParent : parentParents.getParents()) {
-          tree.emplace_back(parentValue, *parentKey, parentParent);
+          dag.emplace_back(parentValue, *parentKey, parentParents, parentParent,
+                           previous);
         }
-        all_selected.emplace_back(parentValue, *parentKey, parentParents);
 
         index++;
       }
 
-      auto selected = [&](Value result) {
+      auto selected = [&](Value to0, Value from0) {
         std::vector<std::tuple<VarianceKey, VarianceParents>> selected;
-        for (auto &[value, key, parents] : all_selected) {
-          if (value == result) {
+        for (auto &[to, from, key, parents] : route) {
+          if (to0 == to && from0 == from) {
             selected.emplace_back(key, parents);
           }
         }
+        std::reverse(selected.begin(), selected.end());
         return selected;
       };
 
-      auto selected_reasons = [&](Value result) {
-        auto sel = selected(result);
-        std::vector<std::string> reasons;
-        for (auto &[_, parents] : sel) {
-          reasons.push_back(parents.getReason());
-        }
-        std::reverse(reasons.begin(), reasons.end());
-        return reasons;
-      };
-
-      auto selected_bounds = [&](Value result) {
-        auto vss = getVarianceStates(result);
-        auto sel = selected(result);
+      auto selected_bounds = [&](Value to, Value from) {
+        auto vssTo = getVarianceStates(to);
+        auto vssFrom = getVarianceStates(from);
+        auto sel = selected(to, from);
         std::vector<std::tuple<std::string, std::string, std::string>> bounds;
         for (auto &[key, parents] : sel) {
+          bool isMgmt =
+              parents.getReason() == "relin" || parents.getReason() == "modd";
+          auto &vss = isMgmt ? vssFrom : vssTo;
           bounds.emplace_back(
               parents.getReason(),
               key.toBound(
                   vss.getExpressionVarianceByCurrentParents(key, parents)),
               vss.getExpressionByCurrentParents(key, parents).toString());
         }
-        std::reverse(bounds.begin(), bounds.end());
         return bounds;
       };
 
-      auto dumpDOT = [&](Value result) {
-        auto vss = getVarianceStates(result);
+      // auto dumpDOT = [&](Value result) {
+      //   auto vss = getVarianceStates(result);
 
-        std::vector<Value> values;
-        values.push_back(result);
-        auto definingOp = result.getDefiningOp();
-        if (definingOp) {
-          for (auto operand : definingOp->getOperands()) {
-            values.push_back(operand);
+      //   std::vector<Value> values;
+      //   values.push_back(result);
+      //   auto definingOp = result.getDefiningOp();
+      //   if (definingOp) {
+      //     for (auto operand : definingOp->getOperands()) {
+      //       values.push_back(operand);
+      //     }
+      //   }
+
+      //   updateName(result);
+
+      //   LLVM_DEBUG(llvm::dbgs()
+      //              << vss.toDOTNode(values, valueNameMap, selected(result))
+      //              << vss.toDOTEdge(values, valueNameMap, selected(result)));
+      //   return WalkResult::advance();
+      // };
+
+      auto dumpBound = [&](Value to, Value from) {
+        auto bounds = selected_bounds(to, from);
+        for (auto &[reason, bound, symbol] : bounds) {
+          LLVM_DEBUG(llvm::dbgs()
+                     << to << " " << from << ": " << reason << " bound "
+                     << bound << " symbol " << symbol << "\n");
+        }
+      };
+
+      auto manageValue = [&](ImplicitLocOpBuilder &b, Value to, Value from) {
+        auto vssTo = getVarianceStates(to);
+        auto vssFrom = getVarianceStates(from);
+
+        auto sel = selected(to, from);
+        Value operandManaged = from;
+        for (auto &[key, parents] : sel) {
+          if (parents.getReason() == "modd") {
+            operandManaged = b.create<mgmt::ModReduceOp>(operandManaged);
+          } else if (parents.getReason() == "relin") {
+            operandManaged = b.create<mgmt::RelinearizeOp>(operandManaged);
+          }
+
+          bool isMgmt =
+              parents.getReason() == "relin" || parents.getReason() == "modd";
+          auto &vss = isMgmt ? vssFrom : vssTo;
+          auto bound = key.toBound(
+              vss.getExpressionVarianceByCurrentParents(key, parents));
+          auto expr =
+              vss.getExpressionByCurrentParents(key, parents).toString();
+
+          auto boundAttr = builder.getStringAttr(bound);
+          if (isMgmt) {
+            operandManaged.getDefiningOp()->setAttr("bound", boundAttr);
+          } else {
+            to.getDefiningOp()->setAttr("bound", boundAttr);
           }
         }
-
-        updateName(result);
-
-        LLVM_DEBUG(llvm::dbgs()
-                   << vss.toDOTNode(values, valueNameMap, selected(result))
-                   << vss.toDOTEdge(values, valueNameMap, selected(result)));
-        return WalkResult::advance();
+        return operandManaged;
       };
-
-      auto dumpReason = [&](Value result) {
-        auto reasons = selected_reasons(result);
-        LLVM_DEBUG(llvm::dbgs() << result << ": ");
-        for (auto reason : reasons) {
-          LLVM_DEBUG(llvm::dbgs() << reason << " ");
-        }
-        LLVM_DEBUG(llvm::dbgs() << "\n");
-      };
-
-      auto dumpBound = [&](Value result) {
-        auto bounds = selected_bounds(result);
-        for (auto &[reason, bound, symbol] : bounds) {
-          LLVM_DEBUG(llvm::dbgs() << result << ": " << reason << " bound "
-                                  << bound << " symbol " << symbol << "\n");
-        }
-      };
-
-      auto concatMgmtOps = [&](Value result) {
-        // auto reasons = selected_reasons(result);
-        auto bounds = selected_bounds(result);
-        std::vector<Attribute> mgmt_arr;
-        // for (size_t i = 1; i != reasons.size(); ++i) {
-        for (auto &[reason, bound, symbol] : bounds) {
-          auto reasonAttr = builder.getStringAttr(reason);
-          auto boundAttr = builder.getStringAttr(bound);
-          auto symbolAttr = builder.getStringAttr(symbol);
-          std::vector<Attribute> pair;
-          pair.push_back(reasonAttr);
-          pair.push_back(boundAttr);
-          pair.push_back(symbolAttr);
-          mgmt_arr.push_back(builder.getArrayAttr(ArrayRef<Attribute>(pair)));
-        }
-        return mgmt_arr;
-      };
-
-      for (size_t i = 0; i != body->getNumArguments(); ++i) {
-        auto arg = body->getArgument(i);
-        dumpBound(arg);
-        // dumpDOT(arg);
-        // TODO: set it elsewhere
-        // genericOp->setAttr("mgmt_arg" + std::to_string(i),
-        //                   builder.getStringAttr(concatMgmtOps(arg)));
-      }
 
       body->walk([&](Operation *op) {
-        for (OpResult result : op->getResults()) {
-          // dumpDOT(result);
-          dumpBound(result);
-          op->setAttr("mgmt", builder.getArrayAttr(
-                                  ArrayRef<Attribute>(concatMgmtOps(result))));
-#if 0
-          auto &vss = opRange->getValue();
-          auto params = vss.reachable();
-          if (params.size() != 0) {
-            LLVM_DEBUG(llvm::dbgs()
-                       << "Reachable params for " << valueNameMap.at(result)
-                       << " " << result << "\n");
-            for (auto &p : params) {
-              auto pa = p.first;
-              auto costs = p.second;
-              auto cmin = std::min_element(costs.begin(), costs.end());
-              LLVM_DEBUG(llvm::dbgs()
-                         << pa << " min cost " << int(*cmin) << " cost [");
-              int count = 0;
-              for (auto &c : costs) {
-                if (count++ > 4) {
-                  LLVM_DEBUG(llvm::dbgs() << "...");
-                  break;
+        ImplicitLocOpBuilder b(op->getLoc(), op);
+        llvm::TypeSwitch<Operation &>(*op)
+            .Case<secret::YieldOp>([&](auto yieldOp) {
+              // TODO: multiple operands
+              auto operand = yieldOp.getOperand(0);
+              // dumpBound(operand, operand);
+              yieldOp->replaceUsesOfWith(operand,
+                                         manageValue(b, operand, operand));
+            })
+            .Default([&](auto &op) {
+              for (OpResult result : op.getResults()) {
+                for (Value operand : op.getOperands()) {
+                  // dumpBound(result, operand);
+                  op.replaceUsesOfWith(operand,
+                                       manageValue(b, result, operand));
                 }
-                LLVM_DEBUG(llvm::dbgs() << int(c) << " ");
               }
-              LLVM_DEBUG(llvm::dbgs() << "]\n");
-            }
-          } else {
-            LLVM_DEBUG(llvm::dbgs() << "No reachable params for "
-                                    << valueNameMap.at(result) << "\n");
-          }
-#endif
-        }
+            });
         return WalkResult::advance();
       });
     });
