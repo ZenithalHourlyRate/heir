@@ -73,46 +73,32 @@ class Expression {
   Expression() = default;
 
   Expression(Symbol symbol, const VarianceKey *key,
-             const SymbolsType &inheritedSymbols = {},
              Symbol::ExponentType multiplyCount = 1)
-      : name(symbol.getName()),
-        inheritedSymbols(inheritedSymbols),
-        multiplyCount(multiplyCount),
-        key(key) {
+      : name(symbol.getName()), multiplyCount(multiplyCount), key(key) {
     symbols[symbol] = 1;
-    auto oldFactor = std::get<0>(computeFactor(inheritedSymbols));
-    auto newFactor = std::get<0>(computeFactor(getAllSymbols()));
-    factor = newFactor / oldFactor;
   }
 
   bool operator==(const Expression &rhs) const {
     return name == rhs.name && symbols == rhs.symbols &&
-           inheritedSymbols == rhs.inheritedSymbols &&
            coefficient == rhs.coefficient && multiplyCount == rhs.multiplyCount;
   };
 
  private:
   Expression(std::string name, const SymbolsType &symbols,
-             const SymbolsType &inheritedSymbols, CoefficientType coefficient,
-             FactorType factor, Symbol::ExponentType multiplyCount,
+             CoefficientType coefficient, ExponentType multiplyCount,
              const VarianceKey *key)
       : name(name),
         symbols(symbols),
-        inheritedSymbols(inheritedSymbols),
         coefficient(coefficient),
-        factor(factor),
         multiplyCount(multiplyCount),
         key(key) {}
 
   Expression(std::string name, SymbolsType &&symbols,
-             SymbolsType &&inheritedSymbols, CoefficientType coefficient,
-             FactorType factor, Symbol::ExponentType multiplyCount,
+             CoefficientType coefficient, ExponentType multiplyCount,
              const VarianceKey *key)
       : name(name),
         symbols(symbols),
-        inheritedSymbols(inheritedSymbols),
         coefficient(coefficient),
-        factor(factor),
         multiplyCount(multiplyCount),
         key(key) {}
 
@@ -151,20 +137,15 @@ class Expression {
   }
 
   SymbolsType getSymbols() const { return symbols; }
-  SymbolsType getAllSymbols() const {
-    return mergeSymbols(symbols, inheritedSymbols);
-  }
 
-  Symbol::ExponentType getMultiplyCount() const { return multiplyCount; }
+  ExponentType getMultiplyCount() const { return multiplyCount; }
 
   // Expression itself may have a name
   std::string name;
   SymbolsType symbols;
-  SymbolsType inheritedSymbols;  // added-noise will inherit the corelation
   CoefficientType coefficient =
       1.0;  // Var[c * X], as usually mod reduce, record the inverse
-  FactorType factor = 1.0;                 // k * Var[X]
-  Symbol::ExponentType multiplyCount = 1;  // a ^ k
+  ExponentType multiplyCount = 1;  // a ^ k
 
   // corresponding to a variance key
   const VarianceKey *key;

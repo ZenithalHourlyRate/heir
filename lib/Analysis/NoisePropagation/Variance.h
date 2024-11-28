@@ -599,7 +599,7 @@ class VarianceValues {
     auto v = Variance::evalEncryptPk(k->p->n, k->p->t, std0);
     // TODO: encrypt cost?
     auto parents = VarianceParents({}, "enc", 0);
-    auto expr = Expression(Symbol(name, SymbolType::EncryptPk), k, {}, 1);
+    auto expr = Expression(Symbol(name, SymbolType::EncryptPk), k);
     return VarianceValues(k, k->bound(v), parents, expr);
   }
 
@@ -620,8 +620,7 @@ class VarianceValues {
       auto addedNoiseExpr =
           Expression(Symbol(lhs.getExpression(i).nameModReduceAdded(),
                             SymbolType::ModReduce, k->cv - 1),
-                     k, lhs.getExpression(i).getAllSymbols(),
-                     lhs.getExpression(i).getMultiplyCount());
+                     k, lhs.getExpression(i).getMultiplyCount());
       auto expr = scaledNoiseExpr.add(addedNoiseExpr);
       ret.join(VarianceValues(k, k->bound(v), parents, expr));
     }
@@ -698,8 +697,7 @@ class VarianceValues {
           Expression(Symbol(lhs.getExpression(i).nameRelinearizeBVAdded(),
                             SymbolType::RelinearizeBV, 0,
                             lhs.getExpression(i).getMultiplyCount()),
-                     k, lhs.getExpression(i).getAllSymbols(),
-                     lhs.getExpression(i).getMultiplyCount());
+                     k, lhs.getExpression(i).getMultiplyCount());
       auto expr = lhs.getExpression(i).add(addedNoiseExpr);
       ret.join(VarianceValues(k, k->bound(v), parents, expr));
     }

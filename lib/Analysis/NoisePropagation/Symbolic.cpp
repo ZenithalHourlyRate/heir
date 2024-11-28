@@ -30,15 +30,10 @@ std::string Expression::toString() const {
       }
     }
   };
-  // dumpSymbols(symbols);
-  // ret += " inherited ";
-  // dumpSymbols(inheritedSymbols);
-  // ret += " factor " + std::to_string(log(factor) / log(2));
+  dumpSymbols(symbols);
   ret += " multplyCount " + std::to_string(multiplyCount);
-  auto [factor, exponents] = computeFactor(symbols);
-  // auto DRelinSum = exponents[5];
+  auto [factor, _] = computeFactor(symbols);
   ret += " factor " + std::to_string(factor);
-  // ret += " DRelinSum " + std::to_string(DRelinSum);
   return ret;
 }
 
@@ -64,29 +59,17 @@ Expression Expression::multiply(const Expression &rhs,
                                 const VarianceKey *newKey) const {
   std::string newName = nameMultiply(rhs);
   CoefficientType newCoefficient = coefficient * rhs.coefficient;
-
   auto newSymbols = mergeSymbols(symbols, rhs.symbols);
-  auto newInheritedSymbols =
-      mergeSymbols(inheritedSymbols, rhs.inheritedSymbols);
-
-  auto oldFactors = std::get<0>(computeFactor(inheritedSymbols)) *
-                    std::get<0>(computeFactor(rhs.inheritedSymbols));
-  auto nowFactor =
-      std::get<0>(computeFactor(mergeSymbols(newSymbols, newInheritedSymbols)));
-  auto newFactor = nowFactor / oldFactors;
-
   auto newMultiplyCount = multiplyCount + rhs.multiplyCount;
 
-  return Expression(newName, std::move(newSymbols),
-                    std::move(newInheritedSymbols), newCoefficient, newFactor,
+  return Expression(newName, std::move(newSymbols), newCoefficient,
                     newMultiplyCount, newKey);
 }
 
 Expression Expression::modReduceScale(double modulus) const {
   std::string newName = nameModReduceScaled();
   CoefficientType newCoefficient = coefficient * modulus;
-  return Expression(newName, symbols, inheritedSymbols, newCoefficient, factor,
-                    multiplyCount, key);
+  return Expression(newName, symbols, newCoefficient, multiplyCount, key);
 }
 
 Expression Expression::add(const Expression &rhs) const {
@@ -97,16 +80,12 @@ Expression Expression::add(const Expression &rhs) const {
   std::string newName = nameSelect(rhs, selectedLhs);
 
   auto selectedSymbols = selectedLhs ? symbols : rhs.symbols;
-  auto selectedInheritedSymbols =
-      selectedLhs ? inheritedSymbols : rhs.inheritedSymbols;
   auto selectedCoefficient = selectedLhs ? coefficient : rhs.coefficient;
-  auto selectedFactor = selectedLhs ? factor : rhs.factor;
   auto selectedMultiplyCount = selectedLhs ? multiplyCount : rhs.multiplyCount;
   auto selectedKey = selectedLhs ? key : rhs.key;
 
-  return Expression(newName, selectedSymbols, selectedInheritedSymbols,
-                    selectedCoefficient, selectedFactor, selectedMultiplyCount,
-                    selectedKey);
+  return Expression(newName, selectedSymbols, selectedCoefficient,
+                    selectedMultiplyCount, selectedKey);
 }
 
 static inline double factorial(int n) { return tgamma(n + 1); }
@@ -142,7 +121,6 @@ Expression::computeFactor(Expression::SymbolsType symbols) {
       eRelinSum += exponent;
       DRelinASum += symbol.getRelinearizeBVExponent() * exponent;
       // on D; delay eksk later
-      // should we? seems not that dominant...
       result /= pow(factorial(symbol.getRelinearizeBVExponent()), exponent);
     } else {
       assert(false && "unsupported symbol type");
@@ -187,7 +165,6 @@ double Expression::toVariance() const {
   auto tModRSum = exponents[4];
   auto DRelinSum = exponents[5];
   auto eRelinSum = exponents[6];
-  auto DRelinASum = exponents[7];
 
   result *= factor;
   result *= pow(N, orderSum - 1);
