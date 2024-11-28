@@ -29,7 +29,7 @@ CiphertextT func(PrivateKeyT secretKey, CryptoContextT v0, CiphertextT v1,
   const auto& v14 = v0->Relinearize(v13);
   EvalNoiseBGV(v0, secretKey, v14, "56.58", "v14=Relinearize v13");
   const auto& v15 = v0->EvalMultNoRelin(v12, v14);
-  EvalNoiseBGV(v0, secretKey, v15, "117.54", "v15=EvalMultNoRelin v12, v14");
+  EvalNoiseBGV(v0, secretKey, v15, "118.84", "v15=EvalMultNoRelin v12, v14");
   const auto& v16 = v0->EvalMultNoRelin(v5, v6);
   EvalNoiseBGV(v0, secretKey, v16, "57.96", "v16=EvalMultNoRelin v5, v6");
   const auto& v17 = v0->EvalMultNoRelin(v7, v8);
@@ -45,19 +45,19 @@ CiphertextT func(PrivateKeyT secretKey, CryptoContextT v0, CiphertextT v1,
   const auto& v22 = v0->EvalMultNoRelin(v19, v21);
   EvalNoiseBGV(v0, secretKey, v22, "83.49", "v22=EvalMultNoRelin v19, v21");
   const auto& v23 = v0->ModReduce(v15);
-  EvalNoiseBGV(v0, secretKey, v23, "62.54", "v23=ModReduce v15");
+  EvalNoiseBGV(v0, secretKey, v23, "63.84", "v23=ModReduce v15");
   const auto& v24 = v0->Relinearize(v23);
-  EvalNoiseBGV(v0, secretKey, v24, "62.54", "v24=Relinearize v23");
+  EvalNoiseBGV(v0, secretKey, v24, "63.84", "v24=Relinearize v23");
   const auto& v25 = v0->Relinearize(v22);
   EvalNoiseBGV(v0, secretKey, v25, "83.49", "v25=Relinearize v22");
   const auto& v26 = v0->ModReduce(v25);
   EvalNoiseBGV(v0, secretKey, v26, "28.49", "v26=ModReduce v25");
   const auto& v27 = v0->EvalMultNoRelin(v24, v26);
-  EvalNoiseBGV(v0, secretKey, v27, "94.75", "v27=EvalMultNoRelin v24, v26");
+  EvalNoiseBGV(v0, secretKey, v27, "98.00", "v27=EvalMultNoRelin v24, v26");
   const auto& v28 = v0->Relinearize(v27);
-  EvalNoiseBGV(v0, secretKey, v28, "94.75", "v28=Relinearize v27");
+  EvalNoiseBGV(v0, secretKey, v28, "98.00", "v28=Relinearize v27");
   const auto& v29 = v0->ModReduce(v28);
-  EvalNoiseBGV(v0, secretKey, v29, "39.75", "v29=ModReduce v28");
+  EvalNoiseBGV(v0, secretKey, v29, "43.00", "v29=ModReduce v28");
   return v29;
 }
 CiphertextT func__encrypt__arg0(PrivateKeyT secretKey, CryptoContextT v30,

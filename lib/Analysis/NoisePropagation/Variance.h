@@ -153,6 +153,7 @@ class Variance {
     }
     std::stringstream stream;
     stream << std::fixed << std::setprecision(2) << logAlphaBound(n);
+    // stream << " " << std::fixed << std::setprecision(10) << getValue();
     return stream.str();
   }
 
@@ -481,16 +482,16 @@ class VarianceValues {
     return getParents(index).getCost();
   }
 
-  // const size_t getMinimalByVariance() const {
-  //   auto index = 0;
-  //   for (size_t i = 0; i != v.size(); ++i) {
-  //     Variance res = Variance::min(getVariance(index), getVariance(i));
-  //     if (res == getVariance(i)) {
-  //       index = i;
-  //     }
-  //   }
-  //   return index;
-  // }
+  const size_t getMinimalByVariance() const {
+    auto index = 0;
+    for (size_t i = 0; i != v.size(); ++i) {
+      Variance res = Variance::min(getVariance(index), getVariance(i));
+      if (res == getVariance(i)) {
+        index = i;
+      }
+    }
+    return index;
+  }
 
   const size_t getMinimalByExpressionVariance() const {
     auto index = 0;
@@ -515,8 +516,11 @@ class VarianceValues {
     }
     return index;
 #else
-    // return getMinimalByVariance();
+#ifndef IGNORE_SYMBOL
     return getMinimalByExpressionVariance();
+#else
+    return getMinimalByVariance();
+#endif
 #endif
   }
 
@@ -530,17 +534,17 @@ class VarianceValues {
     return -1;
   }
 
-  // const Variance &getVarianceByMinVariance() const {
-  //   return getVariance(getMinimalByVariance());
-  // }
-  // const Variance &getVarianceByMinCost() const {
-  //   return getVariance(getMinimalByCost());
-  // }
+  const Variance &getVarianceByMinVariance() const {
+    return getVariance(getMinimalByVariance());
+  }
+  const Variance &getVarianceByMinCost() const {
+    return getVariance(getMinimalByCost());
+  }
 
-  // const Variance &getVarianceByParents(
-  //     const VarianceParents &currentParent) const {
-  //   return getVariance(getIndexByParents(currentParent));
-  // }
+  const Variance &getVarianceByParents(
+      const VarianceParents &currentParent) const {
+    return getVariance(getIndexByParents(currentParent));
+  }
 
   const Variance getExpressionVarianceByMinExpressionVariance() const {
     return getExpressionVariance(getMinimalByExpressionVariance());
@@ -582,7 +586,11 @@ class VarianceValues {
     if (v.size() == 0) {
       return false;
     }
+#ifndef IGNORE_SYMBOL
     return getExpressionVarianceByMinExpressionVariance().isBounded();
+#else
+    return getVarianceByMinVariance().isBounded();
+#endif
   }
 
   static VarianceValues evalEncryptPk(const Param *p, std::string name) {
@@ -591,7 +599,7 @@ class VarianceValues {
     auto v = Variance::evalEncryptPk(k->p->n, k->p->t, std0);
     // TODO: encrypt cost?
     auto parents = VarianceParents({}, "enc", 0);
-    auto expr = Expression(Symbol(name, SymbolType::EncryptPk), k);
+    auto expr = Expression(Symbol(name, SymbolType::EncryptPk), k, {}, 1);
     return VarianceValues(k, k->bound(v), parents, expr);
   }
 
@@ -612,7 +620,8 @@ class VarianceValues {
       auto addedNoiseExpr =
           Expression(Symbol(lhs.getExpression(i).nameModReduceAdded(),
                             SymbolType::ModReduce, k->cv - 1),
-                     k, lhs.getExpression(i).getAllSymbols());
+                     k, lhs.getExpression(i).getAllSymbols(),
+                     lhs.getExpression(i).getMultiplyCount());
       auto expr = scaledNoiseExpr.add(addedNoiseExpr);
       ret.join(VarianceValues(k, k->bound(v), parents, expr));
     }
@@ -687,8 +696,10 @@ class VarianceValues {
 
       auto addedNoiseExpr =
           Expression(Symbol(lhs.getExpression(i).nameRelinearizeBVAdded(),
-                            SymbolType::RelinearizeBV),
-                     k, lhs.getExpression(i).getAllSymbols());
+                            SymbolType::RelinearizeBV, 0,
+                            lhs.getExpression(i).getMultiplyCount()),
+                     k, lhs.getExpression(i).getAllSymbols(),
+                     lhs.getExpression(i).getMultiplyCount());
       auto expr = lhs.getExpression(i).add(addedNoiseExpr);
       ret.join(VarianceValues(k, k->bound(v), parents, expr));
     }
@@ -991,11 +1002,11 @@ class VarianceStates {
     return kToVs.find(key)->second.getParentsBySuccessorParent(successorParent);
   }
 
-  // Variance getVarianceByCurrentParents(
-  //     VarianceKey key, const VarianceParents &currentParents) const {
-  //   auto &kToVs = states.find(key.getParam())->second;
-  //   return kToVs.find(key)->second.getVarianceByParents(currentParents);
-  // }
+  Variance getVarianceByCurrentParents(
+      VarianceKey key, const VarianceParents &currentParents) const {
+    auto &kToVs = states.find(key.getParam())->second;
+    return kToVs.find(key)->second.getVarianceByParents(currentParents);
+  }
 
   Variance getExpressionVarianceByCurrentParents(
       VarianceKey key, const VarianceParents &currentParents) const {

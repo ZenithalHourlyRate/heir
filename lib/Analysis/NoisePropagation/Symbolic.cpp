@@ -30,10 +30,15 @@ std::string Expression::toString() const {
       }
     }
   };
-  dumpSymbols(symbols);
+  // dumpSymbols(symbols);
   // ret += " inherited ";
   // dumpSymbols(inheritedSymbols);
   // ret += " factor " + std::to_string(log(factor) / log(2));
+  ret += " multplyCount " + std::to_string(multiplyCount);
+  auto [factor, exponents] = computeFactor(symbols);
+  // auto DRelinSum = exponents[5];
+  ret += " factor " + std::to_string(factor);
+  // ret += " DRelinSum " + std::to_string(DRelinSum);
   return ret;
 }
 
@@ -70,16 +75,18 @@ Expression Expression::multiply(const Expression &rhs,
       std::get<0>(computeFactor(mergeSymbols(newSymbols, newInheritedSymbols)));
   auto newFactor = nowFactor / oldFactors;
 
+  auto newMultiplyCount = multiplyCount + rhs.multiplyCount;
+
   return Expression(newName, std::move(newSymbols),
                     std::move(newInheritedSymbols), newCoefficient, newFactor,
-                    newKey);
+                    newMultiplyCount, newKey);
 }
 
 Expression Expression::modReduceScale(double modulus) const {
   std::string newName = nameModReduceScaled();
   CoefficientType newCoefficient = coefficient * modulus;
   return Expression(newName, symbols, inheritedSymbols, newCoefficient, factor,
-                    key);
+                    multiplyCount, key);
 }
 
 Expression Expression::add(const Expression &rhs) const {
@@ -94,10 +101,12 @@ Expression Expression::add(const Expression &rhs) const {
       selectedLhs ? inheritedSymbols : rhs.inheritedSymbols;
   auto selectedCoefficient = selectedLhs ? coefficient : rhs.coefficient;
   auto selectedFactor = selectedLhs ? factor : rhs.factor;
+  auto selectedMultiplyCount = selectedLhs ? multiplyCount : rhs.multiplyCount;
   auto selectedKey = selectedLhs ? key : rhs.key;
 
   return Expression(newName, selectedSymbols, selectedInheritedSymbols,
-                    selectedCoefficient, selectedFactor, selectedKey);
+                    selectedCoefficient, selectedFactor, selectedMultiplyCount,
+                    selectedKey);
 }
 
 static inline double factorial(int n) { return tgamma(n + 1); }
@@ -112,6 +121,7 @@ Expression::computeFactor(Expression::SymbolsType symbols) {
   ExponentType tModRSum = 0;
   ExponentType DRelinSum = 0;
   ExponentType eRelinSum = 0;
+  ExponentType DRelinASum = 0;
   for (auto &[symbol, exponent] : symbols) {
     if (symbol.getType() == SymbolType::EncryptPk) {
       orderSum += 2 * exponent;  // each Pk with order two symbols
@@ -130,9 +140,10 @@ Expression::computeFactor(Expression::SymbolsType symbols) {
       orderSum += 2 * exponent;
       DRelinSum += exponent;
       eRelinSum += exponent;
+      DRelinASum += symbol.getRelinearizeBVExponent() * exponent;
       // on D; delay eksk later
       // should we? seems not that dominant...
-      result *= factorial(exponent);
+      result /= pow(factorial(symbol.getRelinearizeBVExponent()), exponent);
     } else {
       assert(false && "unsupported symbol type");
     }
@@ -150,10 +161,13 @@ Expression::computeFactor(Expression::SymbolsType symbols) {
 #endif
   // additional term for s in sk
   result *= factorial(skPkSum + skModRSum + 1) / (skModRSum + 1);
+  // correction term for a in D in relin added error
+  result *= factorial(DRelinASum);
   // additional term for eksk in sk
   result *= factorial(eRelinSum + 1);
   std::vector<ExponentType> exponents = {
-      orderSum, skPkSum, ePkSum, skModRSum, tModRSum, DRelinSum, eRelinSum,
+      orderSum, skPkSum,   ePkSum,    skModRSum,
+      tModRSum, DRelinSum, eRelinSum, DRelinASum,
   };
   return std::make_tuple(result, exponents);
 }
@@ -173,6 +187,7 @@ double Expression::toVariance() const {
   auto tModRSum = exponents[4];
   auto DRelinSum = exponents[5];
   auto eRelinSum = exponents[6];
+  auto DRelinASum = exponents[7];
 
   result *= factor;
   result *= pow(N, orderSum - 1);

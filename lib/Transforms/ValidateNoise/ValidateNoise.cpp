@@ -212,10 +212,15 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
           bool isMgmt =
               parents.getReason() == "relin" || parents.getReason() == "modd";
           auto &vss = isMgmt ? vssFrom : vssTo;
+#ifndef IGNORE_SYMBOL
           auto bound = key.toBound(
               vss.getExpressionVarianceByCurrentParents(key, parents));
           auto expr =
               vss.getExpressionByCurrentParents(key, parents).toString();
+#else
+          auto bound =
+              key.toBound(vss.getVarianceByCurrentParents(key, parents));
+#endif
 
           auto boundAttr = builder.getStringAttr(bound);
           if (isMgmt) {

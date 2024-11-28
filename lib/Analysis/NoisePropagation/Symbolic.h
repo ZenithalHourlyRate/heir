@@ -7,6 +7,8 @@
 
 #include "lib/Analysis/NoisePropagation/Params.h"
 
+// #define IGNORE_SYMBOL
+
 namespace mlir {
 namespace heir {
 
@@ -16,6 +18,7 @@ enum SymbolType {
   // t * (e_i * s + es * u_i)
   EncryptPk,
   // t * (sum to l ( D_j * eksk_j )) where D_j in (-D/2, D/2)
+  // D is digit decomposed from a ^ k, where k is the multiplication count
   RelinearizeBV,
   // t_i * s ^ k, where t_i in (-t/2, t/2)
   ModReduce,
@@ -27,8 +30,12 @@ class Symbol {
  public:
   using ExponentType = int64_t;
 
-  Symbol(std::string name, SymbolType type, ExponentType modReduceExponent = 0)
-      : name(name), type(type), modReduceExponent(modReduceExponent) {}
+  Symbol(std::string name, SymbolType type, ExponentType modReduceExponent = 0,
+         ExponentType relinearizeBVExponent = 0)
+      : name(name),
+        type(type),
+        modReduceExponent(modReduceExponent),
+        relinearizeBVExponent(relinearizeBVExponent) {}
 
   bool operator==(const Symbol &rhs) const {
     return name == rhs.name && type == rhs.type;
@@ -42,11 +49,16 @@ class Symbol {
     assert(type == SymbolType::ModReduce);
     return modReduceExponent;
   }
+  ExponentType getRelinearizeBVExponent() const {
+    assert(type == SymbolType::RelinearizeBV);
+    return relinearizeBVExponent;
+  }
 
  private:
   std::string name;
   SymbolType type;
-  ExponentType modReduceExponent;  // only used for ModReduce
+  ExponentType modReduceExponent;      // only used for ModReduce
+  ExponentType relinearizeBVExponent;  // only used for RelinearizeBV
 };
 
 class Expression {
@@ -61,8 +73,12 @@ class Expression {
   Expression() = default;
 
   Expression(Symbol symbol, const VarianceKey *key,
-             const SymbolsType &inheritedSymbols = {})
-      : name(symbol.getName()), inheritedSymbols(inheritedSymbols), key(key) {
+             const SymbolsType &inheritedSymbols = {},
+             Symbol::ExponentType multiplyCount = 1)
+      : name(symbol.getName()),
+        inheritedSymbols(inheritedSymbols),
+        multiplyCount(multiplyCount),
+        key(key) {
     symbols[symbol] = 1;
     auto oldFactor = std::get<0>(computeFactor(inheritedSymbols));
     auto newFactor = std::get<0>(computeFactor(getAllSymbols()));
@@ -72,28 +88,32 @@ class Expression {
   bool operator==(const Expression &rhs) const {
     return name == rhs.name && symbols == rhs.symbols &&
            inheritedSymbols == rhs.inheritedSymbols &&
-           coefficient == rhs.coefficient;
+           coefficient == rhs.coefficient && multiplyCount == rhs.multiplyCount;
   };
 
  private:
   Expression(std::string name, const SymbolsType &symbols,
              const SymbolsType &inheritedSymbols, CoefficientType coefficient,
-             FactorType factor, const VarianceKey *key)
+             FactorType factor, Symbol::ExponentType multiplyCount,
+             const VarianceKey *key)
       : name(name),
         symbols(symbols),
         inheritedSymbols(inheritedSymbols),
         coefficient(coefficient),
         factor(factor),
+        multiplyCount(multiplyCount),
         key(key) {}
 
   Expression(std::string name, SymbolsType &&symbols,
              SymbolsType &&inheritedSymbols, CoefficientType coefficient,
-             FactorType factor, const VarianceKey *key)
+             FactorType factor, Symbol::ExponentType multiplyCount,
+             const VarianceKey *key)
       : name(name),
         symbols(symbols),
         inheritedSymbols(inheritedSymbols),
         coefficient(coefficient),
         factor(factor),
+        multiplyCount(multiplyCount),
         key(key) {}
 
  public:
@@ -135,13 +155,16 @@ class Expression {
     return mergeSymbols(symbols, inheritedSymbols);
   }
 
+  Symbol::ExponentType getMultiplyCount() const { return multiplyCount; }
+
   // Expression itself may have a name
   std::string name;
   SymbolsType symbols;
   SymbolsType inheritedSymbols;  // added-noise will inherit the corelation
   CoefficientType coefficient =
       1.0;  // Var[c * X], as usually mod reduce, record the inverse
-  FactorType factor = 1.0;  // k * Var[X]
+  FactorType factor = 1.0;                 // k * Var[X]
+  Symbol::ExponentType multiplyCount = 1;  // a ^ k
 
   // corresponding to a variance key
   const VarianceKey *key;
