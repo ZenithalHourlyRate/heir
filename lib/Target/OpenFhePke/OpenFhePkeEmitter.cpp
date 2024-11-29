@@ -601,7 +601,7 @@ LogicalResult OpenFhePkeEmitter::printOperation(
 
   emitAutoAssignPrefix(op.getResult());
   os << variableNames->getNameForValue(resultCC.value())
-     << "->MakeCKKSPackedPlaintext(" << inputVarName << ");\n";
+     << "->MakeCKKSPackedPlaintext(" << inputVarFilledName << ");\n";
   return success();
 }
 
