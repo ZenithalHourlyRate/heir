@@ -10,8 +10,9 @@ using PlaintextT = Plaintext;
 using PrivateKeyT = PrivateKey<DCRTPoly>;
 using PublicKeyT = PublicKey<DCRTPoly>;
 
-CiphertextT func(PrivateKeyT secretKey, CryptoContextT v0, CiphertextT v1);
+CiphertextT func(PrivateKeyT secretKey, CryptoContextT v0, CiphertextT v1,
+                 CiphertextT v2);
 CryptoContextT func__generate_crypto_context();
 CryptoContextT func__configure_crypto_context(PrivateKeyT secretKey,
-                                              CryptoContextT v10,
-                                              PrivateKeyT v11);
+                                              CryptoContextT v27,
+                                              PrivateKeyT v28);
