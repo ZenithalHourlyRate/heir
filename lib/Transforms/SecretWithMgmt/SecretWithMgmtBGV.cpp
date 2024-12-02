@@ -1,4 +1,5 @@
 #include "lib/Analysis/MulDepthAnalysis/MulDepthAnalysis.h"
+#include "lib/Analysis/NoisePropagation/ParamAnalysis.h"
 #include "lib/Analysis/SecretnessAnalysis/SecretnessAnalysis.h"
 #include "lib/Dialect/Mgmt/IR/MgmtOps.h"
 #include "lib/Dialect/Secret/IR/SecretOps.h"
@@ -200,6 +201,60 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     });
   }
 
+  void annotateDimention() {
+    DenseMap<Value, int> dimensionMap;
+
+    getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
+      for (auto blockArg : genericOp.getBody()->getArguments()) {
+        auto dimension = 2;
+        dimensionMap[blockArg] = 2;
+        genericOp.setArgAttr(
+            blockArg.getArgNumber(), "dimension",
+            IntegerAttr::get(IntegerType::get(&getContext(), 64), dimension));
+      }
+
+      genericOp.getBody()->walk<WalkOrder::PreOrder>([&](Operation *op) {
+        if (op->getNumResults() == 0) {
+          return;
+        }
+        auto resultDimension = 0;
+        for (auto operand : op->getOperands()) {
+          auto operandDimension = 2;
+          if (dimensionMap.count(operand) != 0) {
+            operandDimension = dimensionMap.at(operand);
+          }
+          if (isa<arith::MulIOp>(op)) {
+            resultDimension += operandDimension;
+          } else {
+            resultDimension = std::max(resultDimension, operandDimension);
+          }
+        }
+        if (isa<arith::MulIOp>(op)) {
+          resultDimension -= 1;
+        }
+        if (isa<mgmt::RelinearizeOp>(op)) {
+          resultDimension = 2;
+        }
+        dimensionMap[op->getResult(0)] = resultDimension;
+        op->setAttr("dimension",
+                    IntegerAttr::get(IntegerType::get(&getContext(), 64),
+                                     resultDimension));
+      });
+    });
+  }
+
+  void runParamAnalysis() {
+    DataFlowSolver solver;
+    solver.load<dataflow::DeadCodeAnalysis>();
+    solver.load<dataflow::SparseConstantPropagation>();
+    solver.load<ParamAnalysis>();
+    if (failed(solver.initializeAndRun(getOperation()))) {
+      getOperation()->emitOpError() << "Failed to run the analysis.\n";
+      signalPassFailure();
+      return;
+    }
+  }
+
   void runOnOperation() override {
     ModuleOp module = getOperation();
     OpBuilder builder(module);
@@ -209,6 +264,8 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     // rotationAlwaysRelinearize();
     alwaysModreduceWhenLevelMismatch();
     annotateLevel();
+    annotateDimention();
+    runParamAnalysis();
   }
 };
 
