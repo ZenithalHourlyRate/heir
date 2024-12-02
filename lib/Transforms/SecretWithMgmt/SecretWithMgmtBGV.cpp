@@ -244,7 +244,7 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     });
   }
 
-  void runParamAndVarianceAnalysis() {
+  void annotateBound() {
     DataFlowSolver solver;
     solver.load<dataflow::DeadCodeAnalysis>();
     solver.load<dataflow::SparseConstantPropagation>();
@@ -255,6 +255,35 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
       signalPassFailure();
       return;
     }
+
+    getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
+      for (auto blockArg : genericOp.getBody()->getArguments()) {
+        auto &param = solver.lookupState<ParamLattice>(blockArg)->getValue();
+        auto &variance =
+            solver.lookupState<VarianceLattice>(blockArg)->getValue();
+        if (!param.isInitialized() || !variance.isInitialized()) {
+          continue;
+        }
+        auto bound = param.getLocalParam().toBound(variance);
+        genericOp.setArgAttr(blockArg.getArgNumber(), "bound",
+                             StringAttr::get(&getContext(), bound));
+      }
+
+      genericOp.getBody()->walk<WalkOrder::PreOrder>([&](Operation *op) {
+        if (op->getNumResults() == 0) {
+          return;
+        }
+        auto &param =
+            solver.lookupState<ParamLattice>(op->getResult(0))->getValue();
+        auto &variance =
+            solver.lookupState<VarianceLattice>(op->getResult(0))->getValue();
+        if (!variance.isInitialized()) {
+          return;
+        }
+        auto bound = param.getLocalParam().toBound(variance);
+        op->setAttr("bound", StringAttr::get(&getContext(), bound));
+      });
+    });
   }
 
   void runOnOperation() override {
@@ -267,7 +296,7 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     alwaysModreduceWhenLevelMismatch();
     annotateLevel();
     annotateDimention();
-    runParamAndVarianceAnalysis();
+    annotateBound();
   }
 };
 
