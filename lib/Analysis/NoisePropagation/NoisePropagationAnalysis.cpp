@@ -65,6 +65,18 @@ LogicalResult VarianceAnalysis::visitOperation(
             propagate(mulOp.getResult(), mult);
             return success();
           })
+          .Case<arith::AddIOp>([&](auto addOp) {
+            auto localParamOpt = getLocalParam(addOp.getResult());
+            if (!localParamOpt.has_value()) {
+              return success();
+            }
+
+            auto localParam = *localParamOpt;
+            Variance add = Variance::evalAdd(operands[0]->getValue(),
+                                             operands[1]->getValue());
+            propagate(addOp.getResult(), add);
+            return success();
+          })
           .Case<mgmt::ModReduceOp>([&](auto modReduceOp) {
             auto localParamOpt = getLocalParam(modReduceOp.getInput());
             if (!localParamOpt.has_value()) {
