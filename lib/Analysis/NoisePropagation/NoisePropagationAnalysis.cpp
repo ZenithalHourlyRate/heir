@@ -1,5 +1,7 @@
 #include "lib/Analysis/NoisePropagation/NoisePropagationAnalysis.h"
 
+#include "lib/Analysis/NoisePropagation/ParamAnalysis.h"
+#include "lib/Dialect/Mgmt/IR/MgmtOps.h"
 #include "lib/Dialect/Secret/IR/SecretOps.h"
 #include "llvm/include/llvm/ADT/TypeSwitch.h"          // from @llvm-project
 #include "llvm/include/llvm/Support/Debug.h"           // from @llvm-project
@@ -12,36 +14,84 @@
 namespace mlir {
 namespace heir {
 
-LogicalResult NoiseStatesAnalysis::visitOperation(
-    Operation *op, ArrayRef<const VarianceStatesLattice *> operands,
-    ArrayRef<VarianceStatesLattice *> results) {
-  llvm::TypeSwitch<Operation &>(*op)
-      .Case<secret::GenericOp>([&](auto genericOp) {
-        Block *body = genericOp.getBody();
-        LLVM_DEBUG(llvm::dbgs() << "Visiting secret genericOp with block arg "
-                                << body->getArguments().size() << "\n");
-        // auto maxMulDepth = 0;
-        // if (auto depthAttr =
-        //         llvm::dyn_cast<IntegerAttr>(genericOp->getAttr("depth"))) {
-        //   maxMulDepth = depthAttr.getValue().getLimitedValue();
-        // }
-        int index = 0;
-        for (Value &arg : body->getArguments()) {
-          // auto vss = VarianceStates::evalEncryptPk(
-          //     65537, maxMulDepth, "enc" + std::to_string(index++));
-          // // LLVM_DEBUG(llvm::dbgs() << "enc value " << arg << " contained "
-          // <<
-          // // vss.getResult() << " vss " << &vss << "\n");
-          // propagate(arg, vss);
-        }
-      })
-      .Case<arith::MulIOp>([&](auto mulOp) {
-        // LLVM_DEBUG(llvm::dbgs() << "Visiting mult op " << mulOp << "\n");
-        // auto vss = VarianceStates::evalMultNoRelin(operands[0]->getValue(),
-        //                                            operands[1]->getValue());
-        // propagate(op->getResult(0), vss);
-      });
-  return success();
+LogicalResult VarianceAnalysis::visitOperation(
+    Operation *op, ArrayRef<const VarianceLattice *> operands,
+    ArrayRef<VarianceLattice *> results) {
+  auto getLocalParam = [&](Value value) -> std::optional<LocalParam> {
+    auto paramLattice =
+        getOrCreateFor<ParamLattice>(getProgramPointBefore(op), value);
+    if (paramLattice->getValue().isInitialized()) {
+      return paramLattice->getValue().getLocalParam();
+    }
+    return std::nullopt;
+  };
+
+  auto propagate = [&](Value value, Variance variance) {
+    auto localParam = getLocalParam(value).value();
+
+    LLVM_DEBUG(llvm::dbgs() << "Propagating " << localParam.toBound(variance)
+                            << " to " << value << "\n");
+    auto lattice = getLatticeElement(value);
+    auto changeResult = lattice->join(variance);
+    propagateIfChanged(lattice, changeResult);
+  };
+
+  auto res =
+      llvm::TypeSwitch<Operation &, LogicalResult>(*op)
+          .Case<secret::GenericOp>([&](auto genericOp) {
+            Block *body = genericOp.getBody();
+            for (Value &arg : body->getArguments()) {
+              auto localParamOpt = getLocalParam(arg);
+              if (!localParamOpt.has_value()) {
+                return success();
+              }
+
+              auto localParam = *localParamOpt;
+
+              Variance encrypted = Variance::evalEncryptPk(localParam);
+              propagate(arg, encrypted);
+            }
+            return success();
+          })
+          .Case<arith::MulIOp>([&](auto mulOp) {
+            auto localParamOpt = getLocalParam(mulOp.getResult());
+            if (!localParamOpt.has_value()) {
+              return success();
+            }
+
+            auto localParam = *localParamOpt;
+            Variance mult = Variance::evalMultNoRelin(
+                localParam, operands[0]->getValue(), operands[1]->getValue());
+            propagate(mulOp.getResult(), mult);
+            return success();
+          })
+          .Case<mgmt::ModReduceOp>([&](auto modReduceOp) {
+            auto localParamOpt = getLocalParam(modReduceOp.getInput());
+            if (!localParamOpt.has_value()) {
+              return success();
+            }
+
+            auto localParam = *localParamOpt;
+            Variance modReduce =
+                Variance::evalModReduce(localParam, operands[0]->getValue());
+            propagate(modReduceOp.getResult(), modReduce);
+            return success();
+          })
+          .Case<mgmt::RelinearizeOp>([&](auto relinearizeOp) {
+            auto localParamOpt = getLocalParam(relinearizeOp.getInput());
+            if (!localParamOpt.has_value()) {
+              return success();
+            }
+
+            auto localParam = *localParamOpt;
+            // TODO: GHS
+            Variance relinearize = Variance::evalRelinearizeBV(
+                localParam, operands[0]->getValue());
+            propagate(relinearizeOp.getResult(), relinearize);
+            return success();
+          })
+          .Default([&](auto &op) { return success(); });
+  return res;
 }
 
 }  // namespace heir

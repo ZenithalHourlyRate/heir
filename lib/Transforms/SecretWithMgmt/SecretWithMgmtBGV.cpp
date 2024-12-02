@@ -1,4 +1,5 @@
 #include "lib/Analysis/MulDepthAnalysis/MulDepthAnalysis.h"
+#include "lib/Analysis/NoisePropagation/NoisePropagationAnalysis.h"
 #include "lib/Analysis/NoisePropagation/ParamAnalysis.h"
 #include "lib/Analysis/SecretnessAnalysis/SecretnessAnalysis.h"
 #include "lib/Dialect/Mgmt/IR/MgmtOps.h"
@@ -243,11 +244,12 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     });
   }
 
-  void runParamAnalysis() {
+  void runParamAndVarianceAnalysis() {
     DataFlowSolver solver;
     solver.load<dataflow::DeadCodeAnalysis>();
     solver.load<dataflow::SparseConstantPropagation>();
     solver.load<ParamAnalysis>();
+    solver.load<VarianceAnalysis>();
     if (failed(solver.initializeAndRun(getOperation()))) {
       getOperation()->emitOpError() << "Failed to run the analysis.\n";
       signalPassFailure();
@@ -265,7 +267,7 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     alwaysModreduceWhenLevelMismatch();
     annotateLevel();
     annotateDimention();
-    runParamAnalysis();
+    runParamAndVarianceAnalysis();
   }
 };
 
