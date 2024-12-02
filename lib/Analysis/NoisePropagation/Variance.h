@@ -15,6 +15,9 @@
 namespace mlir {
 namespace heir {
 
+// forward declaration
+class LocalParam;
+
 enum VarianceType {
   // A min value for the lattice, discarable when joined with anything else.
   UNINITIALIZED,
@@ -119,18 +122,18 @@ class Variance {
 
   // std0: std error of e distribution
   // assumed UNIFORM_TENARY secret distribution
-  static Variance evalEncryptPk(double n, double t, double std0);
+  static Variance evalEncryptPk(const LocalParam &param);
   static Variance evalAdd(const Variance &lhs, const Variance &rhs);
-  static Variance evalMultNoRelin(const Variance &lhs, const Variance &rhs,
-                                  double n, double t);
+  static Variance evalMultNoRelin(const LocalParam &resultParam,
+                                  const Variance &lhs, const Variance &rhs);
   // l: number of digit
   // beta: base
-  static Variance evalModUp(const Variance &input, double modulus, double n,
-                            double t, int cv);
-  static Variance evalRelinearizeBV(const Variance &input, double n, double t,
-                                    double std0, double numDigit, double beta);
-  static Variance evalModReduce(const Variance &input, double modulus, double n,
-                                double t, int cv);
+  static Variance evalModUp(const LocalParam &inputParam,
+                            const Variance &input);
+  static Variance evalRelinearizeBV(const LocalParam &inputParam,
+                                    const Variance &input);
+  static Variance evalModReduce(const LocalParam &inputParam,
+                                const Variance &input);
   // static Variance evalRotate(const Variance &input, double n, double t,
   // double std0, double numDigit, double beta);
 

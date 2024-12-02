@@ -36,7 +36,7 @@ LogicalResult ParamAnalysis::visitOperation(
               }
               auto level = levelAttr.getValue().getLimitedValue();
               auto schemeParam = SchemeParamsFactory::getSchemeParam(
-                  level, 0, 2, 65537, 55, 2);
+                  level, 30, 0, 65537, 55, 2);
               auto localParam = LocalParamFactory::getLocalParam(schemeParam, 2,
                                                                  level, false);
 

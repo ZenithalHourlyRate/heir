@@ -40,6 +40,8 @@ class SchemeParam {
   int alpha;
   std::vector<int> pi;
 
+  double std0 = 3.2;
+
  public:
   double P() const {
     double ret = 0.0;
@@ -144,6 +146,10 @@ class LocalParam {
   bool sameParam(const LocalParam &rhs) const { return *p == *rhs.p; }
 
   const SchemeParam *getSchemeParam() const { return p; };
+
+  int getDimension() const { return cv; }
+  int getLevel() const { return l; }
+  bool getGHS() const { return ghs; }
 
   Variance bound(const Variance &v) const {
     if (v.logAlphaBound(p->n) >= p->logQlP(l, ghs) - 1) {

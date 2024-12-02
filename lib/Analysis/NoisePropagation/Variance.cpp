@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "lib/Analysis/NoisePropagation/Params.h"
 #include "llvm/include/llvm/Support/Debug.h"        // from @llvm-project
 #include "llvm/include/llvm/Support/raw_ostream.h"  // from @llvm-project
 
@@ -96,7 +97,10 @@ static int VariancePower(int cv) {
   return termLeft - termRight;
 }
 
-Variance Variance::evalEncryptPk(double n, double t, double std0) {
+Variance Variance::evalEncryptPk(const LocalParam &param) {
+  auto n = param.getSchemeParam()->n;
+  auto t = param.getSchemeParam()->t;
+  auto std0 = param.getSchemeParam()->std0;
   double variance0 = std0 * std0;
   // assumed UNIFORM_TENARY
   double encrypt = variance0 * t * t * (4.0 * n / 3 + 1);
@@ -107,16 +111,24 @@ Variance Variance::evalEncryptPk(double n, double t, double std0) {
 Variance Variance::evalAdd(const Variance &lhs, const Variance &rhs) {
   return lhs + rhs;
 }
-Variance Variance::evalMultNoRelin(const Variance &lhs, const Variance &rhs,
-                                   double n, double t) {
+Variance Variance::evalMultNoRelin(const LocalParam &resultParam,
+                                   const Variance &lhs, const Variance &rhs) {
+  auto n = resultParam.getSchemeParam()->n;
+  auto t = resultParam.getSchemeParam()->t;
   // component m_i uniform mod t, giving |m| \approx n*(t^2-1)/12
   return Variance::of(lhs.getValue() * rhs.getValue() * n +
                       lhs.getValue() * n * (t * t - 1) / 12 +
                       rhs.getValue() * n * (t * t - 1) / 12);
 }
 
-Variance Variance::evalModUp(const Variance &input, double modulus, double n,
-                             double t, int cv) {
+Variance Variance::evalModUp(const LocalParam &inputParam,
+                             const Variance &input) {
+  auto n = inputParam.getSchemeParam()->n;
+  auto t = inputParam.getSchemeParam()->t;
+  auto cv = inputParam.getDimension();
+  // FIXME : only for GHS
+  double modulus = inputParam.getSchemeParam()->P();
+
   double sVarianceTerm = 1.0;         // s^0
   double sVariances = sVarianceTerm;  // total
   // assumed UNIFORM_TENARY
@@ -130,8 +142,13 @@ Variance Variance::evalModUp(const Variance &input, double modulus, double n,
   return Variance::of(input.getValue() * (modulus * modulus) + added);
 }
 
-Variance Variance::evalModReduce(const Variance &input, double modulus,
-                                 double n, double t, int cv) {
+Variance Variance::evalModReduce(const LocalParam &inputParam,
+                                 const Variance &input) {
+  auto n = inputParam.getSchemeParam()->n;
+  auto t = inputParam.getSchemeParam()->t;
+  auto cv = inputParam.getDimension();
+  double modulus = 1L << inputParam.getSchemeParam()->qi[inputParam.getLevel()];
+
   double sVarianceTerm = 1.0;         // s^0
   double sVariances = sVarianceTerm;  // total
   // assumed UNIFORM_TENARY
@@ -148,9 +165,15 @@ Variance Variance::evalModReduce(const Variance &input, double modulus,
   return Variance::of(scaled + added);
 }
 
-Variance Variance::evalRelinearizeBV(const Variance &input, double n, double t,
-                                     double std0, double numDigit,
-                                     double beta) {
+Variance Variance::evalRelinearizeBV(const LocalParam &inputParam,
+                                     const Variance &input) {
+  auto n = inputParam.getSchemeParam()->n;
+  auto t = inputParam.getSchemeParam()->t;
+  auto std0 = inputParam.getSchemeParam()->std0;
+  auto numDigit = inputParam.getSchemeParam()->numDigit(inputParam.getLevel(),
+                                                        inputParam.getGHS());
+  auto beta = inputParam.getSchemeParam()->digit();
+
   double variance0 = std0 * std0;
   double term1 = variance0 * t * t * n / 12.0;
   double term2 = numDigit * beta * beta;
