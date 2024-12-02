@@ -141,12 +141,14 @@ struct SecretToBGV : public impl::SecretToBGVBase<SecretToBGV> {
 
     addStructuralConversionPatterns(typeConverter, patterns, target);
     patterns.add<
-        SecretGenericOpCipherConversion<arith::AddIOp, bgv::AddOp>,
+        // SecretGenericOpCipherConversion<arith::AddIOp, bgv::AddOp>,
         SecretGenericOpCipherConversion<arith::SubIOp, bgv::SubOp>,
         SecretGenericOpConversion<tensor::ExtractOp, bgv::ExtractOp>,
         SecretGenericOpRotateConversion<bgv::RotateOp>,
-        SecretGenericOpMulConversion<arith::MulIOp, bgv::MulOp,
-                                     bgv::RelinearizeOp>,
+        SecretGenericOpMyConversion<arith::AddIOp, bgv::MyAddOp>,
+        SecretGenericOpMyConversion<arith::MulIOp, bgv::MyMulOp>,
+        SecretGenericOpMyConversion<mgmt::RelinearizeOp, bgv::MyRelinearizeOp>,
+        SecretGenericOpMyConversion<mgmt::ModReduceOp, bgv::MyModulusSwitchOp>,
         SecretGenericOpCipherPlainConversion<arith::AddIOp, bgv::AddPlainOp>,
         SecretGenericOpCipherPlainConversion<arith::SubIOp, bgv::SubPlainOp>,
         SecretGenericOpCipherPlainConversion<arith::MulIOp, bgv::MulPlainOp>>(

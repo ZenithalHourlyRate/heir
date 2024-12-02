@@ -63,6 +63,99 @@ struct ConvertModulusSwitchOp : public OpConversionPattern<ModulusSwitchOp> {
   }
 };
 
+struct ConvertMyMulOp : public OpConversionPattern<MyMulOp> {
+  ConvertMyMulOp(mlir::MLIRContext *context)
+      : OpConversionPattern<MyMulOp>(context) {}
+
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(
+      MyMulOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    FailureOr<Value> result = getContextualCryptoContext(op.getOperation());
+    if (failed(result)) return result;
+
+    Value cryptoContext = result.value();
+    auto boundAttr = op->getAttr("bound");
+    auto mul = rewriter.create<openfhe::MulNoRelinOp>(
+        op.getLoc(), op.getOutput().getType(), cryptoContext, adaptor.getLhs(),
+        adaptor.getRhs());
+    mul->setAttr("bound", boundAttr);
+    rewriter.replaceOp(op, mul);
+    return success();
+  }
+};
+
+struct ConvertMyAddOp : public OpConversionPattern<MyAddOp> {
+  ConvertMyAddOp(mlir::MLIRContext *context)
+      : OpConversionPattern<MyAddOp>(context) {}
+
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(
+      MyAddOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    FailureOr<Value> result = getContextualCryptoContext(op.getOperation());
+    if (failed(result)) return result;
+
+    Value cryptoContext = result.value();
+    auto boundAttr = op->getAttr("bound");
+    auto add = rewriter.create<openfhe::AddOp>(
+        op.getLoc(), op.getOutput().getType(), cryptoContext, adaptor.getLhs(),
+        adaptor.getRhs());
+    add->setAttr("bound", boundAttr);
+    rewriter.replaceOp(op, add);
+    return success();
+  }
+};
+
+struct ConvertMyRelinOp : public OpConversionPattern<MyRelinearizeOp> {
+  ConvertMyRelinOp(mlir::MLIRContext *context)
+      : OpConversionPattern<MyRelinearizeOp>(context) {}
+
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(
+      MyRelinearizeOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    FailureOr<Value> result = getContextualCryptoContext(op.getOperation());
+    if (failed(result)) return result;
+
+    Value cryptoContext = result.value();
+    auto boundAttr = op->getAttr("bound");
+    auto relin =
+        rewriter.create<openfhe::RelinOp>(op.getLoc(), op.getOutput().getType(),
+                                          cryptoContext, adaptor.getInput());
+    relin->setAttr("bound", boundAttr);
+    rewriter.replaceOp(op, relin);
+    return success();
+  }
+};
+
+struct ConvertMyModulusSwitchOp
+    : public OpConversionPattern<MyModulusSwitchOp> {
+  ConvertMyModulusSwitchOp(mlir::MLIRContext *context)
+      : OpConversionPattern<MyModulusSwitchOp>(context) {}
+
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(
+      MyModulusSwitchOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    FailureOr<Value> result = getContextualCryptoContext(op.getOperation());
+    if (failed(result)) return result;
+
+    Value cryptoContext = result.value();
+    auto boundAttr = op->getAttr("bound");
+    auto modswitch = rewriter.create<openfhe::ModReduceOp>(
+        op.getLoc(), op.getOutput().getType(), cryptoContext,
+        adaptor.getInput());
+    modswitch->setAttr("bound", boundAttr);
+    rewriter.replaceOp(op, modswitch);
+    return success();
+  }
+};
+
 struct BGVToOpenfhe : public impl::BGVToOpenfheBase<BGVToOpenfhe> {
   void runOnOperation() override {
     MLIRContext *context = &getContext();
@@ -88,12 +181,13 @@ struct BGVToOpenfhe : public impl::BGVToOpenfheBase<BGVToOpenfhe> {
               hasCryptoContextArg);
     });
 
-    patterns.add<AddCryptoContextArg<bgv::BGVDialect>, ConvertAddOp,
-                 ConvertSubOp, ConvertAddPlainOp, ConvertMulOp,
-                 ConvertMulPlainOp, ConvertNegateOp, ConvertRotateOp,
-                 ConvertRelinOp, ConvertModulusSwitchOp, ConvertExtractOp,
-                 lwe::ConvertEncryptOp, lwe::ConvertDecryptOp>(typeConverter,
-                                                               context);
+    patterns
+        .add<AddCryptoContextArg<bgv::BGVDialect>, ConvertSubOp, ConvertMulOp,
+             ConvertAddPlainOp, ConvertMulPlainOp, ConvertNegateOp, ConvertRotateOp,
+             ConvertRelinOp, ConvertModulusSwitchOp, ConvertMyMulOp,
+             ConvertMyAddOp, ConvertMyRelinOp, ConvertMyModulusSwitchOp,
+             ConvertExtractOp, lwe::ConvertEncryptOp, lwe::ConvertDecryptOp>(
+            typeConverter, context);
     patterns.add<lwe::ConvertEncodeOp>(typeConverter, context, /*ckks=*/false);
 
     if (failed(applyPartialConversion(module, target, std::move(patterns)))) {

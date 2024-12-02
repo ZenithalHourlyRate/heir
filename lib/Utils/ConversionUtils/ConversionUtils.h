@@ -8,6 +8,7 @@
 #include "lib/Dialect/TensorExt/IR/TensorExtOps.h"
 #include "llvm/include/llvm/ADT/STLExtras.h"            // from @llvm-project
 #include "llvm/include/llvm/Support/Casting.h"          // from @llvm-project
+#include "llvm/include/llvm/Support/Debug.h"            // from @llvm-project
 #include "mlir/include/mlir/Dialect/Arith/IR/Arith.h"   // from @llvm-project
 #include "mlir/include/mlir/Dialect/Func/IR/FuncOps.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Attributes.h"            // from @llvm-project
@@ -185,6 +186,34 @@ class SecretGenericOpCipherPlainConversion
         ciphertextTy.getRlweParams().getRing());
 
     rewriter.replaceOpWithNewOp<Y>(op, ciphertext, plaintext);
+    return success();
+  }
+};
+
+template <typename M, typename T>
+class SecretGenericOpMyConversion : public SecretGenericOpConversion<M, T> {
+ public:
+  using SecretGenericOpConversion<M, T>::SecretGenericOpConversion;
+
+  LogicalResult matchAndRewriteInner(
+      secret::GenericOp op, TypeRange outputTypes, ValueRange inputs,
+      ArrayRef<NamedAttribute> attributes,
+      ConversionPatternRewriter &rewriter) const override {
+    auto plaintextValues =
+        llvm::to_vector(llvm::make_filter_range(inputs, [&](Value input) {
+          return !isa<lwe::RLWECiphertextType>(input.getType());
+        }));
+    if (!plaintextValues.empty()) {
+      return failure();
+    }
+    auto boundAttr = op.getBody()->front().getAttr("bound");
+
+    ImplicitLocOpBuilder b(op->getLoc(), rewriter);
+    auto res = b.create<T>(inputs);
+
+    res->setAttr("bound", boundAttr);
+
+    rewriter.replaceOp(op, res);
     return success();
   }
 };
