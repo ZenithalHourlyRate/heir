@@ -286,6 +286,47 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     });
   }
 
+  void annotateSchemeParams() {
+    DataFlowSolver solver;
+    solver.load<dataflow::DeadCodeAnalysis>();
+    solver.load<dataflow::SparseConstantPropagation>();
+    solver.load<ParamAnalysis>();
+    if (failed(solver.initializeAndRun(getOperation()))) {
+      getOperation()->emitOpError() << "Failed to run the analysis.\n";
+      signalPassFailure();
+      return;
+    }
+
+    auto getIntegerAttr = [&](int64_t n) {
+      return IntegerAttr::get(IntegerType::get(&getContext(), 64), n);
+    };
+    auto getStringAttr = [&](std::string str) {
+      return StringAttr::get(&getContext(), str);
+    };
+
+    getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
+      auto blockArg0 = genericOp.getBody()->getArgument(0);
+      auto &param = solver.lookupState<ParamLattice>(blockArg0)->getValue();
+      if (!param.isInitialized()) {
+        return;
+      }
+      auto schemeParam = param.getLocalParam().getSchemeParam();
+
+      // FIXME: better way to get funcOp
+      auto funcOp = genericOp->getParentOp();
+      funcOp->setAttr("ringDim", getIntegerAttr(schemeParam->n));
+      funcOp->setAttr("multiplicativeDepth", getIntegerAttr(schemeParam->L));
+      funcOp->setAttr("plaintextModulus", getIntegerAttr(schemeParam->t));
+      funcOp->setAttr("maxRelinSkDeg",
+                      getIntegerAttr(schemeParam->maxRelinSkDeg));
+      funcOp->setAttr("scalingModSize", getIntegerAttr(schemeParam->qi[0]));
+      funcOp->setAttr("keySwitchTechnique",
+                      getStringAttr(schemeParam->dnum != 0 ? "HYBRID" : "BV"));
+      funcOp->setAttr("digitSize", getIntegerAttr(schemeParam->digitSize));
+      funcOp->setAttr("numLargeDigits", getIntegerAttr(schemeParam->dnum));
+    });
+  }
+
   void runOnOperation() override {
     ModuleOp module = getOperation();
     OpBuilder builder(module);
@@ -297,6 +338,7 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     annotateLevel();
     annotateDimention();
     annotateBound();
+    annotateSchemeParams();
   }
 };
 
