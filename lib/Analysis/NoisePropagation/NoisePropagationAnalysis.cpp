@@ -54,6 +54,17 @@ LogicalResult NoiseAnalysis::visitOperation(
             }
             return success();
           })
+          .Case<arith::ConstantOp>([&](auto constantOp) {
+            auto localParamOpt = getLocalParam(constantOp.getResult());
+            if (!localParamOpt.has_value()) {
+              return success();
+            }
+
+            auto localParam = *localParamOpt;
+            NoiseType constant = NoiseType::evalConstant(localParam);
+            propagate(constantOp.getResult(), constant);
+            return success();
+          })
           .Case<arith::MulIOp>([&](auto mulOp) {
             auto localParamOpt = getLocalParam(mulOp.getResult());
             if (!localParamOpt.has_value()) {

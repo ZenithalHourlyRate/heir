@@ -83,6 +83,22 @@ LogicalResult ParamAnalysis::visitOperation(
             }
             return success();
           })
+          .Case<arith::ConstantOp>([&](auto constantOp) {
+            auto levelAttr =
+                dyn_cast<IntegerAttr>(constantOp->getAttr("level_scheme"));
+            if (!levelAttr) {
+              return failure();
+            }
+            auto level = levelAttr.getValue().getLimitedValue();
+            auto schemeParam = getDefaultSchemeParam(level);
+            auto localParam =
+                LocalParamFactory::getLocalParam(schemeParam, 2, level);
+
+            LLVM_DEBUG(llvm::dbgs() << "Constant " << constantOp.getResult()
+                                    << " Local param " << *localParam << "\n");
+            propagate(constantOp.getResult(), LocalParamState(*localParam));
+            return success();
+          })
           .Default([&](auto &op) {
             auto attr = op.getAttr("level");
             if (!attr) {

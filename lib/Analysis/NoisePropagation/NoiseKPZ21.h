@@ -94,6 +94,7 @@ class NoiseKPZ {
   static double getBoundErr(const LocalParam &param);
   static double getBoundKey(const LocalParam &param);
 
+  static NoiseKPZ evalConstant(const LocalParam &param);
   // std0: std error of e distribution
   // assumed UNIFORM_TENARY secret distribution
   static NoiseKPZ evalEncryptPk(const LocalParam &param);
