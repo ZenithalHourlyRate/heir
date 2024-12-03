@@ -60,6 +60,11 @@ double NoiseKPZ::getBoundKey(const LocalParam &param) {
   return boundKey;
 }
 
+NoiseKPZ NoiseKPZ::evalConstant(const LocalParam &param) {
+  auto t = param.getSchemeParam()->t;
+  return NoiseKPZ::of(t);
+}
+
 NoiseKPZ NoiseKPZ::evalEncryptPk(const LocalParam &param) {
   auto boundErr = getBoundErr(param);
   auto boundKey = getBoundKey(param);

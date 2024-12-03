@@ -86,6 +86,11 @@ Diagnostic &operator<<(Diagnostic &diagnostic, const Variance &variance) {
   return diagnostic << variance.toString();
 }
 
+Variance Variance::evalConstant(const LocalParam &param) {
+  auto t = param.getSchemeParam()->t;
+  return Variance::of(double(t) * t / 12.0);
+}
+
 Variance Variance::evalEncryptPk(const LocalParam &param) {
   auto n = param.getSchemeParam()->n;
   auto t = param.getSchemeParam()->t;

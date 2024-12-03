@@ -145,7 +145,7 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     });
   }
 
-  void annotateLevel() {
+  int annotateLevel() {
     // we use 0 to L+1 for now; finally reverse to get L+1 to 0
     DenseMap<Value, int> levelMap;
 
@@ -200,9 +200,11 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
                                      levelMap.at(result)));
       });
     });
+
+    return maxLevel;
   }
 
-  void annotatePlaintextLevel() {
+  void annotatePlaintextLevel(int maxLevel) {
     DataFlowSolver solver;
     solver.load<dataflow::DeadCodeAnalysis>();
     solver.load<dataflow::SparseConstantPropagation>();
@@ -230,6 +232,10 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
             operand.getDefiningOp()->setAttr(
                 "level_pt",
                 IntegerAttr::get(IntegerType::get(&getContext(), 64), level));
+            operand.getDefiningOp()->setAttr(
+                "level_scheme",
+                IntegerAttr::get(IntegerType::get(&getContext(), 64),
+                                 maxLevel));
           }
         }
       });
@@ -368,8 +374,8 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     // NOTE: not used for now
     // rotationAlwaysRelinearize();
     alwaysModreduceWhenLevelMismatch();
-    annotateLevel();
-    annotatePlaintextLevel();
+    auto maxLevel = annotateLevel();
+    annotatePlaintextLevel(maxLevel);
     annotateDimension();
     annotateBound();
     annotateSchemeParams();

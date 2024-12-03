@@ -121,6 +121,7 @@ class Variance {
     return Variance::of(std::min(lhs.getValue(), rhs.getValue()));
   }
 
+  static Variance evalConstant(const LocalParam &param);
   // std0: std error of e distribution
   // assumed UNIFORM_TENARY secret distribution
   static Variance evalEncryptPk(const LocalParam &param);
