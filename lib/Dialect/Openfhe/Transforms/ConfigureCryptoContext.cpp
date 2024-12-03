@@ -109,6 +109,18 @@ LogicalResult generateGenFunc(func::FuncOp op, const std::string &genFuncName,
       openfheContextType, ccParams,
       BoolAttr::get(builder.getContext(), hasBootstrapOp));
 
+  auto setAttr = [&](std::string name) {
+    if (auto attr = op->getAttr(name)) {
+      ccParams.getDefiningOp()->setAttr(name, attr);
+    }
+  };
+  setAttr("ringDim");
+  setAttr("maxRelinSkDeg");
+  setAttr("scalingModSize");
+  setAttr("keySwitchTechnique");
+  setAttr("digitSize");
+  setAttr("numLargeDigits");
+
   builder.create<func::ReturnOp>(cryptoContext);
   return success();
 }

@@ -205,6 +205,22 @@ LogicalResult OpenFhePkeEmitter::printEvalMethod(
     return variableNames->getNameForValue(value);
   });
   os << ");\n";
+
+  os << "EvalNoiseBGV(";
+  os << variableNames->getNameForValue(cryptoContext);
+  os << ", secretKey, ";
+  os << variableNames->getNameForValue(result);
+  os << ", ";
+  os << result.getDefiningOp()->getAttr("bound");
+  os << ", \"";
+  os << variableNames->getNameForValue(result);
+  os << "=";
+  os << op;
+  os << " ";
+  os << commaSeparatedValues(nonEvalOperands, [&](Value value) {
+    return variableNames->getNameForValue(value);
+  });
+  os << "\");\n";
   return success();
 }
 
@@ -278,9 +294,21 @@ LogicalResult OpenFhePkeEmitter::printOperation(RotOp op) {
   emitAutoAssignPrefix(op.getResult());
 
   os << variableNames->getNameForValue(op.getCryptoContext()) << "->"
-     << "EvalRotate" << "("
-     << variableNames->getNameForValue(op.getCiphertext()) << ", "
+     << "EvalRotate"
+     << "(" << variableNames->getNameForValue(op.getCiphertext()) << ", "
      << op.getIndex().getValue() << ");\n";
+
+  os << "EvalNoiseBGV(";
+  os << variableNames->getNameForValue(op.getCryptoContext());
+  os << ", secretKey, ";
+  os << variableNames->getNameForValue(op.getCiphertext());
+  os << ", \"";
+  os << "EvalRotate";
+  os << " ";
+  os << variableNames->getNameForValue(op.getCiphertext());
+  os << ", ";
+  os << op.getIndex().getValue();
+  os << "\");\n";
   return success();
 }
 
@@ -682,6 +710,20 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
   int64_t mulDepth = op.getMulDepthAttr().getValue().getSExtValue();
   int64_t plainMod = op.getPlainModAttr().getValue().getSExtValue();
 
+  auto getIntOrDefault = [&](std::string name, int64_t def) {
+    if (auto attr = op->getAttr(name)) {
+      def = llvm::dyn_cast<IntegerAttr>(attr).getValue().getSExtValue();
+    }
+    return std::to_string(def);
+  };
+
+  auto getStringOrDefault = [&](std::string name, std::string def) {
+    if (auto attr = op->getAttr(name)) {
+      def = llvm::dyn_cast<StringAttr>(attr).getValue().str();
+    }
+    return def;
+  };
+
   os << "CCParamsT " << paramsName << ";\n";
   os << paramsName << ".SetMultiplicativeDepth(" << mulDepth << ");\n";
   if (plainMod != 0) {
@@ -691,6 +733,20 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
     os << paramsName << ".SetSecurityLevel(lbcrypto::HEStd_NotSet);\n";
     os << paramsName << ".SetRingDim(128);\n";
   }
+
+  os << paramsName << ".SetSecurityLevel(HEStd_NotSet);\n";
+  os << paramsName << ".SetRingDim(" << getIntOrDefault("ringDim", 0) << ");\n";
+  os << paramsName << ".SetMaxRelinSkDeg("
+     << getIntOrDefault("maxRelinSkDeg", 0) << ");\n";
+  os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
+  os << paramsName << ".SetScalingModSize("
+     << getIntOrDefault("scalingModSize", 0) << ");\n";
+  os << paramsName << ".SetKeySwitchTechnique("
+     << getStringOrDefault("keySwitchTechnique", "HYBRID") << ");\n";
+  os << paramsName << ".SetDigitSize(" << getIntOrDefault("digitSize", 0)
+     << ");\n";
+  os << paramsName << ".SetNumLargeDigits("
+     << getIntOrDefault("numLargeDigits", 0) << ");\n";
   return success();
 }
 
