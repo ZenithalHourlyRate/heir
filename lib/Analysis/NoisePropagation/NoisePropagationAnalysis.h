@@ -11,7 +11,7 @@
 namespace mlir {
 namespace heir {
 
-#define NoiseType NoiseKPZ
+#define NoiseType Variance
 
 /// This lattice element represents the noise distribution of an SSA value.
 class NoiseLattice : public dataflow::Lattice<NoiseType> {

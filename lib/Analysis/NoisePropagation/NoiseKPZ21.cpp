@@ -84,20 +84,22 @@ NoiseKPZ NoiseKPZ::evalMultNoRelin(const LocalParam &resultParam,
 
 NoiseKPZ NoiseKPZ::evalModReduce(const LocalParam &inputParam,
                                  const NoiseKPZ &input) {
+  auto cv = inputParam.getDimension();
+  assert(cv == 2);
   double modulus = 1L << inputParam.getSchemeParam()->qi[inputParam.getLevel()];
 
   auto expansionFactor = getExpansionFactor(inputParam);
   auto boundKey = getBoundKey(inputParam);
 
-  auto scaled = input.getValue() / (modulus * modulus);
+  auto scaled = input.getValue() / modulus;
   auto added = (1.0 + expansionFactor * boundKey) / 2;
   return NoiseKPZ::of(scaled + added);
 }
 
 NoiseKPZ NoiseKPZ::evalRelinearizeBV(const LocalParam &inputParam,
                                      const NoiseKPZ &input) {
-  auto numDigit = inputParam.getSchemeParam()->numDigit(inputParam.getLevel(),
-                                                        inputParam.getGHS());
+  auto numDigit =
+      inputParam.getSchemeParam()->numDigit(inputParam.getLevel(), false);
   auto beta = inputParam.getSchemeParam()->digit();
   auto expansionFactor = getExpansionFactor(inputParam);
   auto boundErr = getBoundErr(inputParam);
@@ -107,10 +109,40 @@ NoiseKPZ NoiseKPZ::evalRelinearizeBV(const LocalParam &inputParam,
   return NoiseKPZ::of(input.getValue() + boundKeySwitch);
 }
 
-// NoiseKPZ NoiseKPZ::evalRotate(const NoiseKPZ &input, double n, double t,
-// double std0, double numDigit, double beta) {
-//     return NoiseKPZ::evalRelinearize(input, n, t, std0, numDigit, beta);
-// }
+NoiseKPZ NoiseKPZ::evalRelinearizeHYBRID(const LocalParam &inputParam,
+                                         const NoiseKPZ &input) {
+  auto numDigit =
+      inputParam.getSchemeParam()->numDigit(inputParam.getLevel(), true);
+  auto beta = inputParam.getSchemeParam()->digit();
+  auto expansionFactor = getExpansionFactor(inputParam);
+  auto boundErr = getBoundErr(inputParam);
+  auto boundKey = getBoundKey(inputParam);
+
+  auto boundKeySwitch = numDigit * beta * expansionFactor * boundErr / 2.0;
+  // TODO: assert boundKeySwitch <= logQlP
+  // actually if > logQlP then scaled > logQl
+
+  auto scaled = boundKeySwitch / inputParam.getSchemeParam()->P();
+
+  // pi times, mod down
+  auto added = inputParam.getSchemeParam()->pi.size() *
+               (1.0 + expansionFactor * boundKey) / 2;
+
+  return NoiseKPZ::of(input.getValue() + scaled + added);
+}
+
+NoiseKPZ NoiseKPZ::evalRelinearize(const LocalParam &inputParam,
+                                   const NoiseKPZ &input) {
+  if (inputParam.getSchemeParam()->dnum == 0) {
+    return NoiseKPZ::evalRelinearizeBV(inputParam, input);
+  }
+  return NoiseKPZ::evalRelinearizeHYBRID(inputParam, input);
+}
+
+NoiseKPZ NoiseKPZ::evalRotate(const LocalParam &inputParam,
+                              const NoiseKPZ &input) {
+  return NoiseKPZ::evalRelinearize(inputParam, input);
+}
 
 }  // namespace heir
 }  // namespace mlir

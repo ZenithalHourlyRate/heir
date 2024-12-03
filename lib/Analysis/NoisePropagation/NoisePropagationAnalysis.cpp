@@ -3,6 +3,7 @@
 #include "lib/Analysis/NoisePropagation/ParamAnalysis.h"
 #include "lib/Dialect/Mgmt/IR/MgmtOps.h"
 #include "lib/Dialect/Secret/IR/SecretOps.h"
+#include "lib/Dialect/TensorExt/IR/TensorExtOps.h"
 #include "llvm/include/llvm/ADT/TypeSwitch.h"          // from @llvm-project
 #include "llvm/include/llvm/Support/Debug.h"           // from @llvm-project
 #include "mlir/include/mlir/Dialect/Arith/IR/Arith.h"  // from @llvm-project
@@ -71,6 +72,18 @@ LogicalResult NoiseAnalysis::visitOperation(
             propagate(addOp.getResult(), add);
             return success();
           })
+          .Case<tensor_ext::RotateOp>([&](auto rotateOp) {
+            auto localParamOpt = getLocalParam(rotateOp.getOperand(0));
+            if (!localParamOpt.has_value()) {
+              return success();
+            }
+
+            auto localParam = *localParamOpt;
+            NoiseType rotate =
+                NoiseType::evalRotate(localParam, operands[0]->getValue());
+            propagate(rotateOp.getResult(), rotate);
+            return success();
+          })
           .Case<mgmt::ModReduceOp>([&](auto modReduceOp) {
             auto localParamOpt = getLocalParam(modReduceOp.getInput());
             if (!localParamOpt.has_value()) {
@@ -90,9 +103,8 @@ LogicalResult NoiseAnalysis::visitOperation(
             }
 
             auto localParam = *localParamOpt;
-            // TODO: GHS
-            NoiseType relinearize = NoiseType::evalRelinearizeBV(
-                localParam, operands[0]->getValue());
+            NoiseType relinearize =
+                NoiseType::evalRelinearize(localParam, operands[0]->getValue());
             propagate(relinearizeOp.getResult(), relinearize);
             return success();
           })

@@ -79,7 +79,7 @@ bool SchemeParam::operator<(const SchemeParam &rhs) const {
 }
 
 SchemeParam SchemeParamsFactory::genParam(int depth, int digitSize, int dnum,
-                                          int t, int qiSize,
+                                          int64_t t, int qiSize,
                                           int maxRelinSkDeg) {
   for (auto &p : HEStd_128_classic) {
     int maxQ = p.maxQ;
@@ -113,11 +113,8 @@ SchemeParam SchemeParamsFactory::genParam(int depth, int digitSize, int dnum,
       budget -= width;
     }
 
-    if (digitSize == 0) {
-      param.digitSize = param.qi[0];
-    }
-
-    if (dnum == 0) {
+    if (dnum == 0 && digitSize != 0) {
+      assert(param.digitSize <= param.qi[0]);
       param.digitPerQi = ceil(double(param.qi[0]) / param.digitSize);
     }
 

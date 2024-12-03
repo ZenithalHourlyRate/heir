@@ -102,14 +102,16 @@ class NoiseKPZ {
                                   const NoiseKPZ &lhs, const NoiseKPZ &rhs);
   // l: number of digit
   // beta: base
-  static NoiseKPZ evalModUp(const LocalParam &inputParam,
-                            const NoiseKPZ &input);
   static NoiseKPZ evalRelinearizeBV(const LocalParam &inputParam,
                                     const NoiseKPZ &input);
+  static NoiseKPZ evalRelinearizeHYBRID(const LocalParam &inputParam,
+                                        const NoiseKPZ &input);
+  static NoiseKPZ evalRelinearize(const LocalParam &inputParam,
+                                  const NoiseKPZ &input);
   static NoiseKPZ evalModReduce(const LocalParam &inputParam,
                                 const NoiseKPZ &input);
-  // static NoiseKPZ evalRotate(const NoiseKPZ &input, double n, double t,
-  // double std0, double numDigit, double beta);
+  static NoiseKPZ evalRotate(const LocalParam &inputParam,
+                             const NoiseKPZ &input);
 
   std::string toBound(const LocalParam &param) const;
 

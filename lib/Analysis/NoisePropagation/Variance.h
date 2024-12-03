@@ -133,10 +133,14 @@ class Variance {
                             const Variance &input);
   static Variance evalRelinearizeBV(const LocalParam &inputParam,
                                     const Variance &input);
+  static Variance evalRelinearizeHYBRID(const LocalParam &inputParam,
+                                        const Variance &input);
+  static Variance evalRelinearize(const LocalParam &inputParam,
+                                  const Variance &input);
   static Variance evalModReduce(const LocalParam &inputParam,
                                 const Variance &input);
-  // static Variance evalRotate(const Variance &input, double n, double t,
-  // double std0, double numDigit, double beta);
+  static Variance evalRotate(const LocalParam &inputParam,
+                             const Variance &input);
 
   static Variance boundBy(const Variance &v, const LocalParam &param);
 
