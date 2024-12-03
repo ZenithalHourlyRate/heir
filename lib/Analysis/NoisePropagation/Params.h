@@ -3,7 +3,6 @@
 
 #include <cmath>
 
-#include "lib/Analysis/NoisePropagation/Variance.h"
 #include "llvm/include/llvm/Support/Debug.h"        // from @llvm-project
 #include "llvm/include/llvm/Support/raw_ostream.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Diagnostics.h"       // from @llvm-project
@@ -150,15 +149,6 @@ class LocalParam {
   int getDimension() const { return cv; }
   int getLevel() const { return l; }
   bool getGHS() const { return ghs; }
-
-  Variance bound(const Variance &v) const {
-    if (v.logAlphaBound(p->n) >= p->logQlP(l, ghs) - 1) {
-      return Variance::unbounded();
-    }
-    return v;
-  }
-
-  std::string toBound(const Variance &v) const { return v.toBound(p->n); }
 
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
                                        const LocalParam &localParam) {

@@ -18,19 +18,20 @@ namespace heir {
 // forward declaration
 class LocalParam;
 
-enum VarianceType {
-  // A min value for the lattice, discarable when joined with anything else.
-  UNINITIALIZED,
-  // A known value for the lattice, when noise can be inferred.
-  SET,
-  // A max value for the lattice, when noise cannot be inferred and a bootstrap
-  // must be forced.
-  UNBOUNDED
-};
-
 /// A class representing an optional variance of a noise distribution.
 class Variance {
  public:
+  enum VarianceType {
+    // A min value for the lattice, discarable when joined with anything else.
+    UNINITIALIZED,
+    // A known value for the lattice, when noise can be inferred.
+    SET,
+    // A max value for the lattice, when noise cannot be inferred and a
+    // bootstrap
+    // must be forced.
+    UNBOUNDED
+  };
+
   static Variance uninitialized() {
     return Variance(VarianceType::UNINITIALIZED, std::nullopt);
   }
@@ -137,6 +138,8 @@ class Variance {
   // static Variance evalRotate(const Variance &input, double n, double t,
   // double std0, double numDigit, double beta);
 
+  static Variance boundBy(const Variance &v, const LocalParam &param);
+
   double alphaBound(int n) const;
 
   double logAlphaBound(int n) const { return log(alphaBound(n)) / log(2); }
@@ -145,15 +148,7 @@ class Variance {
 
   std::string toString() const;
 
-  std::string toBound(int n) const {
-    if (varianceType == VarianceType::UNBOUNDED) {
-      return "MAX";
-    }
-    std::stringstream stream;
-    stream << std::fixed << std::setprecision(2) << logAlphaBound(n);
-    // stream << " " << std::fixed << std::setprecision(10) << getValue();
-    return stream.str();
-  }
+  std::string toBound(const LocalParam &resultParam) const;
 
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
                                        const Variance &variance);

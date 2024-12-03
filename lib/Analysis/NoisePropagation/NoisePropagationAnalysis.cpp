@@ -14,11 +14,11 @@
 namespace mlir {
 namespace heir {
 
-LogicalResult VarianceAnalysis::visitOperation(
-    Operation *op, ArrayRef<const VarianceLattice *> operands,
-    ArrayRef<VarianceLattice *> results) {
+LogicalResult NoiseAnalysis::visitOperation(
+    Operation *op, ArrayRef<const NoiseLattice *> operands,
+    ArrayRef<NoiseLattice *> results) {
   auto getLocalParam = [&](Value value) -> std::optional<LocalParam> {
-    auto paramLattice =
+    const auto *paramLattice =
         getOrCreateFor<ParamLattice>(getProgramPointBefore(op), value);
     if (paramLattice->getValue().isInitialized()) {
       return paramLattice->getValue().getLocalParam();
@@ -26,13 +26,13 @@ LogicalResult VarianceAnalysis::visitOperation(
     return std::nullopt;
   };
 
-  auto propagate = [&](Value value, Variance variance) {
+  auto propagate = [&](Value value, NoiseType noise) {
     auto localParam = getLocalParam(value).value();
 
-    LLVM_DEBUG(llvm::dbgs() << "Propagating " << localParam.toBound(variance)
+    LLVM_DEBUG(llvm::dbgs() << "Propagating " << noise.toBound(localParam)
                             << " to " << value << "\n");
-    auto lattice = getLatticeElement(value);
-    auto changeResult = lattice->join(variance);
+    NoiseLattice *lattice = getLatticeElement(value);
+    auto changeResult = lattice->join(noise);
     propagateIfChanged(lattice, changeResult);
   };
 
@@ -48,7 +48,7 @@ LogicalResult VarianceAnalysis::visitOperation(
 
               auto localParam = *localParamOpt;
 
-              Variance encrypted = Variance::evalEncryptPk(localParam);
+              NoiseType encrypted = NoiseType::evalEncryptPk(localParam);
               propagate(arg, encrypted);
             }
             return success();
@@ -60,20 +60,14 @@ LogicalResult VarianceAnalysis::visitOperation(
             }
 
             auto localParam = *localParamOpt;
-            Variance mult = Variance::evalMultNoRelin(
+            NoiseType mult = NoiseType::evalMultNoRelin(
                 localParam, operands[0]->getValue(), operands[1]->getValue());
             propagate(mulOp.getResult(), mult);
             return success();
           })
           .Case<arith::AddIOp>([&](auto addOp) {
-            auto localParamOpt = getLocalParam(addOp.getResult());
-            if (!localParamOpt.has_value()) {
-              return success();
-            }
-
-            auto localParam = *localParamOpt;
-            Variance add = Variance::evalAdd(operands[0]->getValue(),
-                                             operands[1]->getValue());
+            NoiseType add = NoiseType::evalAdd(operands[0]->getValue(),
+                                               operands[1]->getValue());
             propagate(addOp.getResult(), add);
             return success();
           })
@@ -84,8 +78,8 @@ LogicalResult VarianceAnalysis::visitOperation(
             }
 
             auto localParam = *localParamOpt;
-            Variance modReduce =
-                Variance::evalModReduce(localParam, operands[0]->getValue());
+            NoiseType modReduce =
+                NoiseType::evalModReduce(localParam, operands[0]->getValue());
             propagate(modReduceOp.getResult(), modReduce);
             return success();
           })
@@ -97,7 +91,7 @@ LogicalResult VarianceAnalysis::visitOperation(
 
             auto localParam = *localParamOpt;
             // TODO: GHS
-            Variance relinearize = Variance::evalRelinearizeBV(
+            NoiseType relinearize = NoiseType::evalRelinearizeBV(
                 localParam, operands[0]->getValue());
             propagate(relinearizeOp.getResult(), relinearize);
             return success();
