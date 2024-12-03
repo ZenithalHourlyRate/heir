@@ -1,6 +1,7 @@
 #ifndef INCLUDE_ANALYSIS_NOISEPROPAGATION_NOISEPROPAGATIONANALYSIS_H_
 #define INCLUDE_ANALYSIS_NOISEPROPAGATION_NOISEPROPAGATIONANALYSIS_H_
 
+#include "lib/Analysis/NoisePropagation/NoiseKPZ21.h"
 #include "lib/Analysis/NoisePropagation/Params.h"
 #include "lib/Analysis/NoisePropagation/Variance.h"
 #include "mlir/include/mlir/Analysis/DataFlow/SparseAnalysis.h"  // from @llvm-project
@@ -10,25 +11,27 @@
 namespace mlir {
 namespace heir {
 
+#define NoiseType NoiseKPZ
+
 /// This lattice element represents the noise distribution of an SSA value.
-class VarianceLattice : public dataflow::Lattice<Variance> {
+class NoiseLattice : public dataflow::Lattice<NoiseType> {
  public:
   using Lattice::Lattice;
 };
 
-class VarianceAnalysis
-    : public dataflow::SparseForwardDataFlowAnalysis<VarianceLattice> {
+class NoiseAnalysis
+    : public dataflow::SparseForwardDataFlowAnalysis<NoiseLattice> {
  public:
   using SparseForwardDataFlowAnalysis::SparseForwardDataFlowAnalysis;
 
-  void setToEntryState(VarianceLattice *lattice) override {
+  void setToEntryState(NoiseLattice *lattice) override {
     // At an entry point, we have no information about the noise.
-    propagateIfChanged(lattice, lattice->join(Variance::uninitialized()));
+    propagateIfChanged(lattice, lattice->join(NoiseType::uninitialized()));
   }
 
   LogicalResult visitOperation(Operation *op,
-                               ArrayRef<const VarianceLattice *> operands,
-                               ArrayRef<VarianceLattice *> results) override;
+                               ArrayRef<const NoiseLattice *> operands,
+                               ArrayRef<NoiseLattice *> results) override;
 };
 
 }  // namespace heir

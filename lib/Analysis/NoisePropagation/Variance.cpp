@@ -59,6 +59,23 @@ double Variance::alphaBound(int n) const {
       sqrt(2.0 * Variance::getValue()) * erfinv(pow(1.0 - alpha, 1.0 / n));
   return bound;
 }
+std::string Variance::toBound(const LocalParam &resultParam) const {
+  if (varianceType == VarianceType::UNBOUNDED) {
+    return "MAX";
+  }
+  std::stringstream stream;
+  stream << std::fixed << std::setprecision(2)
+         << logAlphaBound(resultParam.getSchemeParam()->n);
+  return stream.str();
+}
+
+Variance Variance::boundBy(const Variance &v, const LocalParam &param) {
+  if (v.logAlphaBound(param.getSchemeParam()->n) >=
+      param.getSchemeParam()->logQlP(param.getLevel(), param.getGHS()) - 1) {
+    return Variance::unbounded();
+  }
+  return v;
+}
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const Variance &variance) {
   return os << variance.toString();

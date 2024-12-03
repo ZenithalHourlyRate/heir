@@ -8,6 +8,7 @@ cc_library(
     srcs = ["NoisePropagationAnalysis.cpp"],
     hdrs = ["NoisePropagationAnalysis.h"],
     deps = [
+        ":NoiseKPZ21",
         ":ParamAnalysis",
         ":Params",
         ":Variance",
@@ -48,14 +49,25 @@ cc_library(
 )
 
 cc_library(
+    name = "NoiseKPZ21",
+    srcs = ["NoiseKPZ21.cpp"],
+    hdrs = [
+        "NoiseKPZ21.h",
+        "Params.h",
+    ],
+    deps = [
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+    ],
+)
+
+cc_library(
     name = "Params",
     srcs = ["Params.cpp"],
     hdrs = [
         "Params.h",
-        "Variance.h",
     ],
     deps = [
-        ":Variance",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
     ],

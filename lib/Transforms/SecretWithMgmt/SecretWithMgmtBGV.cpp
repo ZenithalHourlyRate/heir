@@ -283,7 +283,7 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     solver.load<dataflow::DeadCodeAnalysis>();
     solver.load<dataflow::SparseConstantPropagation>();
     solver.load<ParamAnalysis>();
-    solver.load<VarianceAnalysis>();
+    solver.load<NoiseAnalysis>();
     if (failed(solver.initializeAndRun(getOperation()))) {
       getOperation()->emitOpError() << "Failed to run the analysis.\n";
       signalPassFailure();
@@ -293,12 +293,11 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
       for (auto blockArg : genericOp.getBody()->getArguments()) {
         auto &param = solver.lookupState<ParamLattice>(blockArg)->getValue();
-        auto &variance =
-            solver.lookupState<VarianceLattice>(blockArg)->getValue();
-        if (!param.isInitialized() || !variance.isInitialized()) {
+        auto &noise = solver.lookupState<NoiseLattice>(blockArg)->getValue();
+        if (!param.isInitialized() || !noise.isInitialized()) {
           continue;
         }
-        auto bound = param.getLocalParam().toBound(variance);
+        auto bound = noise.toBound(param.getLocalParam());
         genericOp.setArgAttr(blockArg.getArgNumber(), "bound",
                              StringAttr::get(&getContext(), bound));
       }
@@ -309,12 +308,12 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
         }
         auto &param =
             solver.lookupState<ParamLattice>(op->getResult(0))->getValue();
-        auto &variance =
-            solver.lookupState<VarianceLattice>(op->getResult(0))->getValue();
-        if (!variance.isInitialized()) {
+        auto &noise =
+            solver.lookupState<NoiseLattice>(op->getResult(0))->getValue();
+        if (!noise.isInitialized()) {
           return;
         }
-        auto bound = param.getLocalParam().toBound(variance);
+        auto bound = noise.toBound(param.getLocalParam());
         op->setAttr("bound", StringAttr::get(&getContext(), bound));
       });
     });
@@ -334,7 +333,7 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     auto getIntegerAttr = [&](int64_t n) {
       return IntegerAttr::get(IntegerType::get(&getContext(), 64), n);
     };
-    auto getStringAttr = [&](std::string str) {
+    auto getStringAttr = [&](const std::string &str) {
       return StringAttr::get(&getContext(), str);
     };
 
@@ -344,10 +343,10 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
       if (!param.isInitialized()) {
         return;
       }
-      auto schemeParam = param.getLocalParam().getSchemeParam();
+      auto *schemeParam = param.getLocalParam().getSchemeParam();
 
       // FIXME: better way to get funcOp
-      auto funcOp = genericOp->getParentOp();
+      auto *funcOp = genericOp->getParentOp();
       funcOp->setAttr("ringDim", getIntegerAttr(schemeParam->n));
       funcOp->setAttr("multiplicativeDepth", getIntegerAttr(schemeParam->L));
       funcOp->setAttr("plaintextModulus", getIntegerAttr(schemeParam->t));
