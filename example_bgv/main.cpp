@@ -93,8 +93,8 @@ int main(int argc, char* argv[]) {
 
   std::cout << *(cryptoContext->GetCryptoParameters()) << std::endl;
 
-// #define DOTPRODUCT
-#define MULT8
+#define DOTPRODUCT
+  // #define MULT8
 
 #ifdef DOTPRODUCT
   std::vector<int16_t> arg0 = {1, 2, 3, 4, 5, 6, 7, 8};

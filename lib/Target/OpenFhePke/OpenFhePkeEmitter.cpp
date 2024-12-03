@@ -297,9 +297,12 @@ LogicalResult OpenFhePkeEmitter::printOperation(RotOp op) {
   os << "EvalNoiseBGV(";
   os << variableNames->getNameForValue(op.getCryptoContext());
   os << ", secretKey, ";
-  os << variableNames->getNameForValue(op.getCiphertext());
+  os << variableNames->getNameForValue(op.getResult());
+  os << ", ";
+  os << op->getAttr("bound");
   os << ", \"";
-  os << "EvalRotate";
+  os << variableNames->getNameForValue(op.getResult());
+  os << "=EvalRotate";
   os << " ";
   os << variableNames->getNameForValue(op.getCiphertext());
   os << ", ";
