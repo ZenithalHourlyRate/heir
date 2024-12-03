@@ -202,7 +202,41 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     });
   }
 
-  void annotateDimention() {
+  void annotatePlaintextLevel() {
+    DataFlowSolver solver;
+    solver.load<dataflow::DeadCodeAnalysis>();
+    solver.load<dataflow::SparseConstantPropagation>();
+    // NOTE: MulDepthAnalysis works because of
+    // multiplicationAlwaysRelinearizeAndModReduce
+    // where modreduceop has the same mulDepthLattice.
+    solver.load<SecretnessAnalysis>();
+    if (failed(solver.initializeAndRun(getOperation()))) {
+      getOperation()->emitOpError() << "Failed to run the analysis.\n";
+      signalPassFailure();
+      return;
+    }
+
+    getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
+      genericOp.getBody()->walk<WalkOrder::PreOrder>([&](Operation *op) {
+        if (op->getNumResults() == 0) {
+          return;
+        }
+        auto level = cast<IntegerAttr>(op->getAttr("level")).getInt();
+        for (auto operand : op->getOperands()) {
+          auto secretness =
+              solver.lookupState<SecretnessLattice>(operand)->getValue();
+          // is plaintext
+          if (secretness.isInitialized() && !secretness.getSecretness()) {
+            operand.getDefiningOp()->setAttr(
+                "level_pt",
+                IntegerAttr::get(IntegerType::get(&getContext(), 64), level));
+          }
+        }
+      });
+    });
+  }
+
+  void annotateDimension() {
     DenseMap<Value, int> dimensionMap;
 
     getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
@@ -336,7 +370,8 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     // rotationAlwaysRelinearize();
     alwaysModreduceWhenLevelMismatch();
     annotateLevel();
-    annotateDimention();
+    annotatePlaintextLevel();
+    annotateDimension();
     annotateBound();
     annotateSchemeParams();
   }
