@@ -93,29 +93,20 @@ int main(int argc, char* argv[]) {
 
   std::cout << *(cryptoContext->GetCryptoParameters()) << std::endl;
 
-  int32_t n = cryptoContext->GetCryptoParameters()
-                  ->GetElementParams()
-                  ->GetCyclotomicOrder() /
-              2;
-  int16_t arg0Vals[8] = {1, 2, 3, 4, 5, 6, 7, 8};
-  int16_t arg1Vals[8] = {2, 3, 4, 5, 6, 7, 8, 9};
+// #define DOTPRODUCT
+#define MULT8
+
+#ifdef DOTPRODUCT
+  std::vector<int16_t> arg0 = {1, 2, 3, 4, 5, 6, 7, 8};
+  std::vector<int16_t> arg1 = {2, 3, 4, 5, 6, 7, 8, 9};
   int64_t expected = 240;
 
-  std::vector<int16_t> arg0;
-  std::vector<int16_t> arg1;
-  arg0.reserve(n);
-  arg1.reserve(n);
-
-  // TODO(#645): support cyclic repetition in add-client-interface
-  for (int i = 0; i < n; ++i) {
-    arg0.push_back(arg0Vals[i % 8]);
-    arg1.push_back(arg1Vals[i % 8]);
-  }
-
-  // auto arg0Encrypted = func__encrypt__arg0(keyPair.secretKey, cryptoContext,
-  //                                          arg0, keyPair.publicKey);
-  // auto arg1Encrypted = func__encrypt__arg1(keyPair.secretKey, cryptoContext,
-  //                                          arg1, keyPair.publicKey);
+  auto arg0Encrypted = func__encrypt__arg0(keyPair.secretKey, cryptoContext,
+                                           arg0, keyPair.publicKey);
+  auto arg1Encrypted = func__encrypt__arg1(keyPair.secretKey, cryptoContext,
+                                           arg1, keyPair.publicKey);
+#endif
+#ifdef MULT8
   auto arg0Encrypted = func__encrypt__arg0(keyPair.secretKey, cryptoContext, 0,
                                            keyPair.publicKey);
   auto arg1Encrypted = func__encrypt__arg1(keyPair.secretKey, cryptoContext, 1,
@@ -132,11 +123,18 @@ int main(int argc, char* argv[]) {
                                            keyPair.publicKey);
   auto arg7Encrypted = func__encrypt__arg7(keyPair.secretKey, cryptoContext, 1,
                                            keyPair.publicKey);
+#endif
 
+#ifdef MULT8
   auto outputEncrypted =
       func(keyPair.secretKey, cryptoContext, arg0Encrypted, arg1Encrypted,
            arg2Encrypted, arg3Encrypted, arg4Encrypted, arg5Encrypted,
            arg6Encrypted, arg7Encrypted);
+#endif
+#ifdef DOTPRODUCT
+  auto outputEncrypted =
+      func(keyPair.secretKey, cryptoContext, arg0Encrypted, arg1Encrypted);
+#endif
   auto actual = func__decrypt__result0(keyPair.secretKey, cryptoContext,
                                        outputEncrypted, keyPair.secretKey);
 
