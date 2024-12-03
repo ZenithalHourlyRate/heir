@@ -23,7 +23,7 @@ static struct LWEParam HEStd_128_classic[] = {
 class SchemeParam {
  public:
   int n;
-  int t;
+  int64_t t;
   int L;
   // qi.size() == L + 1
   std::vector<int> qi;
@@ -50,7 +50,13 @@ class SchemeParam {
     return ret;
   }
 
-  double digit() const { return pow(2.0, digitSize); }
+  double digit() const {
+    // if digitSize == 0 and dnum == 0, then digitSize = qi[0]
+    if (digitSize == 0) {
+      return pow(2.0, qi[0]);
+    }
+    return pow(2.0, digitSize);
+  }
 
   double numDigit(int l, bool ghs) const {
     if (dnum == 0) {
@@ -92,7 +98,7 @@ class SchemeParamsFactory {
   static std::map<SchemeParamKey, SchemeParam> AllParams;
 
   static const SchemeParam *getSchemeParam(int depth, int digitSize, int dnum,
-                                           int t, int qiSize,
+                                           int64_t t, int qiSize,
                                            int maxRelinSkDeg) {
     SchemeParamKey k(depth, digitSize, dnum, t, qiSize, maxRelinSkDeg);
     if (AllParams.find(k) == AllParams.end()) {
@@ -102,7 +108,7 @@ class SchemeParamsFactory {
     return &AllParams.at(k);
   }
 
-  static SchemeParam genParam(int depth, int digitSize, int dnum, int t,
+  static SchemeParam genParam(int depth, int digitSize, int dnum, int64_t t,
                               int qiSize, int maxRelinSkDeg);
 };
 
@@ -112,16 +118,15 @@ class LocalParam {
 
   LocalParam() = default;
 
-  LocalParam(const SchemeParam *p, int cv, int l, bool ghs)
-      : p(p), cv(cv), l(l), ghs(ghs) {}
+  LocalParam(const SchemeParam *p, int cv, int l) : p(p), cv(cv), l(l) {}
 
   void print(llvm::raw_ostream &os) const {
     os << "(n " << p->n << " dS " << p->digitSize << " dN " << p->dnum << " cv "
-       << cv << " l " << l << " ghs " << int(ghs) << ")";
+       << cv << " l " << l << ")";
   }
 
   bool operator==(const LocalParam &rhs) const {
-    return *p == *rhs.p && cv == rhs.cv && l == rhs.l && ghs == rhs.ghs;
+    return *p == *rhs.p && cv == rhs.cv && l == rhs.l;
   }
 
   bool operator!=(const LocalParam &rhs) const { return !(*this == rhs); }
@@ -136,9 +141,6 @@ class LocalParam {
     if (l != rhs.l) {
       return l < rhs.l;
     }
-    if (ghs != rhs.ghs) {
-      return ghs < rhs.ghs;
-    }
     return false;
   }
 
@@ -148,7 +150,6 @@ class LocalParam {
 
   int getDimension() const { return cv; }
   int getLevel() const { return l; }
-  bool getGHS() const { return ghs; }
 
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
                                        const LocalParam &localParam) {
@@ -162,17 +163,15 @@ class LocalParam {
   const SchemeParam *p;
   int cv;
   int l;
-  bool ghs;
 };
 
 class LocalParamFactory {
   static std::set<LocalParam> AllLocalParams;
 
  public:
-  static const LocalParam *getLocalParam(const SchemeParam *p, int cv, int l,
-                                         bool ghs) {
-    auto k = LocalParam(p, cv, l, ghs);
-    auto res = AllLocalParams.insert(std::move(k));
+  static const LocalParam *getLocalParam(const SchemeParam *p, int cv, int l) {
+    auto k = LocalParam(p, cv, l);
+    auto res = AllLocalParams.insert(k);
     return &*res.first;
   }
 };

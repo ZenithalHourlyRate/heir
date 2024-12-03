@@ -70,8 +70,9 @@ std::string Variance::toBound(const LocalParam &resultParam) const {
 }
 
 Variance Variance::boundBy(const Variance &v, const LocalParam &param) {
+  // FIXME: bound ghs...
   if (v.logAlphaBound(param.getSchemeParam()->n) >=
-      param.getSchemeParam()->logQlP(param.getLevel(), param.getGHS()) - 1) {
+      param.getSchemeParam()->logQlP(param.getLevel(), false) - 1) {
     return Variance::unbounded();
   }
   return v;
@@ -83,35 +84,6 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const Variance &variance) {
 
 Diagnostic &operator<<(Diagnostic &diagnostic, const Variance &variance) {
   return diagnostic << variance.toString();
-}
-
-// though for normal distro
-// used for s for now...
-// https://math.stackexchange.com/questions/1917647/proving-ex4-3%CF%834
-// E[Xi^2n] = (2n - 1)!! Var(Xi)^n
-// Var[Xi^2] = 2 Var[Xi]^2
-// Var[Xi^3] = 15 Var(Xi)^3
-// Var[Xi^4] = 96 Var(Xi)^4
-static int VariancePower(int cv) {
-  if (cv == 0) {
-    return 1;
-  }
-  // Var(Xi^n) = E[Xi^2n] - E[Xi^n]^2
-  auto doubleFactorial = [](int n) {
-    int ret = 1;
-    for (n = n - 1; n > 0; n -= 2) {
-      ret *= n;
-    }
-    return ret;
-  };
-  int termLeft = doubleFactorial(cv * 2);
-  int termRight = 0;
-  if (cv % 2 == 0) {
-    int E = doubleFactorial(cv);
-    termRight = E * E;
-  }
-  // E[Xi^odd] = 0
-  return termLeft - termRight;
 }
 
 Variance Variance::evalEncryptPk(const LocalParam &param) {
@@ -138,25 +110,19 @@ Variance Variance::evalMultNoRelin(const LocalParam &resultParam,
                       rhs.getValue() * n * (t * t - 1) / 12);
 }
 
-Variance Variance::evalModUp(const LocalParam &inputParam,
-                             const Variance &input) {
-  auto n = inputParam.getSchemeParam()->n;
-  auto t = inputParam.getSchemeParam()->t;
-  auto cv = inputParam.getDimension();
-  // FIXME : only for GHS
-  double modulus = inputParam.getSchemeParam()->P();
+static double factorial(int n) { return std::tgamma(n + 1); }
 
+static double sVariances(int cv, int n) {
   double sVarianceTerm = 1.0;         // s^0
   double sVariances = sVarianceTerm;  // total
   // assumed UNIFORM_TENARY
   double sVariance = 2.0 / 3;
-  for (int cv_index = 1; cv_index != cv; ++cv_index) {
+  for (int cvIndex = 1; cvIndex != cv; ++cvIndex) {
     // check corollary 1 of [MP24]
-    sVarianceTerm *= sVariance * n * VariancePower(cv_index);
+    sVarianceTerm *= sVariance * n * factorial(cvIndex);
     sVariances += sVarianceTerm;
   }
-  double added = 1.0 / 12 * t * t * sVariances;
-  return Variance::of(input.getValue() * (modulus * modulus) + added);
+  return sVariances;
 }
 
 Variance Variance::evalModReduce(const LocalParam &inputParam,
@@ -166,20 +132,17 @@ Variance Variance::evalModReduce(const LocalParam &inputParam,
   auto cv = inputParam.getDimension();
   double modulus = 1L << inputParam.getSchemeParam()->qi[inputParam.getLevel()];
 
-  double sVarianceTerm = 1.0;         // s^0
-  double sVariances = sVarianceTerm;  // total
-  // assumed UNIFORM_TENARY
-  double sVariance = 2.0 / 3;
-  for (int cv_index = 1; cv_index != cv; ++cv_index) {
-    // check corollary 1 of [MP24]
-    // LLVM_DEBUG(llvm::dbgs() << "cv " << cv_index << " power " <<
-    // VariancePower(cv_index) << "\n");
-    sVarianceTerm *= sVariance * n * VariancePower(cv_index);
-    sVariances += sVarianceTerm;
-  }
   double scaled = input.getValue() / (modulus * modulus);
-  double added = 1.0 / 12 * t * t * sVariances;
+  double added = 1.0 / 12 * t * t * sVariances(cv, n);
   return Variance::of(scaled + added);
+}
+
+double relinearizeBVAdded(int n, int64_t t, double std0, double numDigit,
+                          double beta) {
+  double variance0 = std0 * std0;
+  double term1 = variance0 * t * t * n / 12.0;
+  double term2 = numDigit * beta * beta;
+  return term1 * term2;
 }
 
 Variance Variance::evalRelinearizeBV(const LocalParam &inputParam,
@@ -187,22 +150,48 @@ Variance Variance::evalRelinearizeBV(const LocalParam &inputParam,
   auto n = inputParam.getSchemeParam()->n;
   auto t = inputParam.getSchemeParam()->t;
   auto std0 = inputParam.getSchemeParam()->std0;
-  auto numDigit = inputParam.getSchemeParam()->numDigit(inputParam.getLevel(),
-                                                        inputParam.getGHS());
+  auto numDigit =
+      inputParam.getSchemeParam()->numDigit(inputParam.getLevel(), false);
   auto beta = inputParam.getSchemeParam()->digit();
 
-  double variance0 = std0 * std0;
-  double term1 = variance0 * t * t * n / 12.0;
-  double term2 = numDigit * beta * beta;
   double inherent = input.getValue();
-  double added = term1 * term2;
+  double added = relinearizeBVAdded(n, t, std0, numDigit, beta);
   return Variance::of(inherent + added);
 }
 
-// Variance Variance::evalRotate(const Variance &input, double n, double t,
-// double std0, double numDigit, double beta) {
-//     return Variance::evalRelinearize(input, n, t, std0, numDigit, beta);
-// }
+Variance Variance::evalRelinearizeHYBRID(const LocalParam &inputParam,
+                                         const Variance &input) {
+  auto n = inputParam.getSchemeParam()->n;
+  auto t = inputParam.getSchemeParam()->t;
+  auto std0 = inputParam.getSchemeParam()->std0;
+  auto numDigit =
+      inputParam.getSchemeParam()->numDigit(inputParam.getLevel(), true);
+  auto beta = inputParam.getSchemeParam()->digit();
+
+  auto P = inputParam.getSchemeParam()->P();
+  auto piSize = inputParam.getSchemeParam()->pi.size();
+
+  double inherent = input.getValue();
+  double relinearizeAdded = relinearizeBVAdded(n, t, std0, numDigit, beta);
+  double relinearizeScaled = relinearizeAdded / (P * P);
+
+  double modDownAdded = piSize * (1.0 / 12 * t * t * sVariances(2, n));
+
+  return Variance::of(inherent + relinearizeScaled + modDownAdded);
+}
+
+Variance Variance::evalRelinearize(const LocalParam &inputParam,
+                                   const Variance &input) {
+  if (inputParam.getSchemeParam()->dnum == 0) {
+    return Variance::evalRelinearizeBV(inputParam, input);
+  }
+  return Variance::evalRelinearizeHYBRID(inputParam, input);
+}
+
+Variance Variance::evalRotate(const LocalParam &inputParam,
+                              const Variance &input) {
+  return Variance::evalRelinearize(inputParam, input);
+}
 
 }  // namespace heir
 }  // namespace mlir

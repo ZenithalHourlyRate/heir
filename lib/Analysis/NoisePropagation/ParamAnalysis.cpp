@@ -12,6 +12,42 @@
 namespace mlir {
 namespace heir {
 
+// copied from OpenFHE
+int computeDnum(int depth) {
+  if (depth > 3) {
+    return 3;
+  }
+  if (depth > 0) {
+    return 2;
+  }
+  return 1;
+}
+
+int64_t getPlaintextModulus() {
+  return 65537;       // 2^16 + 1
+  return 786433;      // 2^19 + 2^18 + 1
+  return 536903681;   // 2^29 + 2^15 + 1
+  return 1073479681;  // 2^30 - 2^18 + 1
+  return 4295294977;  // 2^32 + 2^18 + 2^16 + 1
+}
+
+#define HYBRID
+
+const SchemeParam *getDefaultSchemeParam(int depth) {
+  auto t = getPlaintextModulus();
+  auto qiSize = int(ceil(log(t) / log(2))) + 28;  // 28 from OpenFHE?
+#ifdef HYBRID
+  auto digitSize = 0;
+  auto dnum = computeDnum(depth);
+#else
+  auto digitSize = 0;
+  auto dnum = 0;
+#endif
+  const auto *defaultSchemeParam =
+      SchemeParamsFactory::getSchemeParam(depth, digitSize, dnum, t, qiSize, 2);
+  return defaultSchemeParam;
+}
+
 LogicalResult ParamAnalysis::visitOperation(
     Operation *op, ArrayRef<const ParamLattice *> operands,
     ArrayRef<ParamLattice *> results) {
@@ -35,10 +71,9 @@ LogicalResult ParamAnalysis::visitOperation(
                 return failure();
               }
               auto level = levelAttr.getValue().getLimitedValue();
-              auto schemeParam = SchemeParamsFactory::getSchemeParam(
-                  level, 30, 0, 65537, 55, 2);
-              auto localParam = LocalParamFactory::getLocalParam(schemeParam, 2,
-                                                                 level, false);
+              auto schemeParam = getDefaultSchemeParam(level);
+              auto localParam =
+                  LocalParamFactory::getLocalParam(schemeParam, 2, level);
 
               LLVM_DEBUG(llvm::dbgs() << "BlockArg " << i << " Local param "
                                       << *localParam << "\n");
@@ -57,13 +92,18 @@ LogicalResult ParamAnalysis::visitOperation(
             if (!levelAttr) {
               return success();
             }
+            auto dimensionAttr = dyn_cast<IntegerAttr>(op.getAttr("dimension"));
+            if (!dimensionAttr) {
+              return success();
+            }
             auto level = levelAttr.getValue().getLimitedValue();
+            auto dimension = dimensionAttr.getValue().getLimitedValue();
             // inherit scheme param from operand[0]
             auto operandLattice = operands[0]->getValue();
-            auto operandSchemeParam =
+            const auto *operandSchemeParam =
                 operandLattice.getLocalParam().getSchemeParam();
             auto localParam = LocalParamFactory::getLocalParam(
-                operandSchemeParam, 2, level, false);
+                operandSchemeParam, dimension, level);
 
             LLVM_DEBUG(llvm::dbgs() << "Value " << op.getResult(0)
                                     << " Local param " << *localParam << "\n");
