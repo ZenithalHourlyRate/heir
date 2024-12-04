@@ -33,6 +33,8 @@ cc_library(
         "@llvm-project//mlir:Analysis",
         "@llvm-project//mlir:ArithDialect",
         "@llvm-project//mlir:IR",
+        "@openfhe//:core",
+        "@openfhe//:pke",
     ],
 )
 
@@ -71,5 +73,7 @@ cc_library(
     deps = [
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
+        "@openfhe//:core",
+        "@openfhe//:pke",
     ],
 )

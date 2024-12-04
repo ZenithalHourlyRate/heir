@@ -6,6 +6,7 @@
 #include "mlir/include/mlir/Dialect/Arith/IR/Arith.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Operation.h"            // from @llvm-project
 #include "mlir/include/mlir/IR/Value.h"                // from @llvm-project
+#include "src/pke/include/openfhe.h"                   // from @openfhe
 
 #define DEBUG_TYPE "ParamAnalysis"
 
@@ -35,7 +36,10 @@ int64_t getPlaintextModulus() {
 
 const SchemeParam *getDefaultSchemeParam(int depth) {
   auto t = getPlaintextModulus();
-  auto qiSize = int(ceil(log(t) / log(2))) + 28;  // 28 from OpenFHE?
+  auto qiSize = int(ceil(log(t) / log(2))) + 28;  // conservative estimation...
+  if (qiSize > 60) {
+    qiSize = 60;
+  }
 #ifdef HYBRID
   auto digitSize = 0;
   auto dnum = computeDnum(depth);
@@ -45,6 +49,8 @@ const SchemeParam *getDefaultSchemeParam(int depth) {
 #endif
   const auto *defaultSchemeParam =
       SchemeParamsFactory::getSchemeParam(depth, digitSize, dnum, t, qiSize, 2);
+  LLVM_DEBUG(llvm::dbgs() << "Default scheme param " << *defaultSchemeParam
+                          << "\n");
   return defaultSchemeParam;
 }
 
