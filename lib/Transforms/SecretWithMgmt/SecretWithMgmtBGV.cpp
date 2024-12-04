@@ -205,36 +205,37 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
       genericOp.getBody()->walk<WalkOrder::PreOrder>([&](Operation *op) {
         ImplicitLocOpBuilder b(op->getLoc(), op);
-        llvm::TypeSwitch<Operation &>(*op).Case<arith::MulIOp, arith::AddIOp>(
-            [&](auto arithOp) {
-              auto levelResult = levelMap.at(op->getResult(0));
-              auto secretnessResult = getSecretness(op->getResult(0));
+        llvm::TypeSwitch<Operation &>(*op)
+            .Case<arith::MulIOp, arith::AddIOp, arith::SubIOp>(
+                [&](auto arithOp) {
+                  auto levelResult = levelMap.at(op->getResult(0));
+                  auto secretnessResult = getSecretness(op->getResult(0));
 
-              if (secretnessResult.isInitialized() &&
-                  !secretnessResult.getSecretness()) {
-                return;
-              }
-
-              for (auto operand : op->getOperands()) {
-                auto secretnessOperand = getSecretness(operand);
-
-                // skip mod reduce if operand is not secret
-                if (!secretnessOperand.isInitialized() ||
-                    !secretnessOperand.getSecretness()) {
-                  continue;
-                }
-
-                auto levelOperand = levelMap.at(operand);
-                if (levelOperand < levelResult) {
-                  Value managed = operand;
-                  for (auto i = 0; i != levelResult - levelOperand; ++i) {
-                    managed = b.create<mgmt::ModReduceOp>(managed);
-                    levelMap[managed] = levelOperand + i + 1;
+                  if (secretnessResult.isInitialized() &&
+                      !secretnessResult.getSecretness()) {
+                    return;
                   }
-                  op->replaceUsesOfWith(operand, managed);
-                }
-              }
-            });
+
+                  for (auto operand : op->getOperands()) {
+                    auto secretnessOperand = getSecretness(operand);
+
+                    // skip mod reduce if operand is not secret
+                    if (!secretnessOperand.isInitialized() ||
+                        !secretnessOperand.getSecretness()) {
+                      continue;
+                    }
+
+                    auto levelOperand = levelMap.at(operand);
+                    if (levelOperand < levelResult) {
+                      Value managed = operand;
+                      for (auto i = 0; i != levelResult - levelOperand; ++i) {
+                        managed = b.create<mgmt::ModReduceOp>(managed);
+                        levelMap[managed] = levelOperand + i + 1;
+                      }
+                      op->replaceUsesOfWith(operand, managed);
+                    }
+                  }
+                });
       });
     });
   }
