@@ -110,6 +110,10 @@ class SchemeParamsFactory {
 
   static SchemeParam genParam(int depth, int digitSize, int dnum, int64_t t,
                               int qiSize, int maxRelinSkDeg);
+
+  static SchemeParam genConcreteParam(int depth, int digitSize, int dnum,
+                                      int64_t t, const std::vector<int> &qiSize,
+                                      int maxRelinSkDeg);
 };
 
 class LocalParam {

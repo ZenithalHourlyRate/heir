@@ -1,5 +1,6 @@
 #include "lib/Analysis/NoisePropagation/NoisePropagationAnalysis.h"
 #include "lib/Analysis/NoisePropagation/ParamAnalysis.h"
+#include "lib/Analysis/NoisePropagation/Params.h"
 #include "lib/Analysis/SecretnessAnalysis/SecretnessAnalysis.h"
 #include "lib/Dialect/Mgmt/IR/MgmtOps.h"
 #include "lib/Dialect/Secret/IR/SecretOps.h"
@@ -455,12 +456,17 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
 
     auto scalingModSize = 0;
 
+    auto maxLevel = levelToGap.size() + 1;
+    auto qiSize = std::vector<int>(maxLevel, 0);
+    qiSize[0] = firstModSize;
+
     getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
       for (auto &[level, gap] : levelToGap) {
         scalingModSize = std::max(scalingModSize, int(ceil(gap)));
         genericOp->setAttr(
             "gap_" + std::to_string(level),
             StringAttr::get(&getContext(), std::to_string(int(ceil(gap)))));
+        qiSize[level + 1] = int(ceil(gap));
       }
 
       auto *funcOp = genericOp->getParentOp();
@@ -472,6 +478,11 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
                       IntegerAttr::get(IntegerType::get(&getContext(), 64),
                                        scalingModSize));
     });
+
+    auto concreteParam = SchemeParamsFactory::genConcreteParam(
+        maxLevel - 1, 0, 2, 65537, qiSize, 2);
+    LLVM_DEBUG(llvm::dbgs()
+               << "Concrete scheme param " << concreteParam << "\n");
   }
 
   void annotateSchemeParams() {
