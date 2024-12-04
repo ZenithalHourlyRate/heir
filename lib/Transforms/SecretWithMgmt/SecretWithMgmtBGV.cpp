@@ -9,9 +9,10 @@
 #include "llvm/include/llvm/Support/Debug.h"   // from @llvm-project
 #include "mlir/include/mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"  // from @llvm-project
 #include "mlir/include/mlir/Analysis/DataFlow/DeadCodeAnalysis.h"  // from @llvm-project
-#include "mlir/include/mlir/Dialect/Arith/IR/Arith.h"   // from @llvm-project
-#include "mlir/include/mlir/Dialect/Func/IR/FuncOps.h"  // from @llvm-project
-#include "mlir/include/mlir/IR/Iterators.h"             // from @llvm-project
+#include "mlir/include/mlir/Dialect/Arith/IR/Arith.h"    // from @llvm-project
+#include "mlir/include/mlir/Dialect/Func/IR/FuncOps.h"   // from @llvm-project
+#include "mlir/include/mlir/Dialect/Tensor/IR/Tensor.h"  // from @llvm-project
+#include "mlir/include/mlir/IR/Iterators.h"              // from @llvm-project
 #include "mlir/include/mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
 #include "mlir/include/mlir/Transforms/Passes.h"  // from @llvm-project
 
@@ -27,6 +28,7 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
   using SecretWithMgmtBGVBase::SecretWithMgmtBGVBase;
 
   void multiplicationAlwaysRelinearize() {
+    // TODO: handle tensor::ExtractOp
     OpBuilder b(&getContext());
     getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
       genericOp.getBody()->walk<WalkOrder::PreOrder>([&](Operation *op) {
@@ -96,37 +98,41 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
         }
 
         llvm::TypeSwitch<Operation &>(*op)
-            .Case<arith::MulIOp, secret::YieldOp>([&](auto mulOp) {
-              // mod reduced
-              if (isa<arith::MulIOp>(mulOp) && (includeFirst || operandsMul)) {
-                levelResult += 1;
-              }
-              if (isa<secret::YieldOp>(mulOp) && operandsMul) {
-                // mod reduce before yield if muled
-                levelResult += 1;
-              }
-              // avoid yield op
-              if (mulOp->getNumResults() != 0) {
-                levelMap[mulOp->getResult(0)] = levelResult;
-                mulMap[mulOp->getResult(0)] = true;
-              }
+            .Case<arith::MulIOp, secret::YieldOp, tensor::ExtractOp>(
+                [&](auto mulOp) {
+                  // mod reduced
+                  if ((isa<arith::MulIOp>(mulOp) ||
+                       isa<tensor::ExtractOp>(mulOp)) &&
+                      (includeFirst || operandsMul)) {
+                    levelResult += 1;
+                  }
+                  if (isa<secret::YieldOp>(mulOp) && operandsMul) {
+                    // mod reduce before yield if muled
+                    levelResult += 1;
+                  }
+                  // avoid yield op
+                  if (mulOp->getNumResults() != 0) {
+                    levelMap[mulOp->getResult(0)] = levelResult;
+                    mulMap[mulOp->getResult(0)] = true;
+                  }
 
-              for (auto operand : mulOp->getOperands()) {
-                auto secretness = getSecretness(operand);
-                if (!secretness) {
-                  continue;
-                }
-                b.setInsertionPoint(mulOp);
-                Value managed = operand;
-                for (auto i = 0; i != levelResult - levelMap.at(operand); ++i) {
-                  managed =
-                      b.create<mgmt::ModReduceOp>(mulOp->getLoc(), managed);
-                  levelMap[managed] = levelMap.at(operand) + i + 1;
-                  mulMap[managed] = mulMap.at(operand);
-                }
-                mulOp->replaceUsesOfWith(operand, managed);
-              }
-            })
+                  for (auto operand : mulOp->getOperands()) {
+                    auto secretness = getSecretness(operand);
+                    if (!secretness) {
+                      continue;
+                    }
+                    b.setInsertionPoint(mulOp);
+                    Value managed = operand;
+                    for (auto i = 0; i != levelResult - levelMap.at(operand);
+                         ++i) {
+                      managed =
+                          b.create<mgmt::ModReduceOp>(mulOp->getLoc(), managed);
+                      levelMap[managed] = levelMap.at(operand) + i + 1;
+                      mulMap[managed] = mulMap.at(operand);
+                    }
+                    mulOp->replaceUsesOfWith(operand, managed);
+                  }
+                })
             .Default([&](auto &op) {
               for (auto result : op.getResults()) {
                 levelMap[result] = levelResult;
