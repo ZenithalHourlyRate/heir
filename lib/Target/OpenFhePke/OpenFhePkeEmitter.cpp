@@ -741,7 +741,10 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
   os << paramsName << ".SetRingDim(" << getIntOrDefault("ringDim", 0) << ");\n";
   os << paramsName << ".SetMaxRelinSkDeg("
      << getIntOrDefault("maxRelinSkDeg", 0) << ");\n";
-  os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
+  os << paramsName << ".SetScalingTechnique("
+     << getStringOrDefault("scalingTechnique", "FLEXIBLEAUTOEXT") << ");\n";
+  os << paramsName << ".SetFirstModSize(" << getIntOrDefault("firstModSize", 0)
+     << ");\n";
   os << paramsName << ".SetScalingModSize("
      << getIntOrDefault("scalingModSize", 0) << ");\n";
   os << paramsName << ".SetKeySwitchTechnique("
