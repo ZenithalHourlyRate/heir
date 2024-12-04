@@ -18,6 +18,11 @@ def SecretWithMgmtBGV : Pass<"secret-with-mgmt-bgv", "ModuleOp"> {
     "mlir::heir::mgmt::MgmtDialect",
     "mlir::func::FuncDialect"
   ];
+
+  let options = [
+    Option<"includeFirst", "include-first", "bool",
+           /*default=*/"false", "Use AUTOEXT or AUTO (check OpenFHE mode)">
+  ];
 }
 
 #endif  // LIB_TRANSFORMS_SECRETWITHMGMT_PASSES_TD_

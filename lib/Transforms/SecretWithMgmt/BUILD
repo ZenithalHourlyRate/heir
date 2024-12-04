@@ -15,7 +15,6 @@ cc_library(
     ],
     deps = [
         ":pass_inc_gen",
-        "@heir//lib/Analysis/MulDepthAnalysis",
         "@heir//lib/Analysis/NoisePropagation:NoisePropagationAnalysis",
         "@heir//lib/Analysis/NoisePropagation:ParamAnalysis",
         "@heir//lib/Analysis/NoisePropagation:Params",

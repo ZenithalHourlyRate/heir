@@ -1,4 +1,3 @@
-#include "lib/Analysis/MulDepthAnalysis/MulDepthAnalysis.h"
 #include "lib/Analysis/NoisePropagation/NoisePropagationAnalysis.h"
 #include "lib/Analysis/NoisePropagation/ParamAnalysis.h"
 #include "lib/Analysis/SecretnessAnalysis/SecretnessAnalysis.h"
@@ -27,7 +26,7 @@ namespace heir {
 struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
   using SecretWithMgmtBGVBase::SecretWithMgmtBGVBase;
 
-  void multiplicationAlwaysRelinearizeAndModReduce() {
+  void multiplicationAlwaysRelinearize() {
     OpBuilder b(&getContext());
     getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
       genericOp.getBody()->walk<WalkOrder::PreOrder>([&](Operation *op) {
@@ -36,14 +35,109 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
           Value result = mulOp.getResult();
           auto relinearized =
               b.create<mgmt::RelinearizeOp>(mulOp->getLoc(), result);
-          auto modreduced =
-              b.create<mgmt::ModReduceOp>(relinearized->getLoc(), relinearized);
-          result.replaceAllUsesExcept(modreduced, {relinearized});
+          result.replaceAllUsesExcept(relinearized, {relinearized});
         });
       });
     });
   }
 
+  void multiplicationAlwaysModReduceBefore(bool includeFirst) {
+    DataFlowSolver solver;
+    solver.load<dataflow::DeadCodeAnalysis>();
+    solver.load<dataflow::SparseConstantPropagation>();
+    solver.load<SecretnessAnalysis>();
+    if (failed(solver.initializeAndRun(getOperation()))) {
+      getOperation()->emitOpError() << "Failed to run the analysis.\n";
+      signalPassFailure();
+      return;
+    }
+
+    auto getSecretness = [&](Value value) {
+      const auto *lattice = solver.lookupState<SecretnessLattice>(value);
+      if (!lattice) {
+        // newly created value does not have lattice
+        return true;
+      }
+      auto &secretness =
+          solver.lookupState<SecretnessLattice>(value)->getValue();
+      if (secretness.isInitialized()) {
+        return secretness.getSecretness();
+      }
+      // if not initialized assume secret
+      return true;
+    };
+
+    DenseMap<Value, int> levelMap;
+    DenseMap<Value, bool> mulMap;  // check a Value is a mul result or not
+
+    OpBuilder b(&getContext());
+    getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
+      for (auto blockArg : genericOp.getBody()->getArguments()) {
+        levelMap[blockArg] = 0;
+        mulMap[blockArg] = false;
+      }
+
+      genericOp.getBody()->walk<WalkOrder::PreOrder>([&](Operation *op) {
+        auto levelResult = 0;
+        for (auto operand : op->getOperands()) {
+          if (levelMap.count(operand) == 0) {
+            continue;
+          }
+          auto levelOperand = levelMap.at(operand);
+          levelResult = std::max(levelResult, levelOperand);
+        }
+
+        bool operandsMul = false;
+        for (auto operand : op->getOperands()) {
+          if (mulMap.count(operand) == 0) {
+            continue;
+          }
+          operandsMul |= mulMap.at(operand);
+        }
+
+        llvm::TypeSwitch<Operation &>(*op)
+            .Case<arith::MulIOp, secret::YieldOp>([&](auto mulOp) {
+              // mod reduced
+              if (isa<arith::MulIOp>(mulOp) && (includeFirst || operandsMul)) {
+                levelResult += 1;
+              }
+              if (isa<secret::YieldOp>(mulOp) && operandsMul) {
+                // mod reduce before yield if muled
+                levelResult += 1;
+              }
+              // avoid yield op
+              if (mulOp->getNumResults() != 0) {
+                levelMap[mulOp->getResult(0)] = levelResult;
+                mulMap[mulOp->getResult(0)] = true;
+              }
+
+              for (auto operand : mulOp->getOperands()) {
+                auto secretness = getSecretness(operand);
+                if (!secretness) {
+                  continue;
+                }
+                b.setInsertionPoint(mulOp);
+                Value managed = operand;
+                for (auto i = 0; i != levelResult - levelMap.at(operand); ++i) {
+                  managed =
+                      b.create<mgmt::ModReduceOp>(mulOp->getLoc(), managed);
+                  levelMap[managed] = levelMap.at(operand) + i + 1;
+                  mulMap[managed] = mulMap.at(operand);
+                }
+                mulOp->replaceUsesOfWith(operand, managed);
+              }
+            })
+            .Default([&](auto &op) {
+              for (auto result : op.getResults()) {
+                levelMap[result] = levelResult;
+                mulMap[result] = operandsMul;
+              }
+            });
+      });
+    });
+  }
+
+  // implicitly done now
   void rotationAlwaysRelinearize() {
     OpBuilder b(&getContext());
     getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
@@ -64,10 +158,6 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     DataFlowSolver solver;
     solver.load<dataflow::DeadCodeAnalysis>();
     solver.load<dataflow::SparseConstantPropagation>();
-    // NOTE: MulDepthAnalysis works because of
-    // multiplicationAlwaysRelinearizeAndModReduce
-    // where modreduceop has the same mulDepthLattice.
-    solver.load<MulDepthAnalysis>();
     solver.load<SecretnessAnalysis>();
     if (failed(solver.initializeAndRun(getOperation()))) {
       getOperation()->emitOpError() << "Failed to run the analysis.\n";
@@ -75,39 +165,44 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
       return;
     }
 
-    auto getMulDepth = [&](Value value) {
-      auto &latticeValue =
-          solver.lookupState<MulDepthLattice>(value)->getValue();
-      auto mulDepth = 0;
-      if (latticeValue.isInitialized()) {
-        mulDepth = latticeValue.getValue();
-      }
-      return mulDepth;
-    };
-
     auto getSecretness = [&](Value value) {
       auto &secretness =
           solver.lookupState<SecretnessLattice>(value)->getValue();
       return secretness;
     };
 
+    DenseMap<Value, int> levelMap;
+
+    getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
+      for (auto blockArg : genericOp.getBody()->getArguments()) {
+        levelMap[blockArg] = 0;
+      }
+
+      genericOp.getBody()->walk<WalkOrder::PreOrder>([&](Operation *op) {
+        auto levelResult = 0;
+        for (auto operand : op->getOperands()) {
+          if (levelMap.count(operand) == 0) {
+            continue;
+          }
+          auto levelOperand = levelMap.at(operand);
+          levelResult = std::max(levelResult, levelOperand);
+        }
+        for (auto result : op->getResults()) {
+          levelMap[result] = levelResult;
+          if (mlir::isa<mgmt::ModReduceOp>(op)) {
+            levelMap[result] = levelResult + 1;
+          }
+        }
+      });
+    });
+
     getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
       genericOp.getBody()->walk<WalkOrder::PreOrder>([&](Operation *op) {
         ImplicitLocOpBuilder b(op->getLoc(), op);
         llvm::TypeSwitch<Operation &>(*op).Case<arith::MulIOp, arith::AddIOp>(
             [&](auto arithOp) {
-              auto mulDepthResult = getMulDepth(op->getResult(0));
-              auto mulDepthOperandShould = mulDepthResult;
-              if (mlir::isa<arith::MulIOp>(arithOp)) {
-                mulDepthOperandShould -= 1;
-              }
-
+              auto levelResult = levelMap.at(op->getResult(0));
               auto secretnessResult = getSecretness(op->getResult(0));
-
-              LLVM_DEBUG(llvm::dbgs()
-                         << "Visiting " << arithOp << " with result mulDepth "
-                         << mulDepthResult << " and secretness "
-                         << secretnessResult << "\n");
 
               if (secretnessResult.isInitialized() &&
                   !secretnessResult.getSecretness()) {
@@ -115,12 +210,7 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
               }
 
               for (auto operand : op->getOperands()) {
-                auto mulDepthOperand = getMulDepth(operand);
                 auto secretnessOperand = getSecretness(operand);
-                LLVM_DEBUG(llvm::dbgs()
-                           << "  Operand " << operand << " with mulDepth "
-                           << mulDepthOperand << " and secretness "
-                           << secretnessOperand << "\n");
 
                 // skip mod reduce if operand is not secret
                 if (!secretnessOperand.isInitialized() ||
@@ -128,16 +218,14 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
                   continue;
                 }
 
-                if (mulDepthOperand < mulDepthOperandShould) {
+                auto levelOperand = levelMap.at(operand);
+                if (levelOperand < levelResult) {
                   Value managed = operand;
-                  for (auto i = 0; i != mulDepthOperandShould - mulDepthOperand;
-                       ++i) {
+                  for (auto i = 0; i != levelResult - levelOperand; ++i) {
                     managed = b.create<mgmt::ModReduceOp>(managed);
+                    levelMap[managed] = levelOperand + i + 1;
                   }
                   op->replaceUsesOfWith(operand, managed);
-                } else if (mulDepthOperand > mulDepthOperandShould) {
-                  // should not happen
-                  assert(false && "multiplcativeDepth analysis error");
                 }
               }
             });
@@ -370,11 +458,18 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
     ModuleOp module = getOperation();
     OpBuilder builder(module);
 
-    multiplicationAlwaysRelinearizeAndModReduce();
-    // NOTE: not used for now
-    // rotationAlwaysRelinearize();
+    multiplicationAlwaysRelinearize();
+    multiplicationAlwaysModReduceBefore(includeFirst);
     alwaysModreduceWhenLevelMismatch();
+
+    // call CSE here because there may be redundant mod reduce
+    // one Value may get mod reduced multiple times in
+    // multiple Uses
+    OpPassManager csePipeline("builtin.module");
+    csePipeline.addPass(createCSEPass());
+    (void)runPipeline(csePipeline, module);
     auto maxLevel = annotateLevel();
+
     annotatePlaintextLevel(maxLevel);
     annotateDimension();
     annotateBound();
