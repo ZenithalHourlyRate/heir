@@ -92,6 +92,8 @@ LogicalResult generateGenFunc(func::FuncOp op, const std::string &genFuncName,
   };
   setAttr("ringDim");
   setAttr("maxRelinSkDeg");
+  setAttr("scalingTechnique");
+  setAttr("firstModSize");
   setAttr("scalingModSize");
   setAttr("keySwitchTechnique");
   setAttr("digitSize");

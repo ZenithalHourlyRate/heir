@@ -390,6 +390,18 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
       return;
     }
 
+    auto firstModSize = 0;
+    // for level i, the biggest gap observed.
+    std::map<int, double> levelToGap;
+
+    auto updateLevelToGap = [&](int level, double gap) {
+      if (levelToGap.count(level) == 0) {
+        levelToGap[level] = gap;
+      } else {
+        levelToGap[level] = std::max(levelToGap.at(level), gap);
+      }
+    };
+
     getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
       for (auto blockArg : genericOp.getBody()->getArguments()) {
         auto &param = solver.lookupState<ParamLattice>(blockArg)->getValue();
@@ -413,9 +425,51 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
         if (!noise.isInitialized()) {
           return;
         }
+
+        auto level = cast<IntegerAttr>(op->getAttr("level")).getInt();
         auto bound = noise.toBound(param.getLocalParam());
         op->setAttr("bound", StringAttr::get(&getContext(), bound));
+
+        // scalingModPart
+        if (isa<mgmt::ModReduceOp>(op)) {
+          auto upperLevelNoise =
+              solver.lookupState<NoiseLattice>(op->getOperand(0))->getValue();
+          auto upperLevelParam =
+              solver.lookupState<ParamLattice>(op->getOperand(0))->getValue();
+          auto upperLevelBound =
+              upperLevelNoise.toBound(upperLevelParam.getLocalParam());
+
+          // FIXME: stod?
+          updateLevelToGap(level,
+                           std::stod(upperLevelBound) - std::stod(bound));
+        }
+
+        // firstModPart
+        if (level == 0) {
+          firstModSize =
+              std::max(firstModSize, 1 + int(ceil(std::stod(bound))));
+        }
       });
+    });
+
+    auto scalingModSize = 0;
+
+    getOperation()->walk<WalkOrder::PreOrder>([&](secret::GenericOp genericOp) {
+      for (auto &[level, gap] : levelToGap) {
+        scalingModSize = std::max(scalingModSize, int(ceil(gap)));
+        genericOp->setAttr(
+            "gap_" + std::to_string(level),
+            StringAttr::get(&getContext(), std::to_string(int(ceil(gap)))));
+      }
+
+      auto *funcOp = genericOp->getParentOp();
+      // TODO: better firstModSize selection
+      funcOp->setAttr("firstModSize",
+                      IntegerAttr::get(IntegerType::get(&getContext(), 64),
+                                       scalingModSize));
+      funcOp->setAttr("scalingModSize",
+                      IntegerAttr::get(IntegerType::get(&getContext(), 64),
+                                       scalingModSize));
     });
   }
 
@@ -447,12 +501,15 @@ struct SecretWithMgmtBGV : impl::SecretWithMgmtBGVBase<SecretWithMgmtBGV> {
 
       // FIXME: better way to get funcOp
       auto *funcOp = genericOp->getParentOp();
+      // TODO: recalculate N, thus P
       funcOp->setAttr("ringDim", getIntegerAttr(schemeParam->n));
       funcOp->setAttr("multiplicativeDepth", getIntegerAttr(schemeParam->L));
       funcOp->setAttr("plaintextModulus", getIntegerAttr(schemeParam->t));
       funcOp->setAttr("maxRelinSkDeg",
                       getIntegerAttr(schemeParam->maxRelinSkDeg));
-      funcOp->setAttr("scalingModSize", getIntegerAttr(schemeParam->qi[0]));
+      funcOp->setAttr("scalingTechnique", getStringAttr("FIXEDMANUAL"));
+      // TODO: acquire scalingModSize from noise analysis
+      // funcOp->setAttr("scalingModSize", getIntegerAttr(schemeParam->qi[0]));
       funcOp->setAttr("keySwitchTechnique",
                       getStringAttr(schemeParam->dnum != 0 ? "HYBRID" : "BV"));
       funcOp->setAttr("digitSize", getIntegerAttr(schemeParam->digitSize));
