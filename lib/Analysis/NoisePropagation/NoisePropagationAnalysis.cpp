@@ -78,7 +78,7 @@ LogicalResult NoiseAnalysis::visitOperation(
             propagate(mulOp.getResult(), mult);
             return success();
           })
-          .Case<arith::AddIOp>([&](auto addOp) {
+          .Case<arith::AddIOp, arith::SubIOp>([&](auto addOp) {
             NoiseType add = NoiseType::evalAdd(operands[0]->getValue(),
                                                operands[1]->getValue());
             propagate(addOp.getResult(), add);
