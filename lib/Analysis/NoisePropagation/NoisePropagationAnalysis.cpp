@@ -4,11 +4,12 @@
 #include "lib/Dialect/Mgmt/IR/MgmtOps.h"
 #include "lib/Dialect/Secret/IR/SecretOps.h"
 #include "lib/Dialect/TensorExt/IR/TensorExtOps.h"
-#include "llvm/include/llvm/ADT/TypeSwitch.h"          // from @llvm-project
-#include "llvm/include/llvm/Support/Debug.h"           // from @llvm-project
-#include "mlir/include/mlir/Dialect/Arith/IR/Arith.h"  // from @llvm-project
-#include "mlir/include/mlir/IR/Operation.h"            // from @llvm-project
-#include "mlir/include/mlir/IR/Value.h"                // from @llvm-project
+#include "llvm/include/llvm/ADT/TypeSwitch.h"            // from @llvm-project
+#include "llvm/include/llvm/Support/Debug.h"             // from @llvm-project
+#include "mlir/include/mlir/Dialect/Arith/IR/Arith.h"    // from @llvm-project
+#include "mlir/include/mlir/Dialect/Tensor/IR/Tensor.h"  // from @llvm-project
+#include "mlir/include/mlir/IR/Operation.h"              // from @llvm-project
+#include "mlir/include/mlir/IR/Value.h"                  // from @llvm-project
 
 #define DEBUG_TYPE "NoisePropagationAnalysis"
 
@@ -93,6 +94,20 @@ LogicalResult NoiseAnalysis::visitOperation(
             NoiseType rotate =
                 NoiseType::evalRotate(localParam, operands[0]->getValue());
             propagate(rotateOp.getResult(), rotate);
+            return success();
+          })
+          .Case<tensor::ExtractOp>([&](auto extractOp) {
+            auto localParamOpt = getLocalParam(extractOp.getOperand(0));
+            if (!localParamOpt.has_value()) {
+              return success();
+            }
+
+            auto localParam = *localParamOpt;
+            // extract = mul + rotate
+            NoiseType constant = NoiseType::evalConstant(localParam);
+            NoiseType extract = NoiseType::evalMultNoRelin(
+                localParam, operands[0]->getValue(), constant);
+            propagate(extractOp.getResult(), extract);
             return success();
           })
           .Case<mgmt::ModReduceOp>([&](auto modReduceOp) {
