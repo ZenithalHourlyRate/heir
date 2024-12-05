@@ -4,6 +4,7 @@
 #include "lib/Dialect/LWE/IR/LWEDialect.h"
 #include "lib/Dialect/LWE/IR/LWEOps.h"
 #include "lib/Dialect/LWE/IR/LWETypes.h"
+#include "lib/Dialect/RNS/IR/RNSTypes.h"
 #include "lib/Dialect/Secret/IR/SecretOps.h"
 #include "lib/Dialect/TensorExt/IR/TensorExtOps.h"
 #include "llvm/include/llvm/ADT/STLExtras.h"            // from @llvm-project
@@ -231,6 +232,34 @@ class SecretGenericOpRotateConversion
     }
     auto offsetAttr = llvm::dyn_cast<IntegerAttr>(constantOffset.getValue());
     rewriter.replaceOpWithNewOp<T>(op, inputs[0], offsetAttr);
+    return success();
+  }
+};
+
+polynomial::RingAttr getRlweRNSRingModReduced(polynomial::RingAttr ringAttr);
+
+template <typename T, typename Y>
+class SecretGenericOpModulusSwitchConversion
+    : public SecretGenericOpConversion<T, Y> {
+ public:
+  using SecretGenericOpConversion<T, Y>::SecretGenericOpConversion;
+
+  LogicalResult matchAndRewriteInner(
+      secret::GenericOp op, TypeRange outputTypes, ValueRange inputs,
+      ArrayRef<NamedAttribute> attributes,
+      ConversionPatternRewriter &rewriter) const override {
+    auto outputType = outputTypes[0];
+    auto inputRing =
+        cast<lwe::RLWECiphertextType>(outputType).getRlweParams().getRing();
+    auto outputRing = getRlweRNSRingModReduced(inputRing);
+
+    auto newOutputType = lwe::RLWECiphertextType::get(
+        outputType.getContext(),
+        cast<lwe::RLWECiphertextType>(outputType).getEncoding(),
+        lwe::RLWEParamsAttr::get(outputType.getContext(), 2, outputRing),
+        cast<lwe::RLWECiphertextType>(outputType).getUnderlyingType());
+
+    rewriter.replaceOpWithNewOp<Y>(op, newOutputType, inputs[0], outputRing);
     return success();
   }
 };

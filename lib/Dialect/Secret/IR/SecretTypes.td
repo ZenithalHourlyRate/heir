@@ -21,15 +21,17 @@ def Secret : Secret_Type<"Secret", "secret"> {
     the compiler may choose various details of the FHE scheme based on the
     properties of the input program, the backend target hardware, and cost
     models of the various passes.
+
+    The optional
   }];
 
-  let parameters = (ins "Type":$valueType);
+  let parameters = (ins "Type":$valueType, OptionalParameter<"Attribute">:$valueAttr);
   let builders = [
-    TypeBuilderWithInferredContext<(ins "Type":$valueType), [{
-      return $_get(valueType.getContext(), valueType);
+    TypeBuilderWithInferredContext<(ins "Type":$valueType, CArg<"Attribute", "nullptr">:$valueAttr), [{
+      return $_get(valueType.getContext(), valueType, valueAttr);
     }]>
   ];
-  let assemblyFormat = "`<` $valueType `>`";
+  let assemblyFormat = "`<` $valueType (`,` $valueAttr^)?`>`";
 }
 
 #endif  // LIB_DIALECT_SECRET_IR_SECRETTYPES_TD_

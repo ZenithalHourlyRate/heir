@@ -14,6 +14,7 @@
 #include "lib/Dialect/ModArith/IR/ModArithTypes.h"
 #include "lib/Dialect/Polynomial/IR/Polynomial.h"
 #include "lib/Dialect/Polynomial/IR/PolynomialAttributes.h"
+#include "lib/Dialect/RNS/IR/RNSTypes.h"
 #include "lib/Dialect/Secret/IR/SecretDialect.h"
 #include "lib/Dialect/Secret/IR/SecretOps.h"
 #include "lib/Dialect/Secret/IR/SecretTypes.h"
@@ -68,7 +69,51 @@ FailureOr<::mlir::heir::polynomial::RingAttr> getRlweRing(
   }
 }
 
+FailureOr<polynomial::RingAttr> getRlweRNSRing(MLIRContext *ctx,
+                                               int currentLevel,
+                                               int coefficientModBits,
+                                               int polyModDegree) {
+  std::vector<::mlir::heir::polynomial::IntMonomial> monomials;
+  monomials.emplace_back(1, polyModDegree);
+  monomials.emplace_back(1, 0);
+  auto result =
+      ::mlir::heir::polynomial::IntPolynomial::fromMonomials(monomials);
+  if (failed(result)) return failure();
+  ::mlir::heir::polynomial::IntPolynomial xnPlusOne = result.value();
+  std::vector<int64_t> primes = {1095233372161, 1032955396097, 1005037682689,
+                                 998595133441,  972824936449,  959939837953};
+  SmallVector<Type, 4> modTypes;
+  for (int i = 0; i < currentLevel + 1; i++) {
+    auto type = IntegerType::get(ctx, 64);
+    modTypes.push_back(
+        mod_arith::ModArithType::get(ctx, IntegerAttr::get(type, primes[i])));
+  }
+  auto rnsType = rns::RNSType::get(ctx, modTypes);
+  return ::mlir::heir::polynomial::RingAttr::get(
+      rnsType, polynomial::IntPolynomialAttr::get(ctx, xnPlusOne));
+}
+
 }  // namespace
+
+// polynomial::RingAttr getRlweRNSRingModReduced(polynomial::RingAttr ringAttr)
+// {
+//   auto rnsType = cast<rns::RNSType>(ringAttr.getCoefficientType());
+//
+//   auto newRnsType = rns::RNSType::get(rnsType.getContext(),
+//                                       rnsType.getBasisTypes().drop_back());
+//   return ::mlir::heir::polynomial::RingAttr::get(
+//       newRnsType, ringAttr.getPolynomialModulus());
+// }
+
+polynomial::RingAttr getRlweRNSRingModReduced(polynomial::RingAttr ringAttr) {
+  auto coeffType = cast<mod_arith::ModArithType>(ringAttr.getCoefficientType());
+  auto newCoeffType = mod_arith::ModArithType::get(
+      coeffType.getContext(),
+      IntegerAttr::get(coeffType.getModulus().getType(),
+                       coeffType.getModulus().getValue() - 1));
+  return ::mlir::heir::polynomial::RingAttr::get(
+      newCoeffType, ringAttr.getPolynomialModulus());
+}
 
 // Remove this class if no type conversions are necessary
 class SecretToBGVTypeConverter : public TypeConverter {
@@ -105,6 +150,9 @@ struct SecretToBGV : public impl::SecretToBGVBase<SecretToBGV> {
     auto *module = getOperation();
 
     auto rlweRing = getRlweRing(context, coefficientModBits, polyModDegree);
+    // auto maxLevel = 1;
+    // auto rlweRing =
+    //     getRlweRNSRing(context, maxLevel, coefficientModBits, polyModDegree);
     if (failed(rlweRing)) {
       return signalPassFailure();
     }
@@ -143,6 +191,8 @@ struct SecretToBGV : public impl::SecretToBGVBase<SecretToBGV> {
     patterns.add<
         SecretGenericOpCipherConversion<arith::AddIOp, bgv::AddOp>,
         SecretGenericOpCipherConversion<arith::SubIOp, bgv::SubOp>,
+        SecretGenericOpModulusSwitchConversion<mgmt::ModReduceOp,
+                                               bgv::ModulusSwitchOp>,
         SecretGenericOpConversion<tensor::ExtractOp, bgv::ExtractOp>,
         SecretGenericOpRotateConversion<bgv::RotateOp>,
         SecretGenericOpMulConversion<arith::MulIOp, bgv::MulOp,

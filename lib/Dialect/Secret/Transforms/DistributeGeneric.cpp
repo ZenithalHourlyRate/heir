@@ -34,6 +34,7 @@
 #include "mlir/include/mlir/Support/LLVM.h"           // from @llvm-project
 #include "mlir/include/mlir/Support/LogicalResult.h"  // from @llvm-project
 #include "mlir/include/mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
+#include "mlir/include/mlir/Transforms/WalkPatternRewriteDriver.h"  // from @llvm-project
 
 #define DEBUG_TYPE "distribute-generic"
 
@@ -587,6 +588,40 @@ struct SplitGeneric : public OpRewritePattern<GenericOp> {
   DataFlowSolver *solver;
 };
 
+struct AnnotateAttribute : public OpRewritePattern<secret::GenericOp> {
+  AnnotateAttribute(mlir::MLIRContext *context)
+      : OpRewritePattern<secret::GenericOp>(context, /*benefit=*/1) {}
+
+  LogicalResult matchAndRewrite(secret::GenericOp op,
+                                PatternRewriter &rewriter) const override {
+    SmallVector<Type> newResultTypes;
+    newResultTypes.reserve(op->getNumResults());
+    for (Type ty : op->getResultTypes()) {
+      newResultTypes.push_back(
+          SecretType::get(cast<SecretType>(ty).getValueType(),
+                          StringAttr::get(rewriter.getContext(), "annotated")));
+    }
+
+    auto newGeneric = rewriter.create<GenericOp>(
+        op.getLoc(), op->getOperands(), newResultTypes,
+        [&](OpBuilder &b, Location loc, ValueRange blockArguments) {
+          IRMapping mp;
+          // the newly-created blockArguments have the same index order as
+          // newGenericOperands, which in turn shares the index ordering of
+          // oldBlockArgs (they were constructed this way specifically to enable
+          // this IR Mapping).
+          for (auto [oldArg, newArg] :
+               llvm::zip(op.getBody()->front().getOperands(), blockArguments)) {
+            mp.map(oldArg, newArg);
+          }
+          auto *newOp = b.clone(op.getBody()->front(), mp);
+          b.create<YieldOp>(loc, newOp->getResults());
+        });
+    rewriter.replaceOp(op, newGeneric);
+    return success();
+  }
+};
+
 struct DistributeGeneric
     : impl::SecretDistributeGenericBase<DistributeGeneric> {
   using SecretDistributeGenericBase::SecretDistributeGenericBase;
@@ -625,6 +660,28 @@ struct DistributeGeneric
     patterns.add<FoldSecretSeparators, CollapseSecretlessGeneric,
                  RemoveUnusedGenericArgs, RemoveNonSecretGenericArgs>(context);
     (void)applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
+
+    // Annotate the results of the generic with an attribute.
+    // RewritePatternSet annotatePatterns(context);
+    // annotatePatterns.add<AnnotateAttribute>(context);
+    // (void)walkAndApplyPatterns(getOperation(), std::move(annotatePatterns));
+
+    LLVM_DEBUG(llvm::dbgs() << "After running secret-distribute-generic:\n"
+                            << getOperation());
+
+    getOperation()->walk([](func::FuncOp op) {
+      auto funcType = op.getFunctionType();
+      auto funcOperandsType = funcType.getInputs();
+      auto funcResultsType = funcType.getResults();
+      SmallVector<Type> newFuncResultsType;
+      for (Type ty : funcResultsType) {
+        newFuncResultsType.push_back(
+            SecretType::get(cast<SecretType>(ty).getValueType(),
+                            StringAttr::get(op.getContext(), "annotated")));
+      }
+      op.setFunctionType(FunctionType::get(op->getContext(), funcOperandsType,
+                                           funcResultsType));
+    });
   }
 };
 

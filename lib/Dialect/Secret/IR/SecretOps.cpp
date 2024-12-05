@@ -63,7 +63,8 @@ LogicalResult YieldOp::verify() {
   }
   for (size_t i = 0; i < getValues().size(); ++i) {
     auto yieldSecretType = SecretType::get(getValues().getTypes()[i]);
-    if (yieldSecretType != parent.getResultTypes()[i]) {
+    if (yieldSecretType.getValueType() !=
+        cast<SecretType>(parent.getResultTypes()[i]).getValueType()) {
       return emitOpError()
              << "If a yield op returns types T, S, ..., then the enclosing "
                 "generic op must have result types secret.secret<T>, "
