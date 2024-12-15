@@ -57,7 +57,8 @@ def GenParamsOp : Openfhe_Op<"gen_params"> {
 
 def GenContextOp : Openfhe_Op<"gen_context"> {
   let arguments = (ins
-    Openfhe_CCParams:$params
+    Openfhe_CCParams:$params,
+    OptionalAttr<BoolAttr>:$supportFHE
   );
   let results = (outs Openfhe_CryptoContext:$context);
 }
@@ -74,6 +75,21 @@ def GenRotKeyOp : Openfhe_Op<"gen_rotkey"> {
     Openfhe_CryptoContext:$cryptoContext,
     Openfhe_PrivateKey:$privateKey,
     DenseI64ArrayAttr:$indices
+  );
+}
+
+def SetupBootstrapOp : Openfhe_Op<"setup_bootstrap"> {
+  let arguments = (ins
+    Openfhe_CryptoContext:$cryptoContext,
+    Builtin_IntegerAttr:$levelBudgetEncode,
+    Builtin_IntegerAttr:$levelBudgetDecode
+  );
+}
+
+def GenBootstrapKeyOp : Openfhe_Op<"gen_bootstrap_key"> {
+  let arguments = (ins
+    Openfhe_CryptoContext:$cryptoContext,
+    Openfhe_PrivateKey:$privateKey
   );
 }
 
@@ -204,6 +220,18 @@ def KeySwitchOp : Openfhe_Op<"key_switch", [
     Openfhe_CryptoContext:$cryptoContext,
     RLWECiphertext:$ciphertext,
     Openfhe_EvalKey:$evalKey
+  );
+  let results = (outs RLWECiphertext:$output);
+}
+
+def BootstrapOp : Openfhe_Op<"bootstrap", [
+  Pure,
+  AllTypesMatch<["ciphertext", "output"]>
+]> {
+  let summary = "OpenFHE bootstrap operation of a ciphertext. (For CKKS)";
+  let arguments = (ins
+    Openfhe_CryptoContext:$cryptoContext,
+    RLWECiphertext:$ciphertext
   );
   let results = (outs RLWECiphertext:$output);
 }

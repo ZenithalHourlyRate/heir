@@ -57,9 +57,23 @@ SmallVector<int64_t> findAllRotIndices(func::FuncOp op) {
   return rotIndicesResult;
 }
 
+// Helper function to check if the function has BootstrapOp
+bool hasBootstrapOp(func::FuncOp op) {
+  bool result = false;
+  op.walk<WalkOrder::PreOrder>([&](Operation *op) {
+    if (isa<openfhe::BootstrapOp>(op)) {
+      result = true;
+      return WalkResult::interrupt();
+    }
+    return WalkResult::advance();
+  });
+  return result;
+}
+
 // function that generates the crypto context with proper parameters
 LogicalResult generateGenFunc(func::FuncOp op, const std::string &genFuncName,
-                              int64_t mulDepth, ImplicitLocOpBuilder &builder) {
+                              int64_t mulDepth, bool hasBootstrapOp,
+                              ImplicitLocOpBuilder &builder) {
   Type openfheContextType =
       openfhe::CryptoContextType::get(builder.getContext());
   SmallVector<Type> funcArgTypes;
@@ -76,8 +90,9 @@ LogicalResult generateGenFunc(func::FuncOp op, const std::string &genFuncName,
   Type openfheParamsType = openfhe::CCParamsType::get(builder.getContext());
   Value ccParams = builder.create<openfhe::GenParamsOp>(openfheParamsType,
                                                         mulDepth, plainMod);
-  Value cryptoContext =
-      builder.create<openfhe::GenContextOp>(openfheContextType, ccParams);
+  Value cryptoContext = builder.create<openfhe::GenContextOp>(
+      openfheContextType, ccParams,
+      BoolAttr::get(builder.getContext(), hasBootstrapOp));
 
   builder.create<func::ReturnOp>(cryptoContext);
   return success();
@@ -87,6 +102,7 @@ LogicalResult generateGenFunc(func::FuncOp op, const std::string &genFuncName,
 LogicalResult generateConfigFunc(func::FuncOp op,
                                  const std::string &configFuncName,
                                  bool hasMulOp, SmallVector<int64_t> rotIndices,
+                                 bool hasBootstrapOp,
                                  ImplicitLocOpBuilder &builder) {
   Type openfheContextType =
       openfhe::CryptoContextType::get(builder.getContext());
@@ -108,11 +124,19 @@ LogicalResult generateConfigFunc(func::FuncOp op,
   Value cryptoContext = configFuncOp.getArgument(0);
   Value privateKey = configFuncOp.getArgument(1);
 
-  if (hasMulOp) {
+  if (hasMulOp || hasBootstrapOp) {
     builder.create<openfhe::GenMulKeyOp>(cryptoContext, privateKey);
   }
   if (!rotIndices.empty()) {
     builder.create<openfhe::GenRotKeyOp>(cryptoContext, privateKey, rotIndices);
+  }
+  if (hasBootstrapOp) {
+    // TODO: determine level budget otherwise
+    builder.create<openfhe::SetupBootstrapOp>(
+        cryptoContext,
+        IntegerAttr::get(IndexType::get(builder.getContext()), 3),
+        IntegerAttr::get(IndexType::get(builder.getContext()), 3));
+    builder.create<openfhe::GenBootstrapKeyOp>(cryptoContext, privateKey);
   }
 
   builder.create<func::ReturnOp>(cryptoContext);
@@ -132,7 +156,16 @@ LogicalResult convertFunc(func::FuncOp op, int64_t mulDepth) {
   ImplicitLocOpBuilder builder =
       ImplicitLocOpBuilder::atBlockEnd(module.getLoc(), module.getBody());
 
-  if (failed(generateGenFunc(op, genFuncName, mulDepth, builder))) {
+  bool hasBootstrapOpResult = hasBootstrapOp(op);
+  // TODO: determine this earlier, including mulDepth
+  // TODO: determine bootstrapDepth from levelBudget and approxModDepth
+  // levelBudgetEncode = 3
+  // approxModDepth = 14, this solely depends on secretKeyDist
+  // here we use the value for UNIFORM_TERNARY
+  // levelBudgetDecode = 3
+  int bootstrapDepth = 3 + 14 + 3;
+  if (failed(generateGenFunc(op, genFuncName, mulDepth + bootstrapDepth,
+                             hasBootstrapOpResult, builder))) {
     return failure();
   }
 
@@ -141,7 +174,7 @@ LogicalResult convertFunc(func::FuncOp op, int64_t mulDepth) {
   bool hasMulOpResult = hasMulOp(op);
   SmallVector<int64_t> rotIndices = findAllRotIndices(op);
   if (failed(generateConfigFunc(op, configFuncName, hasMulOpResult, rotIndices,
-                                builder))) {
+                                hasBootstrapOpResult, builder))) {
     return failure();
   }
   return success();
