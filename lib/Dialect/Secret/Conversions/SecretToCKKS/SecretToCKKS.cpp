@@ -70,8 +70,10 @@ FailureOr<polynomial::RingAttr> getRlweRNSRing(MLIRContext *ctx,
   if (failed(result)) return failure();
   ::mlir::heir::polynomial::IntPolynomial xnPlusOne = result.value();
   // all 40 bit primes...
-  std::vector<int64_t> primes = {1095233372161, 1032955396097, 1005037682689,
-                                 998595133441,  972824936449,  959939837953};
+  std::vector<int64_t> primes = {
+      1095233372161, 1032955396097, 1005037682689, 998595133441, 972824936449,
+      959939837953,  807466172417,  678615187457,  592714530817, 489633742849,
+      476748644353,  369372823553,  360782757889};
   SmallVector<Type, 4> modTypes;
   for (int i = 0; i <= currentLevel; i++) {
     auto type = IntegerType::get(ctx, 64);
@@ -275,7 +277,7 @@ struct SecretToCKKS : public impl::SecretToCKKSBase<SecretToCKKS> {
     MLIRContext *context = &getContext();
     auto *module = getOperation();
 
-    auto maxLevel = 5;
+    auto maxLevel = 12;
     auto rlweRing =
         getRlweRNSRing(context, maxLevel, coefficientModBits, polyModDegree);
     if (failed(rlweRing)) {
