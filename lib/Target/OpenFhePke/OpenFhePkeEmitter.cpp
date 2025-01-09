@@ -294,8 +294,8 @@ LogicalResult OpenFhePkeEmitter::printOperation(RotOp op) {
   emitAutoAssignPrefix(op.getResult());
 
   os << variableNames->getNameForValue(op.getCryptoContext()) << "->"
-     << "EvalRotate"
-     << "(" << variableNames->getNameForValue(op.getCiphertext()) << ", "
+     << "EvalRotate" << "("
+     << variableNames->getNameForValue(op.getCiphertext()) << ", "
      << op.getIndex().getValue() << ");\n";
 
   os << "EvalNoiseBGV(";
@@ -737,6 +737,7 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
     os << paramsName << ".SetRingDim(128);\n";
   }
 
+  return success();
   os << paramsName << ".SetSecurityLevel(HEStd_NotSet);\n";
   os << paramsName << ".SetRingDim(" << getIntOrDefault("ringDim", 0) << ");\n";
   os << paramsName << ".SetMaxRelinSkDeg("

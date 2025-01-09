@@ -64,21 +64,6 @@ def BGV_AddOp : BGV_Op<"add", [Pure, Commutative, SameOperandsAndResultType]> {
   let assemblyFormat = "operands attr-dict `:` qualified(type($output))" ;
 }
 
-def BGV_MyAddOp : BGV_Op<"my_add", [Pure, Commutative, SameOperandsAndResultType]> {
-  let summary = "Addition operation between ciphertexts.";
-
-  let arguments = (ins
-    RLWECiphertext:$lhs,
-    RLWECiphertext:$rhs
-  );
-
-  let results = (outs
-    RLWECiphertext:$output
-  );
-
-  let assemblyFormat = "operands attr-dict `:` qualified(type($output))" ;
-}
-
 def BGV_AddPlainOp : BGV_CiphertextPlaintextOp<"add_plain"> {
   let summary = "Addition operation between ciphertext-plaintext.";
 }
@@ -117,23 +102,6 @@ def BGV_MulOp : BGV_Op<"mul", [Pure, Commutative, SameOperandsAndResultRings, Sa
   let hasVerifier = 1;
 }
 
-
-def BGV_MyMulOp : BGV_Op<"my_mul", [Pure, Commutative, SameOperandsAndResultType, SameTypeOperands]> {
-  let summary = "Multiplication operation between ciphertexts.";
-
-  let arguments = (ins
-    RLWECiphertext:$lhs,
-    RLWECiphertext:$rhs
-  );
-
-  let results = (outs
-    RLWECiphertext:$output
-  );
-
-  //let hasVerifier = 1;
-}
-
-
 def BGV_MulPlainOp : BGV_CiphertextPlaintextOp<"mul_plain"> {
   let summary = "Multiplication operation between ciphertext-plaintext.";
 }
@@ -151,22 +119,6 @@ def BGV_RotateOp : BGV_Op<"rotate", [Pure, AllTypesMatch<["input", "output"]>]> 
   );
 
   let hasVerifier = 1;
-  let assemblyFormat = "operands attr-dict `:` qualified(type($input))" ;
-}
-
-def BGV_MyRotateOp : BGV_Op<"my_rotate", [Pure, AllTypesMatch<["input", "output"]>]> {
-  let summary = "Rotate the coefficients of the ciphertext using a Galois automorphism.";
-
-  let arguments = (ins
-    RLWECiphertext:$input,
-    Builtin_IntegerAttr:$offset
-  );
-
-  let results = (outs
-    LWECiphertext:$output
-  );
-
-  //let hasVerifier = 1;
   let assemblyFormat = "operands attr-dict `:` qualified(type($input))" ;
 }
 
@@ -236,42 +188,6 @@ def BGV_RelinearizeOp : BGV_Op<"relinearize", [SameOperandsAndResultRings, Infer
   );
 
   let hasVerifier = 1;
-  let assemblyFormat = "operands attr-dict `:` qualified(type($input)) `->` qualified(type($output))" ;
-}
-
-def BGV_MyRelinearizeOp : BGV_Op<"my_relinearize", [SameOperandsAndResultType]> {
-  let summary = "Relinearize the ciphertext.";
-
-  let description = [{
-  }];
-
-  let arguments = (ins
-    RLWECiphertext:$input
-  );
-
-  let results = (outs
-    RLWECiphertext:$output
-  );
-
-  //let hasVerifier = 1;
-  let assemblyFormat = "operands attr-dict `:` qualified(type($input)) `->` qualified(type($output))" ;
-}
-
-def BGV_MyModulusSwitchOp : BGV_Op<"my_modulus_switch", [SameOperandsAndResultType]> {
-  let summary = "";
-
-  let description = [{
-  }];
-
-  let arguments = (ins
-    RLWECiphertext:$input
-  );
-
-  let results = (outs
-    RLWECiphertext:$output
-  );
-
-  //let hasVerifier = 1;
   let assemblyFormat = "operands attr-dict `:` qualified(type($input)) `->` qualified(type($output))" ;
 }
 
