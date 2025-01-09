@@ -1,5 +1,6 @@
 #include "lib/Analysis/NoisePropagation/ParamAnalysis.h"
 
+#include "lib/Dialect/Mgmt/IR/MgmtAttributes.h"
 #include "lib/Dialect/Secret/IR/SecretOps.h"
 #include "llvm/include/llvm/ADT/TypeSwitch.h"          // from @llvm-project
 #include "llvm/include/llvm/Support/Debug.h"           // from @llvm-project
@@ -71,12 +72,12 @@ LogicalResult ParamAnalysis::visitOperation(
                        << "Visiting secret genericOp with block arg "
                        << body->getArguments().size() << "\n");
             for (auto i = 0; i != body->getNumArguments(); ++i) {
-              auto levelAttr =
-                  dyn_cast<IntegerAttr>(genericOp.getArgAttr(i, "level"));
-              if (!levelAttr) {
+              auto mgmtAttr = dyn_cast<mgmt::MgmtAttr>(
+                  genericOp.getArgAttr(i, mgmt::MgmtDialect::kArgMgmtAttrName));
+              if (!mgmtAttr) {
                 return failure();
               }
-              auto level = levelAttr.getValue().getLimitedValue();
+              auto level = mgmtAttr.getLevel();
               auto schemeParam = getDefaultSchemeParam(level);
               auto localParam =
                   LocalParamFactory::getLocalParam(schemeParam, 2, level);
@@ -90,36 +91,30 @@ LogicalResult ParamAnalysis::visitOperation(
             return success();
           })
           .Case<arith::ConstantOp>([&](auto constantOp) {
-            auto levelAttr =
-                dyn_cast<IntegerAttr>(constantOp->getAttr("level_scheme"));
-            if (!levelAttr) {
-              return failure();
-            }
-            auto level = levelAttr.getValue().getLimitedValue();
-            auto schemeParam = getDefaultSchemeParam(level);
-            auto localParam =
-                LocalParamFactory::getLocalParam(schemeParam, 2, level);
+            // auto levelAttr =
+            //     dyn_cast<IntegerAttr>(constantOp->getAttr("level_scheme"));
+            // if (!levelAttr) {
+            //   return failure();
+            // }
+            // auto level = levelAttr.getValue().getLimitedValue();
+            // auto schemeParam = getDefaultSchemeParam(level);
+            // auto localParam =
+            //     LocalParamFactory::getLocalParam(schemeParam, 2, level);
 
-            LLVM_DEBUG(llvm::dbgs() << "Constant " << constantOp.getResult()
-                                    << " Local param " << *localParam << "\n");
-            propagate(constantOp.getResult(), LocalParamState(*localParam));
+            // LLVM_DEBUG(llvm::dbgs() << "Constant " << constantOp.getResult()
+            //                         << " Local param " << *localParam <<
+            //                         "\n");
+            // propagate(constantOp.getResult(), LocalParamState(*localParam));
             return success();
           })
           .Default([&](auto &op) {
-            auto attr = op.getAttr("level");
-            if (!attr) {
+            auto mgmtAttr = dyn_cast<mgmt::MgmtAttr>(
+                op.getAttr(mgmt::MgmtDialect::kArgMgmtAttrName));
+            if (!mgmtAttr) {
               return success();
             }
-            auto levelAttr = dyn_cast<IntegerAttr>(attr);
-            if (!levelAttr) {
-              return success();
-            }
-            auto dimensionAttr = dyn_cast<IntegerAttr>(op.getAttr("dimension"));
-            if (!dimensionAttr) {
-              return success();
-            }
-            auto level = levelAttr.getValue().getLimitedValue();
-            auto dimension = dimensionAttr.getValue().getLimitedValue();
+            auto level = mgmtAttr.getLevel();
+            auto dimension = mgmtAttr.getDimension();
             // inherit scheme param from operand[0]
             auto operandLattice = operands[0]->getValue();
             const auto *operandSchemeParam =
