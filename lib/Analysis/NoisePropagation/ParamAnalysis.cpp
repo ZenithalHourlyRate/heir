@@ -7,7 +7,7 @@
 #include "mlir/include/mlir/Dialect/Arith/IR/Arith.h"  // from @llvm-project
 #include "mlir/include/mlir/IR/Operation.h"            // from @llvm-project
 #include "mlir/include/mlir/IR/Value.h"                // from @llvm-project
-#include "src/pke/include/openfhe.h"                   // from @openfhe
+// #include "src/pke/include/openfhe.h"                   // from @openfhe
 
 #define DEBUG_TYPE "ParamAnalysis"
 
@@ -91,20 +91,23 @@ LogicalResult ParamAnalysis::visitOperation(
             return success();
           })
           .Case<arith::ConstantOp>([&](auto constantOp) {
-            // auto levelAttr =
-            //     dyn_cast<IntegerAttr>(constantOp->getAttr("level_scheme"));
-            // if (!levelAttr) {
-            //   return failure();
-            // }
-            // auto level = levelAttr.getValue().getLimitedValue();
-            // auto schemeParam = getDefaultSchemeParam(level);
-            // auto localParam =
-            //     LocalParamFactory::getLocalParam(schemeParam, 2, level);
+            for (auto &use : constantOp.getResult().getUses()) {
+              auto mgmtAttr = dyn_cast<mgmt::MgmtAttr>(
+                  use.getOwner()->getAttr(mgmt::MgmtDialect::kArgMgmtAttrName));
+              if (!mgmtAttr) {
+                continue;
+              }
+              auto level = mgmtAttr.getLevel();
+              auto schemeParam = getDefaultSchemeParam(level);
+              auto localParam =
+                  LocalParamFactory::getLocalParam(schemeParam, 2, level);
 
-            // LLVM_DEBUG(llvm::dbgs() << "Constant " << constantOp.getResult()
-            //                         << " Local param " << *localParam <<
-            //                         "\n");
-            // propagate(constantOp.getResult(), LocalParamState(*localParam));
+              LLVM_DEBUG(llvm::dbgs()
+                         << "Constant " << constantOp.getResult()
+                         << " Local param " << *localParam << "\n");
+              propagate(constantOp.getResult(), LocalParamState(*localParam));
+              return success();
+            }
             return success();
           })
           .Default([&](auto &op) {
