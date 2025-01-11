@@ -138,8 +138,8 @@ struct SecretInsertMgmtBGV
                                        scalingModSize));
     });
 
-    auto concreteParam = SchemeParamsFactory::genConcreteParam(
-        maxLevel - 1, 0, 2, 65537, qiSize, 2);
+    // auto concreteParam = SchemeParamsFactory::genConcreteParam(
+    //     maxLevel - 1, 0, 2, 65537, qiSize, 2);
     // LLVM_DEBUG(llvm::dbgs()
     //            << "Concrete scheme param " << concreteParam << "\n");
   }
