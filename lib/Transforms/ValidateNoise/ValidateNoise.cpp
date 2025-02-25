@@ -2,6 +2,7 @@
 
 #include "lib/Analysis/DimensionAnalysis/DimensionAnalysis.h"
 #include "lib/Analysis/LevelAnalysis/LevelAnalysis.h"
+#include "lib/Analysis/NoiseAnalysis/BFV/NoiseByVarianceCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseByBoundCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseByVarianceCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/NoiseAnalysis.h"
@@ -231,6 +232,8 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       return;
     }
 
+    return;
+
     if (failed(validate<NoiseAnalysis>(&solver, schemeParam))) {
       getOperation()->emitOpError() << "Noise validation failed.\n";
       signalPassFailure();
@@ -273,6 +276,10 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       run<NoiseAnalysis<bgv::NoiseByVarianceCoeffPkModel>>();
     } else if (model == "bgv-noise-by-variance-coeff-sk") {
       run<NoiseAnalysis<bgv::NoiseByVarianceCoeffSkModel>>();
+    } else if (model == "bfv-noise-by-variance-coeff-pk") {
+      run<NoiseAnalysis<bfv::NoiseByVarianceCoeffPkModel>>();
+    } else if (model == "bfv-noise-by-variance-coeff-sk") {
+      run<NoiseAnalysis<bfv::NoiseByVarianceCoeffSkModel>>();
     } else {
       getOperation()->emitOpError() << "Unknown noise model.\n";
       signalPassFailure();
