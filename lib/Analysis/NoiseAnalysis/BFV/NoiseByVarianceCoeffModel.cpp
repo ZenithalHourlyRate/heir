@@ -187,9 +187,7 @@ typename Model<P>::StateType Model<P>::evalMul(
   auto ringDim = resultParam.getSchemeParam()->getRingDim();
   auto v0 = lhs.getValue();
   auto v1 = rhs.getValue();
-
-  auto m0 = evalConstant(resultParam).getValue();
-  auto m1 = evalConstant(resultParam).getValue();
+  auto t = resultParam.getSchemeParam()->getPlaintextModulus();
 
   // ((q/t)m_0 + e_0) * ((q/t)m_1 + e_1)
   // = (q/t)^2 m_0 * m_1 + (q/t)(m_0 e_1 + m_1 * e_0) + e_0 * e_1
@@ -197,8 +195,8 @@ typename Model<P>::StateType Model<P>::evalMul(
   // (q/t) m_0 * m_1 + (m_0 * e_1 + m_1 * e_0) + (t/q)e_0 * e_1
   // v_mul = v_0 * v_1 * (t/q) + v_0 * m_1 + v_1 * m_0
   // we can drop v_0 * v_1 * (t/q) as it is _often_ negligible
-  // for ringDim, see header comment for explanation
-  return StateType::of(ringDim * (v0 * m1 + v1 * m0));
+  // for m_0 and m_1, take the worst case scenario by using t.
+  return StateType::of(ringDim * t * t * (v0 + v1));
 }
 
 template <bool P>

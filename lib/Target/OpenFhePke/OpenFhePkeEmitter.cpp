@@ -799,6 +799,8 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
   if (keySwitchCount != 0) {
     os << paramsName << ".SetKeySwitchCount(" << keySwitchCount << ");\n";
   }
+  // os << paramsName << ".SetMultiplicationTechnique();\n";
+  // os << paramsName << ".SetEncryptionTechnique(EXTENDED);\n";
   return success();
 }
 
