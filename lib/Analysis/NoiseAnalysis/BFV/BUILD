@@ -12,6 +12,7 @@ cc_library(
     ],
     deps = [
         ":Noise",
+        ":NoiseByBoundCoeffModel",
         ":NoiseByVarianceCoeffModel",
         "@heir//lib/Analysis:Utils",
         "@heir//lib/Analysis/DimensionAnalysis",
@@ -27,6 +28,20 @@ cc_library(
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
+    ],
+)
+
+cc_library(
+    name = "NoiseByBoundCoeffModel",
+    srcs = [
+        "NoiseByBoundCoeffModel.cpp",
+    ],
+    hdrs = [
+        "NoiseByBoundCoeffModel.h",
+    ],
+    deps = [
+        ":Noise",
+        "@heir//lib/Parameters/BGV:Params",
     ],
 )
 
