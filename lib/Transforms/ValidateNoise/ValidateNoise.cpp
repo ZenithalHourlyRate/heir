@@ -2,6 +2,7 @@
 
 #include "lib/Analysis/DimensionAnalysis/DimensionAnalysis.h"
 #include "lib/Analysis/LevelAnalysis/LevelAnalysis.h"
+#include "lib/Analysis/NoiseAnalysis/BFV/NoiseByBoundCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BFV/NoiseByVarianceCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseByBoundCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseByVarianceCoeffModel.h"
@@ -276,6 +277,14 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       run<NoiseAnalysis<bgv::NoiseByVarianceCoeffPkModel>>();
     } else if (model == "bgv-noise-by-variance-coeff-sk") {
       run<NoiseAnalysis<bgv::NoiseByVarianceCoeffSkModel>>();
+    } else if (model == "bfv-noise-by-bound-coeff-worst-case-pk") {
+      run<NoiseAnalysis<bfv::NoiseByBoundCoeffWorstCasePkModel>>();
+    } else if (model == "bfv-noise-by-bound-coeff-average-case-pk") {
+      run<NoiseAnalysis<bfv::NoiseByBoundCoeffAverageCasePkModel>>();
+    } else if (model == "bfv-noise-by-bound-coeff-worst-case-sk") {
+      run<NoiseAnalysis<bfv::NoiseByBoundCoeffWorstCaseSkModel>>();
+    } else if (model == "bfv-noise-by-bound-coeff-average-case-sk") {
+      run<NoiseAnalysis<bfv::NoiseByBoundCoeffAverageCaseSkModel>>();
     } else if (model == "bfv-noise-by-variance-coeff-pk") {
       run<NoiseAnalysis<bfv::NoiseByVarianceCoeffPkModel>>();
     } else if (model == "bfv-noise-by-variance-coeff-sk") {
