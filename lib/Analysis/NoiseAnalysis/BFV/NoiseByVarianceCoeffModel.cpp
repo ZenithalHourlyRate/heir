@@ -75,7 +75,7 @@ template <bool P>
 double Model<P>::toLogTotal(const LocalParamType &param) {
   double total = 0;
   auto logqi = param.getSchemeParam()->getLogqi();
-  for (auto i = 0; i <= param.getCurrentLevel(); ++i) {
+  for (auto i = 0; i <= param.getSchemeParam()->getLevel(); ++i) {
     total += logqi[i];
   }
   double logT = log2(param.getSchemeParam()->getPlaintextModulus());
