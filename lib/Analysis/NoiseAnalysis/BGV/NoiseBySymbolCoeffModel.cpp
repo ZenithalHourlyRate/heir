@@ -52,6 +52,54 @@ static double erfinv(double a) {
   return r;
 }
 
+double Model::toLogBound(const LocalParamType &param, const StateType &noise) {
+  // error probability 0.1%
+  // though this only holds if every random variable is Gaussian
+  // or similar to Gaussian
+  // so this may give underestimation, see MP24 and CCH+23
+  double alpha = 0.001;
+  auto ringDim = param.getSchemeParam()->getRingDim();
+  double bound = sqrt(2.0 * noise.toVariance(param)) *
+                 erfinv(pow(1.0 - alpha, 1.0 / ringDim));
+  return log2(bound);
+}
+
+double Model::toLogBudget(const LocalParamType &param, const StateType &noise) {
+  return toLogTotal(param) - toLogBound(param, noise);
+}
+
+double Model::toLogTotal(const LocalParamType &param) {
+  double total = 0;
+  auto logqi = param.getSchemeParam()->getLogqi();
+  for (auto i = 0; i <= param.getCurrentLevel(); ++i) {
+    total += logqi[i];
+  }
+  return total - 1.0;
+}
+
+std::string Model::toLogBoundString(const LocalParamType &param,
+                                    const StateType &noise) {
+  auto logBound = toLogBound(param, noise);
+  std::stringstream stream;
+  stream << std::fixed << std::setprecision(2) << logBound;
+  return stream.str();
+}
+
+std::string Model::toLogBudgetString(const LocalParamType &param,
+                                     const StateType &noise) {
+  auto logBudget = toLogBudget(param, noise);
+  std::stringstream stream;
+  stream << std::fixed << std::setprecision(2) << logBudget;
+  return stream.str();
+}
+
+std::string Model::toLogTotalString(const LocalParamType &param) {
+  auto logTotal = toLogTotal(param);
+  std::stringstream stream;
+  stream << std::fixed << std::setprecision(2) << logTotal;
+  return stream.str();
+}
+
 typename Model::StateType Model::evalEncryptPk(const LocalParamType &param,
                                                unsigned index) {
   Symbol symbol("m" + std::to_string(index), SymbolType::EncryptPk);

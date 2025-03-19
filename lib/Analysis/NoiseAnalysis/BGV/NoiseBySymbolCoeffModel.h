@@ -33,6 +33,20 @@ class NoiseBySymbolCoeffModel {
   static StateType evalAdd(const StateType &lhs, const StateType &rhs);
   static StateType evalMul(const LocalParamType &resultParam,
                            const StateType &lhs, const StateType &rhs);
+
+  // logTotal: log(Ql / 2)
+  // logBound: bound on ||m + t * e|| predicted by the model
+  // logBudget: logTotal - logBound
+  // as ||m + t * e|| < Ql / 2 for correct decryption
+  static double toLogBound(const LocalParamType &param, const StateType &noise);
+  static std::string toLogBoundString(const LocalParamType &param,
+                                      const StateType &noise);
+  static double toLogBudget(const LocalParamType &param,
+                            const StateType &noise);
+  static std::string toLogBudgetString(const LocalParamType &param,
+                                       const StateType &noise);
+  static double toLogTotal(const LocalParamType &param);
+  static std::string toLogTotalString(const LocalParamType &param);
 };
 
 }  // namespace bgv

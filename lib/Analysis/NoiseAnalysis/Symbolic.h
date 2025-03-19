@@ -85,7 +85,7 @@ class Expression {
   static SymbolsType mergeSymbols(const Expression::SymbolsType &lhs,
                                   const Expression::SymbolsType &rhs);
   static std::tuple<CoefficientType, std::vector<ExponentType>> computeFactor(
-      SymbolsType symbols);
+      const SymbolsType &symbols);
 
   static Expression join(const Expression &lhs, const Expression &rhs) {
     auto newSymbols =

@@ -19,7 +19,7 @@ bool Symbol::operator<(const Symbol &rhs) const {
 std::string Expression::toString() const {
   // auto ret = name + " = ";
   auto ret = std::to_string(log(coefficient) / log(2));
-  auto dumpSymbols = [&](const SymbolsType symbols) {
+  auto dumpSymbols = [&](const SymbolsType &symbols) {
     for (auto &[symbol, exponent] : symbols) {
       ret += " * ";
       ret += symbol.getName();
@@ -37,7 +37,7 @@ std::string Expression::toString() const {
 Expression::SymbolsType Expression::mergeSymbols(
     const Expression::SymbolsType &lhs, const Expression::SymbolsType &rhs) {
   SymbolsType newSymbols;
-  auto updateSymbols = [&](const SymbolsType symbols) {
+  auto updateSymbols = [&](const SymbolsType &symbols) {
     for (auto &[symbol, exponent] : symbols) {
       auto find = newSymbols.find(symbol);
       if (find != newSymbols.end()) {
@@ -85,16 +85,16 @@ Expression Expression::add(const Expression &rhs, ParamType resultParam) const {
 static inline double factorial(int n) { return tgamma(n + 1); }
 
 std::tuple<Expression::CoefficientType, std::vector<Expression::ExponentType>>
-Expression::computeFactor(Expression::SymbolsType symbols) {
+Expression::computeFactor(const Expression::SymbolsType &symbols) {
   double result = 1.0;
   ExponentType orderSum = 0;
   ExponentType skPkSum = 0;
   ExponentType ePkSum = 0;
-  ExponentType skModRSum = 0;
-  ExponentType tModRSum = 0;
-  ExponentType DRelinSum = 0;
-  ExponentType eRelinSum = 0;
-  ExponentType DRelinASum = 0;
+  // ExponentType skModRSum = 0;
+  // ExponentType tModRSum = 0;
+  // ExponentType DRelinSum = 0;
+  // ExponentType eRelinSum = 0;
+  // ExponentType DRelinASum = 0;
   for (auto &[symbol, exponent] : symbols) {
     if (symbol.getType() == SymbolType::EncryptPk) {
       orderSum += 2 * exponent;  // each Pk with order two symbols
@@ -125,14 +125,16 @@ Expression::computeFactor(Expression::SymbolsType symbols) {
           << "\n");
 #endif
   // additional term for s in sk
-  result *= factorial(skPkSum + skModRSum + 1) / (skModRSum + 1);
+  // also for es?
+  result *= factorial(skPkSum);
   // correction term for a in D in relin added error
-  result *= factorial(DRelinASum);
+  // result *= factorial(DRelinASum);
   // additional term for eksk in sk
-  result *= factorial(eRelinSum + 1);
+  // result *= factorial(eRelinSum + 1);
   std::vector<ExponentType> exponents = {
-      orderSum, skPkSum,   ePkSum,    skModRSum,
-      tModRSum, DRelinSum, eRelinSum, DRelinASum,
+      orderSum, skPkSum, ePkSum
+      //,    skModRSum,
+      // tModRSum, DRelinSum, eRelinSum, DRelinASum,
   };
   return std::make_tuple(result, exponents);
 }
@@ -148,20 +150,19 @@ double Expression::toVariance(ParamType param) const {
   auto orderSum = exponents[0];
   auto skPkSum = exponents[1];
   auto ePkSum = exponents[2];
-  auto skModRSum = exponents[3];
-  auto tModRSum = exponents[4];
-  auto DRelinSum = exponents[5];
-  auto eRelinSum = exponents[6];
+  // auto skModRSum = exponents[3];
+  // auto tModRSum = exponents[4];
+  // auto DRelinSum = exponents[5];
+  // auto eRelinSum = exponents[6];
 
   result *= factor;
   result *= pow(N, orderSum - 1);
-  result *= pow(
-      t, orderSum - skModRSum - tModRSum);  // no t before modreduce added noise
-  result *= pow(2.0 / 3, skPkSum + skModRSum);     // Var[S]
-  result *= pow(3.19 * 3.19, ePkSum + eRelinSum);  // Var[E]
+  result *= pow(t, orderSum);          // no t before modreduce added noise
+  result *= pow(2.0 / 3, skPkSum);     // Var[S]
+  result *= pow(3.19 * 3.19, ePkSum);  // Var[E]
   // result *= pow(numDigit * (beta * beta) / 12.0,
   //               DRelinSum);                       // Var[D] of digitNum times
-  result *= pow(double(t) * t / 12.0, tModRSum);  // Var[T]
+  // result *= pow(double(t) * t / 12.0, tModRSum);  // Var[T]
   result /= coefficient * coefficient;
   return result;
 }
