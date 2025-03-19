@@ -178,14 +178,14 @@ struct GenerateParamBGV : impl::GenerateParamBGVBase<GenerateParamBGV> {
       signalPassFailure();
     }
 
-    // // use previous analysis result to generate concrete scheme param
-    // auto concreteSchemeParam =
-    //     generateParamByGap<NoiseAnalysis>(&solver, schemeParam);
+    // use previous analysis result to generate concrete scheme param
+    auto concreteSchemeParam =
+        generateParamByGap<NoiseAnalysis>(&solver, schemeParam);
 
-    // LLVM_DEBUG(llvm::dbgs() << "Concrete Scheme Param:\n"
-    //                         << concreteSchemeParam << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "Concrete Scheme Param:\n"
+                            << concreteSchemeParam << "\n");
 
-    // annotateSchemeParam(concreteSchemeParam);
+    annotateSchemeParam(concreteSchemeParam);
   }
 
   void generateFallbackParam() {
