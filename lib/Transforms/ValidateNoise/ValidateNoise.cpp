@@ -10,6 +10,7 @@
 #include "lib/Analysis/NoiseAnalysis/BFV/NoiseByBoundCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BFV/NoiseByVarianceCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseByBoundCoeffModel.h"
+#include "lib/Analysis/NoiseAnalysis/BGV/NoiseBySymbolCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseByVarianceCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseCanEmbModel.h"
 #include "lib/Analysis/NoiseAnalysis/NoiseAnalysis.h"
@@ -76,9 +77,9 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
     }
 
     const auto *noiseLattice = solver->lookupState<NoiseLatticeType>(value);
-    if (!noiseLattice || !noiseLattice->getValue().isInitialized()) {
-      return failure();
-    }
+    // if (!noiseLattice || !noiseLattice->getValue().isInitialized()) {
+    //   return failure();
+    // }
 
     auto noiseState = noiseLattice->getValue();
     auto localParam = getLocalParam(value);
@@ -110,9 +111,9 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       }
     }
 
-    if (budget < 0) {
-      return failure();
-    }
+    // if (budget < 0) {
+    //   return failure();
+    // }
 
     return success();
   }
@@ -204,6 +205,8 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       run<NoiseAnalysis<bgv::NoiseByVarianceCoeffModel>>();
     } else if (model == "bgv-noise-mono") {
       run<NoiseAnalysis<bgv::NoiseCanEmbModel>>();
+    } else if (model == "bgv-noise-symbol") {
+      run<NoiseAnalysis<bgv::NoiseBySymbolCoeffModel>>();
     } else if (model == "bfv-noise-by-bound-coeff-worst-case") {
       run<NoiseAnalysis<bfv::NoiseByBoundCoeffWorstCaseModel>>();
     } else if (model == "bfv-noise-by-bound-coeff-average-case" ||

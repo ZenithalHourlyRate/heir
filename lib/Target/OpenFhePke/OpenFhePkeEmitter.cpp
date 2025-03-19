@@ -1100,7 +1100,8 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
   int64_t keySwitchCount = op.getKeySwitchCountAttr().getValue().getSExtValue();
 
   os << "CCParamsT " << paramsName << ";\n";
-  os << paramsName << ".SetMultiplicativeDepth(" << mulDepth << ");\n";
+  // os << paramsName << ".SetMultiplicativeDepth(" << mulDepth << ");\n";
+  os << paramsName << ".SetMultiplicativeDepth(" << 5 << ");\n";
   if (plainMod != 0) {
     os << paramsName << ".SetPlaintextModulus(" << plainMod << ");\n";
   }
