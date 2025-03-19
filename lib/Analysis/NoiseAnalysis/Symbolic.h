@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-#include "lib/Analysis/NoiseAnalysis/Noise.h"
 #include "lib/Parameters/BGV/Params.h"
 
 // #define IGNORE_SYMBOL
@@ -52,8 +51,7 @@ class Expression {
   using SymbolsType = std::map<Symbol, ExponentType>;
   using ParamType = bgv::LocalParam;
 
-  // to be deleted
-  // Expression() = default;
+  Expression() = default;
 
   Expression(const Symbol &symbol) : name(symbol.getName()) {
     symbols[symbol] = 1;
@@ -89,9 +87,20 @@ class Expression {
   static std::tuple<CoefficientType, std::vector<ExponentType>> computeFactor(
       SymbolsType symbols);
 
+  static Expression join(const Expression &lhs, const Expression &rhs) {
+    auto newSymbols =
+        lhs.symbols.size() > rhs.symbols.size() ? lhs.symbols : rhs.symbols;
+    auto newCoefficient = lhs.symbols.size() > rhs.symbols.size()
+                              ? lhs.coefficient
+                              : rhs.coefficient;
+    return Expression("", newSymbols, newCoefficient);
+  }
+
   double toVariance(ParamType param) const;
 
   std::string toString() const;
+
+  void print(raw_ostream &os) const { os << toString(); }
 
   // helper on name
   std::string nameSelect(const Expression &rhs, bool selectedLhs) const {

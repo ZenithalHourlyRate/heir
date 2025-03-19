@@ -1,6 +1,7 @@
 #include "lib/Analysis/DimensionAnalysis/DimensionAnalysis.h"
 #include "lib/Analysis/LevelAnalysis/LevelAnalysis.h"
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseByBoundCoeffModel.h"
+#include "lib/Analysis/NoiseAnalysis/BGV/NoiseBySymbolCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseByVarianceCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseCanEmbModel.h"
 #include "lib/Analysis/NoiseAnalysis/NoiseAnalysis.h"
@@ -177,14 +178,14 @@ struct GenerateParamBGV : impl::GenerateParamBGVBase<GenerateParamBGV> {
       signalPassFailure();
     }
 
-    // use previous analysis result to generate concrete scheme param
-    auto concreteSchemeParam =
-        generateParamByGap<NoiseAnalysis>(&solver, schemeParam);
+    // // use previous analysis result to generate concrete scheme param
+    // auto concreteSchemeParam =
+    //     generateParamByGap<NoiseAnalysis>(&solver, schemeParam);
 
-    LLVM_DEBUG(llvm::dbgs() << "Concrete Scheme Param:\n"
-                            << concreteSchemeParam << "\n");
+    // LLVM_DEBUG(llvm::dbgs() << "Concrete Scheme Param:\n"
+    //                         << concreteSchemeParam << "\n");
 
-    annotateSchemeParam(concreteSchemeParam);
+    // annotateSchemeParam(concreteSchemeParam);
   }
 
   void generateFallbackParam() {
@@ -228,6 +229,8 @@ struct GenerateParamBGV : impl::GenerateParamBGVBase<GenerateParamBGV> {
       run<NoiseAnalysis<bgv::NoiseByVarianceCoeffModel>>();
     } else if (model == "bgv-noise-mono") {
       run<NoiseAnalysis<bgv::NoiseCanEmbModel>>();
+    } else if (model == "bgv-noise-symbol") {
+      run<NoiseAnalysis<bgv::NoiseBySymbolCoeffModel>>();
     } else {
       getOperation()->emitWarning() << "Unknown noise model.\n";
       generateFallbackParam();
