@@ -8,8 +8,9 @@ openfhe_end_to_end_test(
     name = "mult_dep_8_debug_test",
     generated_lib_header = "mult_dep_8_debug_lib.h",
     heir_opt_flags = [
+        "--annotate-module=backend=openfhe",
         "--mlir-to-secret-arithmetic",
-        "--secret-insert-mgmt-bfv",
+        "--secret-insert-mgmt-bgv",
         "--validate-noise=model=bgv-noise-symbol annotate-noise-bound=true",
         "--secret-distribute-generic",
         "--secret-to-bgv",

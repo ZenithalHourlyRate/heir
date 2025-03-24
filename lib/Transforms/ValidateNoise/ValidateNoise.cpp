@@ -8,6 +8,7 @@
 #include "lib/Analysis/DimensionAnalysis/DimensionAnalysis.h"
 #include "lib/Analysis/LevelAnalysis/LevelAnalysis.h"
 #include "lib/Analysis/NoiseAnalysis/BFV/NoiseByBoundCoeffModel.h"
+#include "lib/Analysis/NoiseAnalysis/BFV/NoiseBySymbolCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BFV/NoiseByVarianceCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseByBoundCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseBySymbolCoeffModel.h"
@@ -93,7 +94,8 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
     LLVM_DEBUG({
       llvm::dbgs() << "Noise Bound: " << boundString
                    << " Budget: " << budgetString << " Total: " << totalString
-                   << " for value: " << value << " " << "\n";
+                   << " for value: " << value << " "
+                   << "\n";
     });
 
     if (annotateNoiseBound) {
@@ -215,6 +217,8 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
     } else if (model == "bfv-noise-by-variance-coeff" ||
                model == "bfv-noise-bmcm23") {
       run<NoiseAnalysis<bfv::NoiseByVarianceCoeffModel>>();
+    } else if (model == "bfv-noise-symbol") {
+      run<NoiseAnalysis<bfv::NoiseBySymbolCoeffModel>>();
     } else {
       getOperation()->emitOpError() << "Unknown noise model.\n";
       signalPassFailure();

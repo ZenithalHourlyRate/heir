@@ -282,6 +282,9 @@ class Expression {
           factor *= pow(3.19 * 3.19, exponent);
         } else if (name[0] == 's' || name[0] == 'u') {
           factor *= pow(2.0 / 3, exponent);
+        } else if (name[0] == 'k') {
+          // [-1/2, 1/2]
+          factor *= pow(1.0 / 12, exponent);
         }
       }
       factor *= pow(ringDim, exponentSum - 1);

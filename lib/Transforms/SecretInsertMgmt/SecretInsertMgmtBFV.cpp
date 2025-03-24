@@ -32,8 +32,7 @@ struct SecretInsertMgmtBFV
 
   void runOnOperation() override {
     // Helper for future lowerings that want to know what scheme was used.
-    // moduleSetBFV(getOperation());
-    moduleSetBGV(getOperation());
+    moduleSetBFV(getOperation());
 
     DataFlowSolver solver;
     solver.load<dataflow::DeadCodeAnalysis>();
