@@ -7,6 +7,9 @@
 #include <vector>
 
 #include "lib/Parameters/BGV/Params.h"
+#include "llvm/include/llvm/Support/Debug.h"  // from @llvm-project
+
+#define DEBUG_TYPE "Symbolic"
 
 // #define IGNORE_SYMBOL
 
@@ -153,6 +156,8 @@ class Monomial {
   bool operator<(const Monomial &rhs) const { return symbols < rhs.symbols; }
   bool operator==(const Monomial &rhs) const { return symbols == rhs.symbols; }
 
+  SymbolsType getSymbols() const { return symbols; }
+
   static SymbolsType mergeSymbols(const SymbolsType &lhs,
                                   const SymbolsType &rhs) {
     SymbolsType newSymbols;
@@ -250,6 +255,39 @@ class Expression {
       }
     }
     return Expression(newMonomials);
+  }
+
+  static Expression multiply(const Expression &lhs,
+                             CoefficientType coefficient) {
+    MonomialsType newMonomials;
+    for (auto &[lhsMonomial, lhsCoefficient] : lhs.monomials) {
+      newMonomials[lhsMonomial] = lhsCoefficient * coefficient;
+    }
+    return Expression(newMonomials);
+  }
+
+  // This is variance expression!
+  // TODO: take covariance into consideration, sir
+  double toVariance(int ringDim) const {
+    double variance = 0;
+    for (auto &[monomial, coefficient] : monomials) {
+      auto factor = coefficient * coefficient;
+      auto exponentSum = 0;
+      for (auto &[symbol, exponent] : monomial.getSymbols()) {
+        // factorial(exponent)
+        factor *= tgamma(exponent + 1);
+        exponentSum += exponent;
+        auto name = symbol.getName();
+        if (name[0] == 'e') {
+          factor *= pow(3.19 * 3.19, exponent);
+        } else if (name[0] == 's' || name[0] == 'u') {
+          factor *= pow(2.0 / 3, exponent);
+        }
+      }
+      factor *= pow(ringDim, exponentSum - 1);
+      variance += factor;
+    }
+    return variance;
   }
 
   std::string toString() const {

@@ -55,8 +55,8 @@ LogicalResult NoiseAnalysis<NoiseModel>::visitOperation(
   auto propagate = [&](Value value, NoiseState noise) {
     LLVM_DEBUG(llvm::dbgs()
                << "Propagating "
-               //<< NoiseModel::toLogBoundString(getLocalParam(value), noise)
-               << noise.toString() << " to " << value << "\n");
+               << NoiseModel::toLogBoundString(getLocalParam(value), noise)
+               << " to " << value << "\n");
     LatticeType *lattice = this->getLatticeElement(value);
     auto changeResult = lattice->join(noise);
     this->propagateIfChanged(lattice, changeResult);

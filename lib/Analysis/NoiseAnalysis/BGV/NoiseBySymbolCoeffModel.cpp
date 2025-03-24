@@ -59,9 +59,8 @@ double Model::toLogBound(const LocalParamType &param, const StateType &noise) {
   // so this may give underestimation, see MP24 and CCH+23
   double alpha = 0.001;
   auto ringDim = param.getSchemeParam()->getRingDim();
-  // double bound = sqrt(2.0 * noise.toVariance(param)) *
-  //                erfinv(pow(1.0 - alpha, 1.0 / ringDim));
-  double bound = 1024;
+  double bound = sqrt(2.0 * noise.toVariance(ringDim)) *
+                 erfinv(pow(1.0 - alpha, 1.0 / ringDim));
   return log2(bound);
 }
 
@@ -103,14 +102,15 @@ std::string Model::toLogTotalString(const LocalParamType &param) {
 
 typename Model::StateType Model::evalEncryptPk(const LocalParamType &param,
                                                unsigned index) {
-  // Symbol symbol("m" + std::to_string(index), SymbolType::EncryptPk);
+  auto t = param.getSchemeParam()->getPlaintextModulus();
   experimental::Symbol ei("e" + std::to_string(index));
   experimental::Symbol s("s");
   experimental::Symbol es("es");
   experimental::Symbol ui("u" + std::to_string(index));
   auto ei_s = experimental::Monomial::multiply(ei, s);
   auto es_ui = experimental::Monomial::multiply(es, ui);
-  auto ei_s_es_ui = experimental::Expression::add(ei_s, es_ui);
+  auto ei_s_es_ui = experimental::Expression::multiply(
+      experimental::Expression::add(ei_s, es_ui), t);
   return ei_s_es_ui;
 }
 
