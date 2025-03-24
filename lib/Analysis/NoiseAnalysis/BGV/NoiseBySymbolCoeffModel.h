@@ -20,7 +20,7 @@ class NoiseBySymbolCoeffModel {
   // MP24 states that for two polynomial multipication, the variance of one
   // coefficient of the result can be approximated by ringDim * var_0 * var_1,
   // because the polynomial multipication is a convolution.
-  using StateType = Expression;
+  using StateType = experimental::Expression;
   using SchemeParamType = SchemeParam;
   using LocalParamType = LocalParam;
 

@@ -59,8 +59,9 @@ double Model::toLogBound(const LocalParamType &param, const StateType &noise) {
   // so this may give underestimation, see MP24 and CCH+23
   double alpha = 0.001;
   auto ringDim = param.getSchemeParam()->getRingDim();
-  double bound = sqrt(2.0 * noise.toVariance(param)) *
-                 erfinv(pow(1.0 - alpha, 1.0 / ringDim));
+  // double bound = sqrt(2.0 * noise.toVariance(param)) *
+  //                erfinv(pow(1.0 - alpha, 1.0 / ringDim));
+  double bound = 1024;
   return log2(bound);
 }
 
@@ -102,15 +103,22 @@ std::string Model::toLogTotalString(const LocalParamType &param) {
 
 typename Model::StateType Model::evalEncryptPk(const LocalParamType &param,
                                                unsigned index) {
-  Symbol symbol("m" + std::to_string(index), SymbolType::EncryptPk);
-  return Expression(symbol);
+  // Symbol symbol("m" + std::to_string(index), SymbolType::EncryptPk);
+  experimental::Symbol ei("e" + std::to_string(index));
+  experimental::Symbol s("s");
+  experimental::Symbol es("es");
+  experimental::Symbol ui("u" + std::to_string(index));
+  auto ei_s = experimental::Monomial::multiply(ei, s);
+  auto es_ui = experimental::Monomial::multiply(es, ui);
+  auto ei_s_es_ui = experimental::Expression::add(ei_s, es_ui);
+  return ei_s_es_ui;
 }
 
-typename Model::StateType Model::evalEncryptSk(const LocalParamType &param,
-                                               unsigned index) {
-  Symbol symbol("m" + std::to_string(index), SymbolType::EncryptPk);
-  return Expression(symbol);
-}
+// typename Model::StateType Model::evalEncryptSk(const LocalParamType &param,
+//                                                unsigned index) {
+//   //Symbol symbol("m" + std::to_string(index), SymbolType::EncryptPk);
+//   return Expression(symbol);
+// }
 
 typename Model::StateType Model::evalEncrypt(const LocalParamType &param,
                                              unsigned index) {
@@ -118,13 +126,15 @@ typename Model::StateType Model::evalEncrypt(const LocalParamType &param,
   if (usePublicKey) {
     return evalEncryptPk(param, index);
   }
-  return evalEncryptSk(param, index);
+  return evalEncryptPk(param, index);
+  // return evalEncryptSk(param, index);
 }
 
 typename Model::StateType Model::evalMul(const LocalParamType &resultParam,
                                          const StateType &lhs,
                                          const StateType &rhs) {
-  return lhs.multiply(rhs, resultParam);
+  // return lhs.multiply(rhs, resultParam);
+  return experimental::Expression::multiply(lhs, rhs);
 }
 
 }  // namespace bgv
