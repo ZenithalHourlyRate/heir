@@ -1124,7 +1124,7 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
   if (op.getEncryptionTechniqueExtended()) {
     os << paramsName << ".SetEncryptionTechnique(EXTENDED);\n";
   }
-  // os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
+  os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
   os << paramsName << ".SetScalingModSize(59);\n";
   return success();
 }

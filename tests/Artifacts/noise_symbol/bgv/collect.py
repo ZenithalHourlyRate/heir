@@ -46,8 +46,8 @@ def analyse_log(log_file_name):
 
 mp24_noise_bounds = analyse_log(sys.argv[1])
 symbol_noise_bounds = analyse_log(sys.argv[2])
-kpz21_noise_bounds = analyse_log(sys.argv[3])
-mono_noise_bounds = analyse_log(sys.argv[4])
+# kpz21_noise_bounds = analyse_log(sys.argv[3])
+# mono_noise_bounds = analyse_log(sys.argv[4])
 
 x_axis = range(1, len(noise_index_to_value) + 1)
 
@@ -79,29 +79,35 @@ average_noises = [average_noise[index] for index in average_noise]
 
 # minus average for max and min and other bounds
 max_noises = [
-    max_noise[index] - average_noise[index] for index in average_noise
+    (max_noise[index] - average_noise[index]) / average_noise[index]
+    for index in average_noise
 ]
 min_noises = [
-    min_noise[index] - average_noise[index] for index in average_noise
+    (min_noise[index] - average_noise[index]) / average_noise[index]
+    for index in average_noise
 ]
 percentile_75_noises = [
-    percentile_75_noise[index] - average_noise[index] for index in average_noise
+    (percentile_75_noise[index] - average_noise[index]) / average_noise[index]
+    for index in average_noise
 ]
 percentile_25_noises = [
-    percentile_25_noise[index] - average_noise[index] for index in average_noise
+    (percentile_25_noise[index] - average_noise[index]) / average_noise[index]
+    for index in average_noise
 ]
 mp24_noise_bounds = [
-    mp24_noise_bounds[index] - average_noise[index] for index in average_noise
+    (mp24_noise_bounds[index] - average_noise[index]) / average_noise[index]
+    for index in average_noise
 ]
 symbol_noise_bounds = [
-    symbol_noise_bounds[index] - average_noise[index] for index in average_noise
+    (symbol_noise_bounds[index] - average_noise[index]) / average_noise[index]
+    for index in average_noise
 ]
-kpz21_noise_bounds = [
-    kpz21_noise_bounds[index] - average_noise[index] for index in average_noise
-]
-mono_noise_bounds = [
-    mono_noise_bounds[index] - average_noise[index] for index in average_noise
-]
+# kpz21_noise_bounds = [
+#    (kpz21_noise_bounds[index] - average_noise[index])/average_noise[index] for index in average_noise
+# ]
+# mono_noise_bounds = [
+#    (mono_noise_bounds[index] - average_noise[index])/average_noise[index] for index in average_noise
+# ]
 
 # Plot max and min noise for each bound
 plt.figure(figsize=(10, 6))
