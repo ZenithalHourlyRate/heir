@@ -1101,7 +1101,9 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
 
   os << "CCParamsT " << paramsName << ";\n";
   // os << paramsName << ".SetMultiplicativeDepth(" << mulDepth << ");\n";
-  os << paramsName << ".SetMultiplicativeDepth(" << 5 << ");\n";
+  os << paramsName << ".SetMultiplicativeDepth(" << 6 << ");\n";
+  os << paramsName << ".SetSecurityLevel(lbcrypto::HEStd_NotSet);\n";
+  os << paramsName << ".SetRingDim(32768);\n";
   if (plainMod != 0) {
     os << paramsName << ".SetPlaintextModulus(" << plainMod << ");\n";
   }
@@ -1122,7 +1124,7 @@ LogicalResult OpenFhePkeEmitter::printOperation(GenParamsOp op) {
   if (op.getEncryptionTechniqueExtended()) {
     os << paramsName << ".SetEncryptionTechnique(EXTENDED);\n";
   }
-  os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
+  // os << paramsName << ".SetScalingTechnique(FIXEDMANUAL);\n";
   os << paramsName << ".SetScalingModSize(59);\n";
   return success();
 }
