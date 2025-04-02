@@ -5,6 +5,7 @@
 #include <string>
 
 #include "lib/Analysis/NoiseAnalysis/Symbolic.h"
+#include "lib/Analysis/SymbolAnalysis/SymbolAnalysis.h"
 #include "lib/Parameters/BGV/Params.h"
 
 namespace mlir {
@@ -24,6 +25,9 @@ class NoiseBySymbolCoeffModel {
   using SchemeParamType = bgv::SchemeParam;
   using LocalParamType = bgv::LocalParam;
 
+  // in symbol analysis
+  using AnalysisSymbolState = SymbolState;
+
  private:
   static StateType evalEncryptPk(const LocalParamType &param, unsigned index);
   static StateType evalEncryptSk(const LocalParamType &param, unsigned index);
@@ -32,7 +36,9 @@ class NoiseBySymbolCoeffModel {
   static StateType evalEncrypt(const LocalParamType &param, unsigned index);
   static StateType evalAdd(const StateType &lhs, const StateType &rhs);
   static StateType evalMul(const LocalParamType &resultParam,
-                           const StateType &lhs, const StateType &rhs);
+                           const StateType &lhs, const StateType &rhs,
+                           const AnalysisSymbolState &lhsSymbol,
+                           const AnalysisSymbolState &rhsSymbol);
 
   // logTotal: log(Ql / 2)
   // logBound: bound on ||m + t * e|| predicted by the model

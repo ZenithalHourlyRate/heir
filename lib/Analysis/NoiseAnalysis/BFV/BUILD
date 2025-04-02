@@ -73,6 +73,7 @@ cc_library(
         "@heir//lib/Analysis/DimensionAnalysis",
         "@heir//lib/Analysis/LevelAnalysis",
         "@heir//lib/Analysis/NoiseAnalysis",
+        "@heir//lib/Analysis/SymbolAnalysis",
         "@heir//lib/Dialect/Mgmt/IR:Dialect",
         "@heir//lib/Dialect/Secret/IR:Dialect",
         "@heir//lib/Dialect/TensorExt/IR:Dialect",
@@ -95,6 +96,7 @@ cc_library(
     ],
     deps = [
         "@heir//lib/Analysis/NoiseAnalysis:Symbolic",
+        "@heir//lib/Analysis/SymbolAnalysis",
         "@heir//lib/Parameters/BGV:Params",
     ],
 )

@@ -16,6 +16,7 @@
 #include "lib/Analysis/NoiseAnalysis/BGV/NoiseCanEmbModel.h"
 #include "lib/Analysis/NoiseAnalysis/NoiseAnalysis.h"
 #include "lib/Analysis/SecretnessAnalysis/SecretnessAnalysis.h"
+#include "lib/Analysis/SymbolAnalysis/SymbolAnalysis.h"
 #include "lib/Dialect/BGV/IR/BGVAttributes.h"
 #include "lib/Dialect/BGV/IR/BGVDialect.h"
 #include "lib/Dialect/Mgmt/IR/MgmtOps.h"
@@ -94,8 +95,7 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
     LLVM_DEBUG({
       llvm::dbgs() << "Noise Bound: " << boundString
                    << " Budget: " << budgetString << " Total: " << totalString
-                   << " for value: " << value << " "
-                   << "\n";
+                   << " for value: " << value << " " << "\n";
     });
 
     if (annotateNoiseBound) {
@@ -182,6 +182,7 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
     solver.load<dataflow::SparseConstantPropagation>();
     // NoiseAnalysis depends on SecretnessAnalysis
     solver.load<SecretnessAnalysis>();
+    solver.load<SymbolAnalysis>();
 
     solver.load<NoiseAnalysis>(schemeParam);
 

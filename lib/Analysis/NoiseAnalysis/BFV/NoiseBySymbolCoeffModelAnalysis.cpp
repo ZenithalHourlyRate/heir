@@ -4,6 +4,7 @@
 #include "lib/Analysis/LevelAnalysis/LevelAnalysis.h"
 #include "lib/Analysis/NoiseAnalysis/BFV/NoiseBySymbolCoeffModel.h"
 #include "lib/Analysis/NoiseAnalysis/NoiseAnalysis.h"
+#include "lib/Analysis/SymbolAnalysis/SymbolAnalysis.h"
 #include "lib/Analysis/Utils.h"
 #include "lib/Dialect/Mgmt/IR/MgmtOps.h"
 #include "lib/Dialect/Secret/IR/SecretOps.h"
@@ -99,9 +100,17 @@ LogicalResult NoiseAnalysis<NoiseModel>::visitOperation(
               return success();
             }
 
+            auto lhsSymbolState =
+                this->template getOrCreate<SymbolLattice>(mulOp.getOperand(0))
+                    ->getValue();
+            auto rhsSymbolState =
+                this->template getOrCreate<SymbolLattice>(mulOp.getOperand(1))
+                    ->getValue();
+
             auto localParam = getLocalParam(mulOp.getResult());
             NoiseState mult = NoiseModel::evalMul(
-                localParam, operands[0]->getValue(), operands[1]->getValue());
+                localParam, operands[0]->getValue(), operands[1]->getValue(),
+                lhsSymbolState, rhsSymbolState);
             propagate(mulOp.getResult(), mult);
             return success();
           })

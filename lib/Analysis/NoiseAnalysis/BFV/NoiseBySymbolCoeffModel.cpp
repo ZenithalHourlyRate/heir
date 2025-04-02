@@ -130,13 +130,13 @@ typename Model::StateType Model::evalEncrypt(const LocalParamType &param,
 
 typename Model::StateType Model::evalMul(const LocalParamType &resultParam,
                                          const StateType &lhs,
-                                         const StateType &rhs) {
-  static int index = 0;
+                                         const StateType &rhs,
+                                         const AnalysisSymbolState &lhsSymbol,
+                                         const AnalysisSymbolState &rhsSymbol) {
   auto t = resultParam.getSchemeParam()->getPlaintextModulus();
+  auto k0 = experimental::Symbol(lhsSymbol.getSymbol());
+  auto k1 = experimental::Symbol(rhsSymbol.getSymbol());
   // k0 * s * rhs
-  experimental::Symbol k0("k" + std::to_string(index++));
-  // experimental::Symbol k1("k" + std::to_string(index++));
-  experimental::Symbol k1 = k0;
   experimental::Symbol s("s");
   experimental::Monomial k0_s = experimental::Monomial::multiply(k0, s);
   experimental::Monomial k1_s = experimental::Monomial::multiply(k1, s);

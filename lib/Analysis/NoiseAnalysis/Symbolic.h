@@ -9,7 +9,7 @@
 #include "lib/Parameters/BGV/Params.h"
 #include "llvm/include/llvm/Support/Debug.h"  // from @llvm-project
 
-#define DEBUG_TYPE "Symbolic"
+// #define DEBUG_TYPE "Symbolic"
 
 // #define IGNORE_SYMBOL
 
