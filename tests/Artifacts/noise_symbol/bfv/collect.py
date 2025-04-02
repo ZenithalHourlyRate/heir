@@ -1,5 +1,7 @@
 import re
 import sys
+import numpy as np
+from math import log2
 
 # read log file from argument
 if len(sys.argv) != 4:
@@ -52,11 +54,19 @@ x_axis = range(1, len(noise_index_to_value) + 1)
 max_noise = {}
 min_noise = {}
 average_noise = {}
+percentile_75_noise = {}
+percentile_25_noise = {}
 
 for index, noises in noise_index_to_value.items():
   max_noise[index] = max(noises)
   min_noise[index] = min(noises)
-  average_noise[index] = sum(noises) / len(noises)
+  # noises contains log values, the average is calculated in another way
+  original_noises = [2**noise for noise in noises]
+  percentile_75_noise[index] = log2(np.percentile(original_noises, 75))
+  percentile_25_noise[index] = log2(np.percentile(original_noises, 25))
+  # average_noise[index] = log2(sum(original_noises) / len(original_noises))
+  # median instead of average
+  average_noise[index] = log2(np.percentile(original_noises, 50))
 
 # Plot the noise and noise bound
 import matplotlib.pyplot as plt
@@ -73,6 +83,12 @@ max_noises = [
 min_noises = [
     min_noise[index] - average_noise[index] for index in average_noise
 ]
+percentile_75_noises = [
+    percentile_75_noise[index] - average_noise[index] for index in average_noise
+]
+percentile_25_noises = [
+    percentile_25_noise[index] - average_noise[index] for index in average_noise
+]
 symbol_noise_bounds = [
     symbol_noise_bounds[index] - average_noise[index] for index in average_noise
 ]
@@ -88,6 +104,8 @@ bmcm23_noise_bounds = [
 plt.figure(figsize=(10, 6))
 plt.plot(x_axis, max_noises, label='Max Noise', marker='v')
 plt.plot(x_axis, min_noises, label='Min Noise', marker='^')
+plt.plot(x_axis, percentile_75_noises, label='75th Percentile', marker='s')
+plt.plot(x_axis, percentile_25_noises, label='25th Percentile', marker='p')
 plt.plot(x_axis, symbol_noise_bounds, label='Symbol', marker='1')
 plt.plot(x_axis, bmcm23_poster_noise_bounds, label='BMCM23 Poster', marker='2')
 plt.plot(x_axis, bmcm23_noise_bounds, label='BMCM23', marker='3')

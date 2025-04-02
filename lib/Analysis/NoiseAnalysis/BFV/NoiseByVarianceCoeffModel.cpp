@@ -199,8 +199,10 @@ typename Model::StateType Model::evalMul(const LocalParamType &resultParam,
     // use f(d0 + 1) = d0 + 1.
     // CAUTION: this formula won't work for high degree like 20, which means
     // the circuit is 20-level deep.
-    term3 = (1 + ringDim * varianceKey) / 12.0 * ringDim * t * t *
-            (v0 * (d0 + 1) + v1 * (d1 + 1));
+    auto dMax = std::max(d0, d1);
+    term3 =
+        (1 + ringDim * varianceKey) / 12.0 * ringDim * t * t *
+        (v0 * (dMax + 1) + v1 * (dMax + 1) + 2 * sqrt(v0 * v1) * (dMax + 1));
     // the degree of the resulting term is max(d0 + 1, d1 + 1)
     newDegree += 1;
   }
