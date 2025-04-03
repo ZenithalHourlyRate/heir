@@ -41,3 +41,16 @@ cc_library(
         "@llvm-project//mlir:IR",
     ],
 )
+
+cc_library(
+    name = "Symbolic",
+    srcs = ["Symbolic.cpp"],
+    hdrs = [
+        "Symbolic.h",
+    ],
+    deps = [
+        "//lib/Parameters/BGV:Params",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+    ],
+)
