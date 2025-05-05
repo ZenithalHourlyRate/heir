@@ -103,18 +103,22 @@ def compile(src, out, **kargs):
 #
 
 schemes = ["bgv", "bfv"]
-noise_models_bgv = ["symbol", "mp24", "kpz21", "mono"]
-noise_models_bfv = ["symbol", "bmcm23", "kpz21"]
+# noise_models_bgv = ["symbol", "mp24", "kpz21", "mono"]
+noise_models_bgv = ["symbol", "symbol-gaussian", "symbol-laplacian"]
+# noise_models_bfv = ["symbol", "bmcm23", "kpz21"]
+noise_models_bfv = ["symbol", "symbol-gaussian", "symbol-laplacian"]
 test_names = [
-    "mult_seq_dep_8",
-    "mult_tree_dep_8",
-    "mult_seq_indep_8",
-    "mult_tree_indep_8",
+    #    "mult_seq_dep_8",
+    #    "mult_tree_dep_8",
+    #    "mult_seq_indep_8",
+    #    "mult_tree_indep_8",
+    "mult_seq_dep_12",
+    "mult_seq_indep_12",
 ]
 logNs = [
-    "logN13",
+    #    "logN13",
     "logN14",
-    "logN15",
+    #    "logN15",
 ]
 
 mlir_name_mapping = {
@@ -122,6 +126,8 @@ mlir_name_mapping = {
     "mult_tree_dep_8": "mult_dep_8",
     "mult_seq_indep_8": "mult_indep_8",
     "mult_tree_indep_8": "mult_indep_8",
+    "mult_seq_dep_12": "mult_dep_12",
+    "mult_seq_indep_12": "mult_indep_12",
 }
 
 test_main_name_mapping = {
@@ -129,12 +135,23 @@ test_main_name_mapping = {
     "mult_tree_dep_8": "mult_dep",
     "mult_seq_indep_8": "mult_indep_8",
     "mult_tree_indep_8": "mult_indep_8",
+    "mult_seq_dep_12": "mult_dep",
+    "mult_seq_indep_12": "mult_indep_12",
 }
 
 ring_dim_mapping = {
     "logN13": 8192,
     "logN14": 16384,
     "logN15": 32768,
+}
+
+mul_depth_mapping = {
+    "mult_seq_dep_8": 8,
+    "mult_tree_dep_8": 8,
+    "mult_seq_indep_8": 8,
+    "mult_tree_indep_8": 8,
+    "mult_seq_dep_12": 12,
+    "mult_seq_indep_12": 12,
 }
 
 
@@ -157,7 +174,7 @@ def main():
               "logN": logN,
               "mlir_name": mlir_name_mapping[test_name],
               "ring_dim": ring_dim_mapping[logN],
-              "mul_depth": 8,
+              "mul_depth": mul_depth_mapping[test_name],
           }
           output_file_name = output_file_name_template.format(**kargs)
           compiled_file_name = compiled_file_name_template.format(**kargs)

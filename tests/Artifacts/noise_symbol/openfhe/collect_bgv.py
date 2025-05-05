@@ -3,18 +3,30 @@ import sys
 import numpy as np
 from math import log2
 
-mult_seq_dep_8_bgv_log_files = [
-    'mult_seq_dep_8_bgv_symbol_logN14.log',
-    'mult_seq_dep_8_bgv_mp24_logN14.log',
-    'mult_seq_dep_8_bgv_kpz21_logN14.log',
-    'mult_seq_dep_8_bgv_mono_logN14.log',
+# mult_seq_dep_8_bgv_log_files = [
+#    'mult_seq_dep_8_bgv_symbol_logN14.log',
+#    'mult_seq_dep_8_bgv_mp24_logN14.log',
+#    'mult_seq_dep_8_bgv_kpz21_logN14.log',
+#    'mult_seq_dep_8_bgv_mono_logN14.log',
+# ]
+#
+# mult_seq_indep_8_bgv_log_files = [
+#    'mult_seq_indep_8_bgv_symbol_logN14.log',
+#    'mult_seq_indep_8_bgv_mp24_logN14.log',
+#    'mult_seq_indep_8_bgv_kpz21_logN14.log',
+#    'mult_seq_indep_8_bgv_mono_logN14.log',
+# ]
+
+mult_seq_dep_12_bgv_log_files = [
+    'mult_seq_dep_12_bgv_symbol_logN14.log',
+    'mult_seq_dep_12_bgv_symbol-gaussian_logN14.log',
+    'mult_seq_dep_12_bgv_symbol-laplacian_logN14.log',
 ]
 
-mult_seq_indep_8_bgv_log_files = [
-    'mult_seq_indep_8_bgv_symbol_logN14.log',
-    'mult_seq_indep_8_bgv_mp24_logN14.log',
-    'mult_seq_indep_8_bgv_kpz21_logN14.log',
-    'mult_seq_indep_8_bgv_mono_logN14.log',
+mult_seq_indep_12_bgv_log_files = [
+    'mult_seq_indep_12_bgv_symbol_logN14.log',
+    'mult_seq_indep_12_bgv_symbol-gaussian_logN14.log',
+    'mult_seq_indep_12_bgv_symbol-laplacian_logN14.log',
 ]
 
 
@@ -52,32 +64,54 @@ def analyse_log(noise_index_to_value, log_file_name):
   return noise_bounds
 
 
+# noise_dep_log14_index_to_value = {}
+# symbol_noise_bounds = analyse_log(
+#     noise_dep_log14_index_to_value, mult_seq_dep_8_bgv_log_files[0]
+# )
+# mp24_noise_bounds = analyse_log(
+#     noise_dep_log14_index_to_value, mult_seq_dep_8_bgv_log_files[1]
+# )
+# kpz21_noise_bounds = analyse_log(
+#     noise_dep_log14_index_to_value, mult_seq_dep_8_bgv_log_files[2]
+# )
+# mono_noise_bounds = analyse_log(
+#     noise_dep_log14_index_to_value, mult_seq_dep_8_bgv_log_files[3]
+# )
+#
+# noise_indep_log14_index_to_value = {}
+# symbol_indep_noise_bounds = analyse_log(
+#     noise_indep_log14_index_to_value, mult_seq_indep_8_bgv_log_files[0]
+# )
+# mp24_indep_noise_bounds = analyse_log(
+#     noise_indep_log14_index_to_value, mult_seq_indep_8_bgv_log_files[1]
+# )
+# kpz21_indep_noise_bounds = analyse_log(
+#     noise_indep_log14_index_to_value, mult_seq_indep_8_bgv_log_files[2]
+# )
+# mono_indep_noise_bounds = analyse_log(
+#     noise_indep_log14_index_to_value, mult_seq_indep_8_bgv_log_files[3]
+# )
+
 noise_dep_log14_index_to_value = {}
 symbol_noise_bounds = analyse_log(
-    noise_dep_log14_index_to_value, mult_seq_dep_8_bgv_log_files[0]
+    noise_dep_log14_index_to_value, mult_seq_dep_12_bgv_log_files[0]
 )
-mp24_noise_bounds = analyse_log(
-    noise_dep_log14_index_to_value, mult_seq_dep_8_bgv_log_files[1]
+symbol_gaussian_noise_bounds = analyse_log(
+    noise_dep_log14_index_to_value, mult_seq_dep_12_bgv_log_files[1]
 )
-kpz21_noise_bounds = analyse_log(
-    noise_dep_log14_index_to_value, mult_seq_dep_8_bgv_log_files[2]
-)
-mono_noise_bounds = analyse_log(
-    noise_dep_log14_index_to_value, mult_seq_dep_8_bgv_log_files[3]
+symbol_laplacian_noise_bounds = analyse_log(
+    noise_dep_log14_index_to_value, mult_seq_dep_12_bgv_log_files[2]
 )
 
 noise_indep_log14_index_to_value = {}
 symbol_indep_noise_bounds = analyse_log(
-    noise_indep_log14_index_to_value, mult_seq_indep_8_bgv_log_files[0]
+    noise_indep_log14_index_to_value, mult_seq_indep_12_bgv_log_files[0]
 )
-mp24_indep_noise_bounds = analyse_log(
-    noise_indep_log14_index_to_value, mult_seq_indep_8_bgv_log_files[1]
+symbol_gaussian_indep_noise_bounds = analyse_log(
+    noise_indep_log14_index_to_value, mult_seq_indep_12_bgv_log_files[1]
 )
-kpz21_indep_noise_bounds = analyse_log(
-    noise_indep_log14_index_to_value, mult_seq_indep_8_bgv_log_files[2]
-)
-mono_indep_noise_bounds = analyse_log(
-    noise_indep_log14_index_to_value, mult_seq_indep_8_bgv_log_files[3]
+symbol_laplacian_indep_noise_bounds = analyse_log(
+    noise_indep_log14_index_to_value, mult_seq_indep_12_bgv_log_files[2]
 )
 
 
@@ -90,11 +124,11 @@ def process_index_to_value(is_indep, index_to_value):
   percentile_25_noise = {}
 
   for index, noises in index_to_value.items():
-    # skip the first 7 indexes if is indep
+    # skip the first 12 indexes if is indep
     if is_indep:
-      if index < 7:
+      if index < 11:
         continue
-      index -= 7
+      index -= 11
     max_noise[index] = max(noises)
     min_noise[index] = min(noises)
     # noises contains log values, the average is calculated in another way
@@ -128,9 +162,9 @@ def process_index_to_value(is_indep, index_to_value):
 def process_bounds(is_dep, bounds):
   bounds_array = []
   for index, bound in bounds:
-    # skip the first 7 bound
+    # skip the first 11 bound
     if is_dep:
-      if index < 7:
+      if index < 11:
         continue
     bounds_array.append(bound)
   return bounds_array
@@ -160,9 +194,23 @@ symbol_noise_bounds_array = process_bounds(False, symbol_noise_bounds.items())
 symbol_indep_noise_bounds_array = process_bounds(
     True, symbol_indep_noise_bounds.items()
 )
-mp24_noise_bounds_array = process_bounds(False, mp24_noise_bounds.items())
-kpz21_noise_bounds_array = process_bounds(False, kpz21_noise_bounds.items())
-mono_noise_bounds_array = process_bounds(False, mono_noise_bounds.items())
+
+symbol_gaussian_noise_bounds_array = process_bounds(
+    False, symbol_gaussian_noise_bounds.items()
+)
+symbol_gaussian_indep_noise_bounds_array = process_bounds(
+    True, symbol_gaussian_indep_noise_bounds.items()
+)
+
+symbol_laplacian_noise_bounds_array = process_bounds(
+    False, symbol_laplacian_noise_bounds.items()
+)
+symbol_laplacian_indep_noise_bounds_array = process_bounds(
+    True, symbol_laplacian_indep_noise_bounds.items()
+)
+# mp24_noise_bounds_array = process_bounds(False, mp24_noise_bounds.items())
+# kpz21_noise_bounds_array = process_bounds(False, kpz21_noise_bounds.items())
+# mono_noise_bounds_array = process_bounds(False, mono_noise_bounds.items())
 
 # base on average_indep_noise
 symbol_noise_bounds_array_based = base_line(
@@ -171,15 +219,29 @@ symbol_noise_bounds_array_based = base_line(
 symbol_indep_noise_bounds_array_based = base_line(
     symbol_indep_noise_bounds_array, average_indep_noise
 )
-mp24_noise_bounds_array_based = base_line(
-    mp24_noise_bounds_array, average_indep_noise
+
+symbol_gaussian_noise_bounds_array_based = base_line(
+    symbol_gaussian_noise_bounds_array, average_indep_noise
 )
-kpz21_noise_bounds_array_based = base_line(
-    kpz21_noise_bounds_array, average_indep_noise
+symbol_gaussian_indep_noise_bounds_array_based = base_line(
+    symbol_gaussian_indep_noise_bounds_array, average_indep_noise
 )
-mono_noise_bounds_array_based = base_line(
-    mono_noise_bounds_array, average_indep_noise
+
+symbol_laplacian_noise_bounds_array_based = base_line(
+    symbol_laplacian_noise_bounds_array, average_indep_noise
 )
+symbol_laplacian_indep_noise_bounds_array_based = base_line(
+    symbol_laplacian_indep_noise_bounds_array, average_indep_noise
+)
+# mp24_noise_bounds_array_based = base_line(
+#    mp24_noise_bounds_array, average_indep_noise
+# )
+# kpz21_noise_bounds_array_based = base_line(
+#    kpz21_noise_bounds_array, average_indep_noise
+# )
+# mono_noise_bounds_array_based = base_line(
+#    mono_noise_bounds_array, average_indep_noise
+# )
 
 # base dep on indep
 average_dep_noise = base_line(average_dep_noise, average_indep_noise)
@@ -193,7 +255,7 @@ average_indep_noise = base_line(average_indep_noise, average_indep_noise)
 # Plot the noise and noise bound
 import matplotlib.pyplot as plt
 
-x_axis = range(1, 9)
+x_axis = range(1, 12 + 1)
 
 # Plot max and min noise for each bound
 plt.figure(figsize=(10, 6))
@@ -210,7 +272,33 @@ plt.plot(
 plt.plot(
     x_axis, symbol_noise_bounds_array_based, label='Symbol Dep', marker='v'
 )
-plt.plot(x_axis, mp24_noise_bounds_array_based, label='MP24', marker='*')
+
+plt.plot(
+    x_axis,
+    symbol_gaussian_indep_noise_bounds_array_based,
+    label='Symbol Ind Gaussian',
+    marker='^',
+)
+plt.plot(
+    x_axis,
+    symbol_gaussian_noise_bounds_array_based,
+    label='Symbol Dep Gaussian',
+    marker='v',
+)
+
+plt.plot(
+    x_axis,
+    symbol_laplacian_indep_noise_bounds_array_based,
+    label='Symbol Ind Laplacian',
+    marker='^',
+)
+plt.plot(
+    x_axis,
+    symbol_laplacian_noise_bounds_array_based,
+    label='Symbol Dep Laplacian',
+    marker='v',
+)
+# plt.plot(x_axis, mp24_noise_bounds_array_based, label='MP24', marker='*')
 # plt.plot(x_axis, mono_noise_bounds_array_based, label='Mono', marker='s')
 # plt.plot(x_axis, kpz21_noise_bounds_array_based, label='KPZ21', marker='p')
 
