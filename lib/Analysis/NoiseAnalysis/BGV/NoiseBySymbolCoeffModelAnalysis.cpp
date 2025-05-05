@@ -53,10 +53,16 @@ LogicalResult NoiseAnalysis<NoiseModel>::visitOperation(
   };
 
   auto propagate = [&](Value value, NoiseState noise) {
+    [[maybe_unused]] auto degreeVec = noise.getDegreeForGeneralizedNormal();
+    std::string degreeVecStr = "[";
+    for (auto degree : degreeVec) {
+      degreeVecStr += std::to_string(degree) + " ";
+    }
+    degreeVecStr += "]";
     LLVM_DEBUG(llvm::dbgs()
                << "Propagating "
                << noiseModel.toLogBoundString(getLocalParam(value), noise)
-               << " to " << value << "\n");
+               << " " << degreeVecStr << " to " << value << "\n");
     LatticeType *lattice = this->getLatticeElement(value);
     auto changeResult = lattice->join(noise);
     this->propagateIfChanged(lattice, changeResult);

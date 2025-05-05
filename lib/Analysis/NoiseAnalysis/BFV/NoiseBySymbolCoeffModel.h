@@ -21,12 +21,21 @@ class NoiseBySymbolCoeffModel {
   // MP24 states that for two polynomial multipication, the variance of one
   // coefficient of the result can be approximated by ringDim * var_0 * var_1,
   // because the polynomial multipication is a convolution.
-  using StateType = experimental::Expression;
+  using StateType = Expression;
   using SchemeParamType = bgv::SchemeParam;
   using LocalParamType = bgv::LocalParam;
 
+  enum BoundType {
+    GAUSSIAN = 0,
+    LAPLACIAN,
+    GENERALIZED_NORMAL,
+  };
+
   // in symbol analysis
   using AnalysisSymbolState = SymbolState;
+
+  NoiseBySymbolCoeffModel(BoundType boundType = GENERALIZED_NORMAL)
+      : boundType(boundType){};
 
  private:
   StateType evalEncryptPk(const LocalParamType &param, unsigned index) const;
@@ -51,6 +60,9 @@ class NoiseBySymbolCoeffModel {
                                 const StateType &noise) const;
   double toLogTotal(const LocalParamType &param) const;
   std::string toLogTotalString(const LocalParamType &param) const;
+
+ private:
+  BoundType boundType;
 };
 
 }  // namespace bfv

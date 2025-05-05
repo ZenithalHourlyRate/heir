@@ -113,5 +113,6 @@ cc_library(
     deps = [
         "@heir//lib/Analysis/NoiseAnalysis:Symbolic",
         "@heir//lib/Parameters/BGV:Params",
+        "@heir//lib/Utils:MathUtils",
     ],
 )

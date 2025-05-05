@@ -100,5 +100,6 @@ cc_library(
         "@heir//lib/Analysis/NoiseAnalysis:Symbolic",
         "@heir//lib/Analysis/SymbolAnalysis",
         "@heir//lib/Parameters/BGV:Params",
+        "@heir//lib/Utils:MathUtils",
     ],
 )

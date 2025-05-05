@@ -96,8 +96,7 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
     LLVM_DEBUG({
       llvm::dbgs() << "Noise Bound: " << boundString
                    << " Budget: " << budgetString << " Total: " << totalString
-                   << " for value: " << value << " "
-                   << "\n";
+                   << " for value: " << value << " " << "\n";
     });
 
     if (annotateNoiseBound) {
@@ -210,6 +209,14 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
     } else if (model == "bgv-noise-symbol") {
       bgv::NoiseBySymbolCoeffModel model;
       run<bgv::NoiseBySymbolCoeffModel>(model);
+    } else if (model == "bgv-noise-symbol-gaussian") {
+      bgv::NoiseBySymbolCoeffModel model(
+          bgv::NoiseBySymbolCoeffModel::BoundType::GAUSSIAN);
+      run<bgv::NoiseBySymbolCoeffModel>(model);
+    } else if (model == "bgv-noise-symbol-laplacian") {
+      bgv::NoiseBySymbolCoeffModel model(
+          bgv::NoiseBySymbolCoeffModel::BoundType::LAPLACIAN);
+      run<bgv::NoiseBySymbolCoeffModel>(model);
     } else if (model == "bfv-noise-by-bound-coeff-worst-case") {
       bfv::NoiseByBoundCoeffModel model(NoiseModelVariant::WORST_CASE);
       run<bfv::NoiseByBoundCoeffModel>(model);
@@ -223,6 +230,14 @@ struct ValidateNoise : impl::ValidateNoiseBase<ValidateNoise> {
       run<bfv::NoiseByVarianceCoeffModel>(model);
     } else if (model == "bfv-noise-symbol") {
       bfv::NoiseBySymbolCoeffModel model;
+      run<bfv::NoiseBySymbolCoeffModel>(model);
+    } else if (model == "bfv-noise-symbol-gaussian") {
+      bfv::NoiseBySymbolCoeffModel model(
+          bfv::NoiseBySymbolCoeffModel::BoundType::GAUSSIAN);
+      run<bfv::NoiseBySymbolCoeffModel>(model);
+    } else if (model == "bfv-noise-symbol-laplacian") {
+      bfv::NoiseBySymbolCoeffModel model(
+          bfv::NoiseBySymbolCoeffModel::BoundType::LAPLACIAN);
       run<bfv::NoiseBySymbolCoeffModel>(model);
     } else {
       getOperation()->emitOpError() << "Unknown noise model.\n";
