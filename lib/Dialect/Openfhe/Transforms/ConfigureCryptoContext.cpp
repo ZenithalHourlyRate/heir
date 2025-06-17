@@ -246,6 +246,21 @@ struct ConfigureCryptoContext
       config.encryptionTechniqueExtended =
           schemeParamAttr.getEncryptionTechnique() ==
           bgv::BGVEncryptionTechnique::extended;
+
+      // Get batchSize from bgv.schemeParam.
+      // bgv.schemeParam actually contains ringDim, but
+      // the ringDim HEIR computed may not generate secure
+      // parameter in OpenFHE, as they use different param
+      // generation methods.
+      //
+      // OpenFHE is more conservative as it computes the
+      // bound using worst-case circuit while HEIR computes the
+      // application-specific bound.
+      //
+      // We can only tell OpenFHE to set a minimum ringDim
+      // via specifying batchSize
+      config.batchSize = pow(2, schemeParamAttr.getLogN());
+      config.ringDim = config.batchSize;
       module->removeAttr(bgv::BGVDialect::kSchemeParamAttrName);
     }
 
@@ -324,8 +339,13 @@ struct ConfigureCryptoContext
     }
 
     // fill config with pass options
-    config.ringDim = ringDim;
-    config.batchSize = batchSize;
+    if (ringDim) {
+      config.ringDim = ringDim;
+    }
+    if (batchSize) {
+      // override batchSize when specified
+      config.batchSize = batchSize;
+    }
     config.firstModSize = firstModSize;
     config.scalingModSize = scalingModSize;
     config.digitSize = digitSize;
