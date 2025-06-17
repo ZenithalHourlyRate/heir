@@ -10,7 +10,15 @@ openfhe_end_to_end_test(
     heir_opt_flags = [
         "--annotate-module=backend=openfhe scheme=bgv",
         "--mlir-to-bgv=ciphertext-degree=4096 plaintext-modulus=786433",
-        "--scheme-to-openfhe",
+        #"--scheme-to-openfhe",
+        "--bgv-to-lwe",
+        "--lwe-to-openfhe",
+        "--canonicalize",
+        "--cse",
+        # half packing to ensure 1-dim behavior
+        # also, this relies on openfhe computing
+        # secure parameter for this specific ring dim
+        "--openfhe-configure-crypto-context=ring-dim=8192",
     ],
     mlir_src = "@heir//tests/Examples/common:box_blur_64x64.mlir",
     tags = ["notap"],

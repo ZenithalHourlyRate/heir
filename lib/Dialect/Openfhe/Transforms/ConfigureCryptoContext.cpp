@@ -259,8 +259,8 @@ struct ConfigureCryptoContext
       //
       // We can only tell OpenFHE to set a minimum ringDim
       // via specifying batchSize
-      config.batchSize = pow(2, schemeParamAttr.getLogN());
-      config.ringDim = config.batchSize;
+      // config.batchSize = pow(2, schemeParamAttr.getLogN());
+      // config.ringDim = config.batchSize;
       module->removeAttr(bgv::BGVDialect::kSchemeParamAttrName);
     }
 
