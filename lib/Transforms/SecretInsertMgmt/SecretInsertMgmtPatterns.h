@@ -113,10 +113,12 @@ template <typename Op>
 struct MatchCrossLevel : public OpRewritePattern<Op> {
   using OpRewritePattern<Op>::OpRewritePattern;
 
-  MatchCrossLevel(MLIRContext* context, int* idCounter, Operation* top,
+  MatchCrossLevel(MLIRContext* context, int* idCounter,
+                  std::optional<uint64_t> bootstrapDepth, Operation* top,
                   DataFlowSolver* solver)
       : OpRewritePattern<Op>(context, /*benefit=*/1),
         idCounter(idCounter),
+        bootstrapDepth(bootstrapDepth),
         top(top),
         solver(solver) {}
 
@@ -125,6 +127,7 @@ struct MatchCrossLevel : public OpRewritePattern<Op> {
 
  private:
   int* idCounter;
+  std::optional<uint64_t> bootstrapDepth;
   Operation* top;
   DataFlowSolver* solver;
 };

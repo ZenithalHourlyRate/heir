@@ -278,6 +278,7 @@ void mlirToRLWEPipeline(OpPassManager& pm,
       secretInsertMgmtCKKSOptions.slotNumber = options.ciphertextDegree;
       secretInsertMgmtCKKSOptions.bootstrapWaterline =
           options.ckksBootstrapWaterline;
+      secretInsertMgmtCKKSOptions.bootstrapDepth = options.ckksBootstrapDepth;
       pm.addPass(createSecretInsertMgmtCKKS(secretInsertMgmtCKKSOptions));
       break;
     }
@@ -288,6 +289,7 @@ void mlirToRLWEPipeline(OpPassManager& pm,
 
   OptimizeRelinearizationOptions optimizeRelinearizationOptions;
   optimizeRelinearizationOptions.allowMixedDegreeOperands = false;
+  optimizeRelinearizationOptions.bootstrapDepth = options.ckksBootstrapDepth;
   pm.addPass(createOptimizeRelinearization(optimizeRelinearizationOptions));
 
   // IR is stable now
@@ -355,6 +357,7 @@ void mlirToRLWEPipeline(OpPassManager& pm,
       PopulateScaleCKKSOptions populateScaleCKKSOptions;
       populateScaleCKKSOptions.beforeMulIncludeFirstMul =
           options.modulusSwitchBeforeFirstMul;
+      populateScaleCKKSOptions.bootstrapDepth = options.ckksBootstrapDepth;
       pm.addPass(createPopulateScaleCKKS(populateScaleCKKSOptions));
       break;
     }

@@ -45,6 +45,8 @@ def OptimizeRelinearization : Pass <"optimize-relinearization"> {
            "When true, allow ops to have mixed-degree ciphertexts as inputs, e.g., "
            "adding two ciphertexts with different key bases; this is supported by "
            "many FHE backends, like OpenFHE and Lattigo">,
+    Option<"bootstrapDepth", "bootstrap-depth", "int",
+           /*default=*/"18", "Depth consumed by bootstrapping. See FHECKKSRNS::GetBootstrapDepth in Openfhe for more details.">,
   ];
 }
 

@@ -34,8 +34,9 @@ namespace heir {
 // LevelAnalysis (Forward)
 //===----------------------------------------------------------------------===//
 
-FailureOr<int64_t> deriveResultLevel(Operation* op,
-                                     ArrayRef<const LevelLattice*> operands) {
+FailureOr<int64_t> deriveResultLevel(
+    Operation* op, ArrayRef<const LevelLattice*> operands,
+    std::optional<uint64_t> bootstrappedLevel) {
   return llvm::TypeSwitch<Operation&, FailureOr<int64_t>>(*op)
       .Case<mgmt::ModReduceOp>([&](auto modReduceOp) -> FailureOr<int64_t> {
         // implicitly ensure that the operand is secret
@@ -56,10 +57,7 @@ FailureOr<int64_t> deriveResultLevel(Operation* op,
                levelReduceOp.getLevelToDrop();
       })
       .Case<mgmt::BootstrapOp>([&](auto bootstrapOp) -> FailureOr<int64_t> {
-        // implicitly ensure that the result is secret
-        // reset level to 0
-        // TODO(#1207): reset level to currentLevel - bootstrapDepth
-        return 0;
+        return bootstrappedLevel.value_or(0);
       })
       .Default([&](auto& op) -> FailureOr<int64_t> {
         auto levelResult = 0;
@@ -93,7 +91,11 @@ LogicalResult LevelAnalysis::visitOperation(
   for (auto* operand : secretOperands) {
     secretOperandLattices.push_back(getLatticeElement(operand->get()));
   }
-  FailureOr<int64_t> resultLevel = deriveResultLevel(op, secretOperandLattices);
+  // We inversed the role of numbering of level inside LevelAnalysis.
+  // So the bootstrapDepth can be directly put into bootstrappedLevel
+  // See the comments before "class LevelAnalysis".
+  FailureOr<int64_t> resultLevel =
+      deriveResultLevel(op, secretOperandLattices, bootstrapDepth);
   if (failed(resultLevel)) {
     // Ignore failure and continue
     return success();

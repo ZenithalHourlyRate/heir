@@ -13,6 +13,7 @@ struct InsertMgmtPipelineOptions {
   bool modReduceAfterMul;
   bool modReduceBeforeMulIncludeFirstMul;
   std::optional<int64_t> bootstrapWaterline;
+  std::optional<int64_t> bootstrapDepth;
 };
 
 // Run the secret-insert-mgmt pipeline.
@@ -39,7 +40,8 @@ void insertRelinearizeAfterMult(Operation* top, DataFlowSolver& solver,
                                 bool includeFloats);
 
 void handleCrossLevelOps(Operation* top, DataFlowSolver& solver, int* idCounter,
-                         bool includeFloats);
+                         bool includeFloats,
+                         std::optional<uint64_t> bootstrapDepth);
 
 void handleCrossMulDepthOps(Operation* top, DataFlowSolver& solver,
                             int* idCounter, bool includeFloats);

@@ -84,7 +84,12 @@ struct MlirToRLWEPipelineOptions : public SimdVectorizerOptions {
       *this, "ckks-bootstrap-waterline",
       llvm::cl::desc("The number of levels to keep until bootstrapping in CKKS "
                      "(c.f. --secret-insert-mgmt-ckks)"),
-      llvm::cl::init(10)};
+      llvm::cl::init(28)};
+  PassOptions::Option<int> ckksBootstrapDepth{
+      *this, "ckks-bootstrap-depth",
+      llvm::cl::desc("The number of levels consumed by bootstrapping in CKKS "
+                     "(c.f. --secret-insert-mgmt-ckks)"),
+      llvm::cl::init(18)};
   PassOptions::Option<std::string> plaintextExecutionResultFileName{
       *this, "plaintext-execution-result-file-name",
       llvm::cl::desc("File name to import execution result from (c.f. --secret-"

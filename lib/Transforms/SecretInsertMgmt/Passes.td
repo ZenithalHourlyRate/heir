@@ -108,7 +108,9 @@ def SecretInsertMgmtCKKS : Pass<"secret-insert-mgmt-ckks", "ModuleOp"> {
     Option<"slotNumber", "slot-number", "int",
            /*default=*/"1024", "Default number of slots use for ciphertext space.">,
     Option<"bootstrapWaterline", "bootstrap-waterline", "int",
-           /*default=*/"10", "Waterline for insert bootstrap op">,
+           /*default=*/"28", "Waterline for insert bootstrap op">,
+    Option<"bootstrapDepth", "bootstrap-depth", "int",
+           /*default=*/"18", "Depth consumed by bootstrapping. See FHECKKSRNS::GetBootstrapDepth in Openfhe for more details.">,
   ];
 }
 

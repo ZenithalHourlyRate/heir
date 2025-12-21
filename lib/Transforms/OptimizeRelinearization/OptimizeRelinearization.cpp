@@ -85,8 +85,33 @@ struct OptimizeRelinearization
     // optimize-relinearization will invalidate mgmt attr
     // so re-annotate it
 
+    auto baseLevel = 0;
+    if (moduleIsBFV(getOperation())) {
+      // inherit mulDepth information from existing mgmt attr.
+      mgmt::MgmtAttr mgmtAttr = nullptr;
+      getOperation()->walk([&](secret::GenericOp op) {
+        for (auto i = 0; i != op->getBlock()->getNumArguments(); ++i) {
+          if ((mgmtAttr = dyn_cast<mgmt::MgmtAttr>(op.getOperandAttr(
+                   i, mgmt::MgmtDialect::kArgMgmtAttrName)))) {
+            break;
+          }
+        }
+      });
+
+      if (!mgmtAttr) {
+        getOperation()->emitError(
+            "No mgmt attribute found in the module for B/FV");
+        return signalPassFailure();
+      }
+
+      baseLevel = mgmtAttr.getLevel();
+    }
+
     OpPassManager pipeline("builtin.module");
-    pipeline.addPass(mgmt::createAnnotateMgmt());
+    mgmt::AnnotateMgmtOptions annotateOptions;
+    annotateOptions.baseLevel = baseLevel;
+    annotateOptions.bootstrapDepth = bootstrapDepth;
+    pipeline.addPass(mgmt::createAnnotateMgmt(annotateOptions));
     (void)runPipeline(pipeline, getOperation());
   }
 };

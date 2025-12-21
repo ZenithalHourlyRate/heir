@@ -77,7 +77,9 @@ struct PopulateScaleCKKS : impl::PopulateScaleCKKSBase<PopulateScaleCKKS> {
     // pass scale to AnnotateMgmt pass
     annotateScale(getOperation(), &solver);
     OpPassManager annotateMgmt("builtin.module");
-    annotateMgmt.addPass(mgmt::createAnnotateMgmt());
+    mgmt::AnnotateMgmtOptions annotateOptions;
+    annotateOptions.bootstrapDepth = bootstrapDepth;
+    annotateMgmt.addPass(mgmt::createAnnotateMgmt(annotateOptions));
     (void)runPipeline(annotateMgmt, getOperation());
 
     // convert adjust scale to mul plain

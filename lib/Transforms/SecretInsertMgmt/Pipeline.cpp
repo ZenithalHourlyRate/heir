@@ -28,7 +28,9 @@ LogicalResult runInsertMgmtPipeline(Operation* top,
   DataFlowSolver solver;
   dataflow::loadBaselineAnalyses(solver);
   solver.load<SecretnessAnalysis>();
-  solver.load<LevelAnalysis>();
+  if (options.bootstrapDepth.has_value()) {
+    solver.load<LevelAnalysis>(options.bootstrapDepth.value());
+  }
   solver.load<MulDepthAnalysis>();
 
   if (failed(solver.initializeAndRun(top))) {
@@ -48,18 +50,22 @@ LogicalResult runInsertMgmtPipeline(Operation* top,
 
   // insert BootstrapOp after mgmt::ModReduceOp
   // This must be run before level mismatch
-  // NOTE: actually bootstrap before mod reduce is better
+  // NOTE1: actually bootstrap before mod reduce is better
   // as after modreduce to level `0` there still might be add/sub
   // and these op done there could be minimal cost.
   // However, this greedy strategy is temporary so not too much
   // optimization now
+  // NOTE2: inserting bootstrap op will invalidate all LevelState
+  // Should re-run dataflow *every time* a single bootstrap op
+  // is inserted. This is done in BootstrapWaterLine::matchAndRewrite
   if (options.bootstrapWaterline.has_value()) {
     insertBootstrapWaterLine(top, solver, options.bootstrapWaterline.value());
     rerunDataflow(solver, top);
   }
 
   int idCounter = 0;  // for making adjust_scale op different to avoid cse
-  handleCrossLevelOps(top, solver, &idCounter, options.includeFloats);
+  handleCrossLevelOps(top, solver, &idCounter, options.includeFloats,
+                      options.bootstrapDepth);
   rerunDataflow(solver, top);
   handleCrossMulDepthOps(top, solver, &idCounter, options.includeFloats);
   return success();
@@ -132,15 +138,18 @@ void insertRelinearizeAfterMult(Operation* top, DataFlowSolver& solver,
 }
 
 void handleCrossLevelOps(Operation* top, DataFlowSolver& solver, int* idCounter,
-                         bool includeFloats) {
+                         bool includeFloats,
+                         std::optional<uint64_t> bootstrapDepth) {
   MLIRContext* ctx = top->getContext();
   LLVM_DEBUG(llvm::dbgs() << "Handle Cross Level Ops\n");
   RewritePatternSet patterns(ctx);
   patterns.add<MatchCrossLevel<arith::AddIOp>, MatchCrossLevel<arith::SubIOp>,
-               MatchCrossLevel<arith::MulIOp>>(ctx, idCounter, top, &solver);
+               MatchCrossLevel<arith::MulIOp>>(ctx, idCounter, bootstrapDepth,
+                                               top, &solver);
   if (includeFloats)
     patterns.add<MatchCrossLevel<arith::AddFOp>, MatchCrossLevel<arith::SubFOp>,
-                 MatchCrossLevel<arith::MulFOp>>(ctx, idCounter, top, &solver);
+                 MatchCrossLevel<arith::MulFOp>>(ctx, idCounter, bootstrapDepth,
+                                                 top, &solver);
   (void)walkAndApplyPatterns(top, std::move(patterns));
 }
 

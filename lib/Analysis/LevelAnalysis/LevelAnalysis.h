@@ -87,7 +87,11 @@ class LevelLattice : public dataflow::Lattice<LevelState> {
 /// increase by 1, until the output.
 ///
 /// Special case is the bootstrapping operation, where the level
-/// will be set back to 0 (input level).
+/// will be set back to bootstrapped level.
+///
+/// For example, the input level is 0, and we reached level 25
+/// and consumed all moduli. Now we do bootstrap to restore back
+/// to a level of 10 as bootstrapping itself also consumes level.
 ///
 /// This analysis is expected to determine all the levels of
 /// the secret Value, or ciphertext in the program.
@@ -99,6 +103,10 @@ class LevelAnalysis
  public:
   using SparseForwardDataFlowAnalysis::SparseForwardDataFlowAnalysis;
   friend class SecretnessAnalysisDependent<LevelAnalysis>;
+
+  LevelAnalysis(DataFlowSolver& solver, uint64_t bootstrapDepth = 0)
+      : dataflow::SparseForwardDataFlowAnalysis<LevelLattice>(solver),
+        bootstrapDepth(bootstrapDepth) {}
 
   void setToEntryState(LevelLattice* lattice) override {
     if (isa<secret::SecretType>(lattice->getAnchor().getType())) {
@@ -119,10 +127,14 @@ class LevelAnalysis
   void propagateIfChangedWrapper(AnalysisState* state, ChangeResult changed) {
     propagateIfChanged(state, changed);
   }
+
+ private:
+  uint64_t bootstrapDepth;
 };
 
 FailureOr<int64_t> deriveResultLevel(Operation* op,
-                                     ArrayRef<const LevelLattice*> operands);
+                                     ArrayRef<const LevelLattice*> operands,
+                                     std::optional<uint64_t> bootstrappedLevel);
 
 /// Backward Analyse the level of plaintext Value
 ///

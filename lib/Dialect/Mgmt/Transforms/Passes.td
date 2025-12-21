@@ -13,6 +13,8 @@ def AnnotateMgmt : Pass<"annotate-mgmt"> {
   let options = [
     Option<"baseLevel", "base-level", "int",
            /*default=*/"0", "Level to start counting from (used by B/FV)">,
+    Option<"bootstrapDepth", "bootstrap-depth", "int",
+           /*default=*/"18", "Depth consumed by bootstrapping. See FHECKKSRNS::GetBootstrapDepth in Openfhe for more details.">,
   ];
 }
 

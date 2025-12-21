@@ -24,7 +24,8 @@
 namespace mlir {
 namespace heir {
 
-LogicalResult updateResultLevelLattice(Operation* op, DataFlowSolver* solver) {
+LogicalResult updateResultLevelLattice(Operation* op, DataFlowSolver* solver,
+                                       std::optional<uint64_t> bootstrapDepth) {
   // Here we update the analysis state of the result of the original op This
   // implies any downstream users now have an invalidated state in the data
   // flow solver, so this is where we are requiring walkAndApplyPatterns for
@@ -36,7 +37,8 @@ LogicalResult updateResultLevelLattice(Operation* op, DataFlowSolver* solver) {
 
   if (!op->getResults().empty()) {
     for (auto result : op->getResults()) {
-      FailureOr<int64_t> resultLevel = deriveResultLevel(op, operandLattices);
+      FailureOr<int64_t> resultLevel =
+          deriveResultLevel(op, operandLattices, bootstrapDepth);
       auto* resultLattice = solver->getOrCreateState<LevelLattice>(result);
       resultLattice->getValue().setLevel(resultLevel.value());
     }
@@ -200,7 +202,7 @@ LogicalResult MatchCrossLevel<Op>::matchAndRewrite(
     return rewriter.notifyMatchFailure(op, "no operations inserted");
   }
 
-  return updateResultLevelLattice(op, solver);
+  return updateResultLevelLattice(op, solver, bootstrapDepth);
 }
 
 template <typename Op>
@@ -321,7 +323,13 @@ LogicalResult BootstrapWaterLine<Op>::matchAndRewrite(
       rewriter, op.getLoc(), op->getResultTypes(), op->getResult(0));
   op->getResult(0).replaceAllUsesExcept(bootstrap, {bootstrap});
 
-  return updateResultLevelLattice(op, solver);
+  // A single insertion of bootstrap op will invalidate all LevelState
+  // as LevelState is designed to be *increment only*
+  // However, bootstrap reset the level back to "bootstrapped level"
+  // which will *not* be joined by the LevelAnalysis, resulting
+  // in invalid state.
+  solver->eraseAllStates();
+  return solver->initializeAndRun(top);
 }
 
 // For all schemes

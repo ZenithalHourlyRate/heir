@@ -47,6 +47,8 @@ def PopulateScaleCKKS : Pass<"populate-scale-ckks"> {
   let options = [
     Option<"beforeMulIncludeFirstMul", "before-mul-include-first-mul", "bool",
            /*default=*/"false", "Modulus switching before each multiplication, including the first multiplication (default to false)">,
+    Option<"bootstrapDepth", "bootstrap-depth", "int",
+           /*default=*/"18", "Depth consumed by bootstrapping. See FHECKKSRNS::GetBootstrapDepth in Openfhe for more details.">,
   ];
 }
 
